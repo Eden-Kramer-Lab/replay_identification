@@ -247,7 +247,7 @@ lines(x_grid, y2, lty = 2)
 # abline(v=4,h=0, lty=2)
 
 y_p <- predict(fit12, data.frame(I_x = 1, xx = x_grid), se.fit = TRUE)
-y_0 <- exp(y_p$fit)/(1 + exp(y_p$fit))
+y_0 <- exp(y_p$fit) / (1 + exp(y_p$fit))
 plot(x_grid, y_0, type = "l", col = "red", xlim = c(0, 6), ylim = c(0, 1.1), main = expression(I[t -
     1] == 1), xlab = expression(v[t - 1](cm / s)), ylab = expression(p(I[t] == 1)))
 y1 <- exp(y_p$fit + 2 * y_p$se.fit) / (1 + exp(y_p$fit + 2 * y_p$se.fit))
