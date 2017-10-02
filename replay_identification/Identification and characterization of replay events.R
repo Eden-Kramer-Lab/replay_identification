@@ -105,7 +105,7 @@ summary(time_vel_1)
 x <- approx(time_vel, lin_pos, n = n)$y
 
 ## 1.3 read ripple state, and consider velocity threshold
-data0 <- readMat(here(paste("bonripplescons0", day, ".mat", sep = "")))
+data0 <- readMat(here("Raw-Data", "Bond", paste("bonripplescons0", day, ".mat", sep = "")))
 ripple <- data0$ripplescons[[day]][[1]][[epoch]][[1]][[1]][[1]][,, 1]
 #### day-epoch-1 for CA1, day-epoch-2:5 are data for onther brain regions
 ripple$tetlist  # 3, 5, 12, 14, 24, 29
@@ -471,7 +471,8 @@ for (tetrode in tetrode_idx) {
     idx <- paste(tetrode, sep = "")
   }
   # data path
-  path1 <- here(paste("bond0", day, "-", idx, "_params.mat", sep = ""))
+  path1 <- here("Raw-Data", "Bond", "EEG",
+                paste("bonmarks0", day, "-", idx, ".mat", sep = ""))
   data <- readMat(path1)
 
 
