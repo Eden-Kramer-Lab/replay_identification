@@ -1,3 +1,6 @@
+# Matlab files
+*.mat
+
 # History files
 .Rhistory
 .Rapp.history
