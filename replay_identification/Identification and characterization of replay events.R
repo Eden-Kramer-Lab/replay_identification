@@ -1,8 +1,15 @@
 # Identification and characterization of replay events Decoding for rat Bond,
 # day3, epoch2
 
-library(here)
-library(R.matlab)  # package to read mat file
+packages <- c("R.matlab", "here", "doSNOW", "multitaper", "mvtnorm",
+              "splines")
+
+package.check <- lapply(packages, FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+        install.packages(x, dependencies = TRUE)
+        library(x, character.only = TRUE)
+    }
+})
 
 day <- 3
 epoch <- 2
@@ -198,7 +205,6 @@ l_vel[vel_1 > 4] <- -vel_1[vel_1 > 4]
 
 
 ## & 2.2 Fit p(I_t|I_t-1,v_t-1), replay state transition modeling
-library(splines)  # load package for nonparametric splines regression
 
 I_y <- I[-1]  # time t
 I_x <- I[-n]  # time t-1
@@ -277,7 +283,6 @@ lines(x_grid, y2, lty = 2)  # up and lower bound
 ## 2.3 Spectral regression p(Y_f|I_t)
 
 ### 2.3.1 Calculate spectral power of LFP Y_f, in 150-250 Hz
-library(multitaper)  #
 
 starttime <- as.numeric(starttime)
 window_length <- 30  # 30/1.5=20 ms in time
@@ -384,7 +389,6 @@ P_0 <- log(P_0)
 
 
 ### 2.3.3 Likelihood for LFP, using kernel density estimate
-library(mvtnorm)  # Read in multivariate normal
 L <- dim(Y_f)[2]
 f_1 <- f_0 <- seq(L)
 p <- dim(Y_f)[1]
@@ -405,8 +409,6 @@ for (j in 1:L) {
 summary(log(f_1 / f_0))
 
 ## & 2.4 GLM for spiking information
-library(R.matlab)  # package to read mat file
-library(doSNOW)  # Parallel computing, Registering cores for parallel process
 cl <- makeCluster(7, type = "SOCK")  # 7 - number of cores
 registerDoSNOW(cl)  # Register back end Cores for Parallel Computing
 
