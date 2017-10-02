@@ -97,9 +97,9 @@ x_transition_0to1 <- matrix(1 / round(max(x)) / by, m, m)
 
 ### Perform interpolation for rat's velocity, freq = 30Hz to 500Hz
 n <- floor(diff(range(time_vel)) * freq) + 1
-vel_1 <- approx(time_vel, vel, n = n)$y
-vel_1 <- vel_1$y
+vel_1 <- approx(time_vel, vel, n = n)
 time_vel_1 <- vel_1$x
+vel_1 <- vel_1$y
 summary(time_vel_1)
 #### Perform interpolation for rat's trajectory, freq = 30Hz to 500Hz
 x <- approx(time_vel, lin_pos, n = n)$y
