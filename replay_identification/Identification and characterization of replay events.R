@@ -42,18 +42,18 @@ idx <- (vel[-1]) > 4  # idx for active exploration
 yy <- (x[2:n])[idx]  # X_t
 xx <- (x[1:(n - 1)])[idx]  # X_{t-1}
 fit_position <- lm(yy ~ xx - 1)
-sigma_30 <- sqrt(sum(fit_position$residuals^2)/fit_position$df.residual)  # sigma at original rate, 30 Hz
+sigma_30 <- sqrt(sum(fit_position$residuals ^ 2) / fit_position$df.residual)  # sigma at original rate, 30 Hz
 alpha_30 <- as.numeric(fit_position$coefficients)
 
 #### Transfer to new frequency rate, 500 Hz.
 alpha_500 <- (alpha_30 ^ 30) ^ (1 / 500)  # freq = 500 Hz
-sigma_500 <- sqrt((1 - alpha_500^2) * (1 - alpha_30 ^ (30 * 2)) / (1 - alpha_30 ^ 2) / (1 -
+sigma_500 <- sqrt( (1 - alpha_500 ^ 2) * (1 - alpha_30 ^ (30 * 2)) / (1 - alpha_30 ^ 2) / (1 -
     alpha_500 ^ (500 * 2))) * sigma_30
 # Model at faster time rate, 20 times
 alpha_25 <- (alpha_30 ^ 30) ^ (1 / 25)  # 500Hz to 25Hz, 20 times faster
-sigma_25 <- sqrt((1 - alpha_25 ^ 2) * (1 - alpha_30 ^ 60) / (1 - alpha_30 ^ 2) / (1 - alpha_25 ^ 30)) *
+sigma_25 <- sqrt( (1 - alpha_25 ^ 2) * (1 - alpha_30 ^ 60) / (1 - alpha_30 ^ 2) / (1 - alpha_25 ^ 30)) *
     sigma_30
-sigma_25 <- sqrt((1 - alpha_25 ^ 2) / (1 - alpha_30 ^ 2)) * sigma_30
+sigma_25 <- sqrt( (1 - alpha_25 ^ 2) / (1 - alpha_30 ^ 2)) * sigma_30
 
 #### Now define the state transition matrix (x_transition_0)_ij = p(x_t=x_i|x_t-1 =
 #### xj, I_t =0) (x_transition_1)_ij = p(x_t=x_i|x_t-1 = xj, I_t =1, I_t-1 =1)
@@ -117,37 +117,37 @@ for (i in 1:N) {
 
 ## 1.3 Read LFP data Read one channel to check detial
 data0 <- readMat(paste("C:\\BostonData/Bon_new/bonripplescons0", day, ".mat", sep = ""))
-ripple <- data0$ripplescons[[day]][[1]][[epoch]][[1]][[1]][[1]][, , 1]
+ripple <- data0$ripplescons[[day]][[1]][[epoch]][[1]][[1]][[1]][,, 1]
 #### day-2-1 for CA1, day-2-2:5 are data for onther brain regions
 idx <- c(ripple$tetlist)  # idx=c(3,5,12,14,24,29) 6 tetrode
 
 LFP <- readMat("C:/BostonData/Bon_new/LFP/boneeg03-2-03.mat")  #LFp of rat Bond, on day 3, epoch 2, tetrode 3
-y_1 <- LFP$eeg[[day]][[1]][[epoch]][[1]][[3]][[1]][, , 1]$data
-starttime <- LFP$eeg[[day]][[1]][[epoch]][[1]][[3]][[1]][, , 1]$starttime
+y_1 <- LFP$eeg[[day]][[1]][[epoch]][[1]][[3]][[1]][,, 1]$data
+starttime <- LFP$eeg[[day]][[1]][[epoch]][[1]][[3]][[1]][,, 1]$starttime
 length_LFP <- length(y_1)
 rm(y_1)
-endtime <- starttime + (length_LFP - 1)/1500
+endtime <- starttime + (length_LFP - 1) / 1500
 y <- matrix(0, length(idx), length_LFP)
 
 
 ### Read data from tetrode c(3, 5, 12, 14, 24, 29)
 data <- readMat("C:/BostonData/Bon_new/LFP/boneeg03-2-03.mat")  # tetrode 3
-LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[3]][[1]][, , 1]
+LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[3]][[1]][,, 1]
 y[1, ] <- LFP$data
 LFP <- readMat("C:/BostonData/Bon_new/LFP/boneeg03-2-05.mat")  # tetrode 5
-LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[5]][[1]][, , 1]
+LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[5]][[1]][,, 1]
 y[2, ] <- LFP$data
 LFP <- readMat("C:/BostonData/Bon_new/LFP/boneeg03-2-12.mat")  # tetrode12
-LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[12]][[1]][, , 1]
+LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[12]][[1]][,, 1]
 y[3, ] <- LFP$data
 LFP <- readMat("C:/BostonData/Bon_new/LFP/boneeg03-2-14.mat")  # tetrode 14
-LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[14]][[1]][, , 1]
+LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[14]][[1]][,, 1]
 y[4, ] <- LFP$data
 LFP <- readMat("C:/BostonData/Bon_new/LFP/boneeg03-2-24.mat")  # tetrode 29
-LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[24]][[1]][, , 1]
+LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[24]][[1]][,, 1]
 y[5, ] <- LFP$data[1:dim(y)[2]]
 LFP <- readMat("C:/BostonData/Bon_new/LFP/boneeg03-2-29.mat")
-LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[29]][[1]][, , 1]
+LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[29]][[1]][,, 1]
 y[6, ] <- LFP$data[1:dim(y)[2]]
 
 
@@ -162,7 +162,7 @@ sigma1 <- sd(y - x)
 alpha1 <- 1  # random walk
 mu_1 <- vel_1[1:(n - 1)]
 mu_1[mu_1 < 0] <- 0
-log_p_v_1 <- -log(sigma1) - 0.5 * (vel_1[2:n] - mu_1)^2 / sigma1 ^ 2  # log_likelihood
+log_p_v_1 <- -log(sigma1) - 0.5 * (vel_1[2:n] - mu_1) ^ 2 / sigma1 ^ 2  # log_likelihood
 
 ### Fit P(v_t|v_{t-1},I_t=1), out of replay state and no active exploration
 idx <- I[2:n]
@@ -173,7 +173,7 @@ x <- x[idx]
 y <- y[idx]
 sigma0 <- sd(y - x)
 mu_0 <- vel_1[1:(n - 1)]
-log_p_v_0 <- -log(sigma0) - 0.5 * (vel_1[2:n] - mu_0)^2 / sigma0^2
+log_p_v_0 <- -log(sigma0) - 0.5 * (vel_1[2:n] - mu_0) ^ 2 / sigma0 ^ 2
 
 ### log_likelihood ratio
 l_vel <- log_p_v_1 - log_p_v_0
@@ -200,7 +200,7 @@ spikehist <- hist(vel_0[I_t > 0], breaks = bins, plot = F)
 occupancy <- hist(vel_0, breaks = bins, plot = F)
 norm_spike <- spikehist$counts / occupancy$counts
 norm_spike[is.na(norm_spike)] <- 0
-plot(bins[-1], norm_spike, type = "n", xlab = expression(v[t - 1](cm/s)), ylab <- "Ripple state prop",
+plot(bins[-1], norm_spike, type = "n", xlab = expression(v[t - 1](cm / s)), ylab <- "Ripple state prop",
     ylim = range(norm_spike) * 1.2)
 title(main = expression(I[t - 1] == 1))
 for (i in 1:length(bins)) {
@@ -214,9 +214,9 @@ vel_0 <- xx[temp]
 bins <- seq(0, 6, by = 0.2)
 spikehist <- hist(vel_0[I_t > 0], breaks = bins, plot = F)
 occupancy <- hist(vel_0, breaks = bins, plot = F)
-norm_spike <- spikehist$counts/occupancy$counts
+norm_spike <- spikehist$counts / occupancy$counts
 norm_spike[is.na(norm_spike)] <- 0
-plot(bins[-1], norm_spike, type = "n", xlab = expression(v[t - 1](cm/s)), ylab = "Ripple state prop",
+plot(bins[-1], norm_spike, type = "n", xlab = expression(v[t - 1](cm / s)), ylab = "Ripple state prop",
     ylim = range(norm_spike) * 1.2)
 title(main = expression(I[t - 1] == 1))
 for (i in 1:length(bins)) {
@@ -238,7 +238,7 @@ x_grid <- seq(0, 6, by = 0.1)
 y_p <- predict(fit12, data.frame(I_x = 0, xx = x_grid), se.fit = TRUE)
 y_0 <- exp(y_p$fit) / (1 + exp(y_p$fit))
 plot(x_grid, y_0, type = "l", col = "red", xlim = c(0, 6), main = expression(I[t -
-    1] == 0), xlab = expression(v[t - 1](cm/s)), ylab = expression(p(I[t] == 1)))
+    1] == 0), xlab = expression(v[t - 1](cm / s)), ylab = expression(p(I[t] == 1)))
 y1 <- exp(y_p$fit + 2 * y_p$se.fit) / (1 + exp(y_p$fit + 2 * y_p$se.fit))
 names(y_p)
 lines(x_grid, y1, lty = 2)
@@ -249,7 +249,7 @@ lines(x_grid, y2, lty = 2)
 y_p <- predict(fit12, data.frame(I_x = 1, xx = x_grid), se.fit = TRUE)
 y_0 <- exp(y_p$fit)/(1 + exp(y_p$fit))
 plot(x_grid, y_0, type = "l", col = "red", xlim = c(0, 6), ylim = c(0, 1.1), main = expression(I[t -
-    1] == 1), xlab = expression(v[t - 1](cm/s)), ylab = expression(p(I[t] == 1)))
+    1] == 1), xlab = expression(v[t - 1](cm / s)), ylab = expression(p(I[t] == 1)))
 y1 <- exp(y_p$fit + 2 * y_p$se.fit) / (1 + exp(y_p$fit + 2 * y_p$se.fit))
 names(y_p)
 lines(x_grid, y1, lty = 2)
@@ -266,7 +266,7 @@ starttime <- as.numeric(starttime)
 window_length <- 30  # 30/1.5=20 ms in time
 win_num <- floor(100 * window_length / 1500)  # calculate the window number
 
-idx <- ceiling((range(time_vel_1) - c(starttime)) * 1500) + 1
+idx <- ceiling( (range(time_vel_1) - c(starttime)) * 1500) + 1
 y_vel <- y[, idx[1]:idx[2]]  # LFP
 Y_f <- matrix(0, dim(y_vel)[1], (dim(y_vel)[2]) %/% 30)  # 6 * 46048
 idx <- c(1:dim(Y_f)[2])
@@ -312,9 +312,9 @@ for (m in 1:dim(y)[1]) {
         if (N_1 > 0) {
             # calculate the average power for in state
             for (j in 1:(N_1 - 1)) {
-                m1 = spec.mtm(Y[(x_1[i] - starttime) * 1500 + (j - 1) * window_length +
+                m1 <- spec.mtm(Y[(x_1[i] - starttime) * 1500 + (j - 1) * window_length +
                   1:window_length], nw = win_num, k = 2 * win_num - 1, nFFT = 150,
-                  log = "no", plot = FALSE, deltat = 1/1500)
+                  log = "no", plot = FALSE, deltat = 1 / 1500)
                 # nFFT = 150, by=10; nFTT=30, by=50. (freq # -1)*2 = nFTT
                 temp <- m1$spec[m1$freq <= 200 & m1$freq >= 200]
                 # p_1=c(p_1, temp[!is.na(temp)] )
@@ -322,10 +322,10 @@ for (m in 1:dim(y)[1]) {
                 k1 <- k1 + 1
             }
 
-            win_num_1 <- floor(100 * (l_1 - (N_1 - 1) * window_length)/1500)
-            m1 <- spec.mtm(Y[(x_1[i] - starttime) * 1500 + ((N_1 - 1) * window_length +
+            win_num_1 <- floor(100 * (l_1 - (N_1 - 1) * window_length) / 1500)
+            m1 <- spec.mtm(Y[(x_1[i] - starttime) * 1500 + ( (N_1 - 1) * window_length +
                 1):l_1], nw = win_num_1, k = floor(2 * win_num_1 - 1), nFFT = 150,
-                log = "no", plot = F, deltat = 1/1500)
+                log = "no", plot = F, deltat = 1 / 1500)
             temp <- m1$spec[m1$freq <= 200 & m1$freq >= 200]
             # p_1=c(p_1, temp[!is.na(temp)] )
             p_1[k1] <- temp
@@ -336,14 +336,14 @@ for (m in 1:dim(y)[1]) {
             for (j in 1:(N_2 - 1)) {
                 m1 <- spec.mtm(Y[(x_2[i] - starttime) * 1500 + (j - 1) * window_length +
                   1:window_length], nw = win_num, k = 2 * win_num - 1, nFFT = 150,
-                  log = "no", plot = F, deltat = 1/1500)
+                  log = "no", plot = F, deltat = 1 / 1500)
                 temp <- m1$spec[m1$freq <= 200 & m1$freq >= 200]
                 # p_0=c(p_0, temp[!is.na(temp)] )
                 p_0[k0] <- temp
                 k0 <- k0 + 1
             }
 
-            win_num_1 <- floor(100 * (l_2 - (N_2 - 1) * window_length)/1500)
+            win_num_1 <- floor(100 * (l_2 - (N_2 - 1) * window_length) / 1500)
             m1 <- spec.mtm(Y[(x_2[i] - starttime) * 1500 + ( (N_2 - 1) * window_length +
                 1):l_2], nw = win_num_1, k = floor(2 * win_num - 1), nFFT = 150,
                 log = "no", plot = F, deltat = 1 / 1500)
@@ -370,15 +370,15 @@ f_1 <- f_0 <- seq(L)
 p <- dim(Y_f)[1]
 
 sigma_1 <- apply(P_1, 1, sd)
-H_1 <- (diag(sigma_1) * (4 / (p + 2) / n)^(1 / (p + 4))) ^ 2
+H_1 <- (diag(sigma_1) * (4 / (p + 2) / n) ^ ( 1 / (p + 4))) ^ 2
 sigma_0 <- apply(P_0, 1, sd)
-H_0 <- (diag(sigma_0) * (4 / (p + 2) / n)^(1 / (p + 4))) ^ 2
+H_0 <- (diag(sigma_0) * (4 / (p + 2) / n) ^ ( 1 / (p + 4))) ^ 2
 
 for (j in 1:L) {
     f_1[j] <- mean(dmvnorm(t(P_1), mean = Y_f[, j], sigma = H_1))  # each row of matrix)
 }
 for (j in 1:L) {
-    f_0[j] = mean(dmvnorm(t(P_0), mean = Y_f[, j], sigma = H_0))  # each row of matrix)
+    f_0[j] <- mean(dmvnorm(t(P_0), mean = Y_f[, j], sigma = H_0))  # each row of matrix)
 }
 summary(log(f_1 / f_0))
 # save(f_1,f_0, file= paste(path,'Data/nonparametric spectral regression
@@ -598,7 +598,7 @@ for (tetrode in tetrode_idx) {
     Spike_time <- Time / 10 ^ 4
     idx <- (Spike_time >= min(time)) & (Spike_time <= max(time))
     Spike_time <- Spike_time[idx]  #length(Spike_time) # # of spikes
-    N = numeric(n)
+    N <- numeric(n)
     temp <- (Spike_time - min(time)) * freq
     for (i in temp) {
         N[i] <- N[i] + 1
@@ -641,7 +641,7 @@ for (i in 2:n) {
     temp <- i %% 10
     q1 <- exp(l_LFP[i %/% 10 + 1] * (temp == 0)) * exp(l_vel[i - 1] * vel_idx) * L1[i] *
         (p_I_0[i - 1] * (1 - q_remote[i - 1]) + p_I_1[i - 1] * q_remote[i - 1])
-    q2 <- ((1 - p_I_0[i - 1]) * (1 - q_remote[i - 1]) + (1 - p_I_1[i - 1]) * q_remote[i -
+    q2 <- ( (1 - p_I_0[i - 1]) * (1 - q_remote[i - 1]) + (1 - p_I_1[i - 1]) * q_remote[i -
         1])
     q_remote[i] <- q1 / (q1 + q2)
 }
