@@ -1,5 +1,7 @@
 # Identification and characterization of replay events Decoding for rat Bond,
 # day3, epoch2
+
+library(here)
 library(R.matlab)  # package to read mat file
 
 day <- 3
@@ -12,7 +14,7 @@ freq <- 500
 
 by <- 1  # bin size in space
 ### Read animal's linearized velocity by Loren's group
-position <- readMat(paste("bonlinpos0", day, ".mat", sep = ""))
+position <- readMat(here(paste("bonlinpos0", day, ".mat", sep = "")))
 
 position <- position$linpos[[day]][[1]][[epoch]][[1]][,, 1]$statematrix[,, 1]
 vel <- abs(position$linearVelocity[, 1])  # animal's linearized velocity
@@ -94,7 +96,7 @@ summary(time_vel_1)
 x <- approx(time_vel, lin_pos, n = n)$y
 
 ## 1.3 read ripple state, and consider velocity threshold
-data0 <- readMat(paste("bonripplescons0", day, ".mat", sep = ""))
+data0 <- readMat(here(paste("bonripplescons0", day, ".mat", sep = "")))
 ripple <- data0$ripplescons[[day]][[1]][[epoch]][[1]][[1]][[1]][,, 1]
 #### day-epoch-1 for CA1, day-epoch-2:5 are data for onther brain regions
 ripple$tetlist  # 3, 5, 12, 14, 24, 29
@@ -122,14 +124,13 @@ for (i in 1:N) {
 
 
 ## 1.3 Read LFP data Read one channel to check detial
-data0 <- readMat(paste("C:\\BostonData/Bon_new/bonripplescons0", day,
-                       ".mat", sep = ""))
+data0 <- readMat(here(paste("bonripplescons0", day, ".mat", sep = "")))
 ripple <- data0$ripplescons[[day]][[1]][[epoch]][[1]][[1]][[1]][,, 1]
 #### day-2-1 for CA1, day-2-2:5 are data for onther brain regions
 idx <- c(ripple$tetlist)  # idx=c(3,5,12,14,24,29) 6 tetrode
 
 #LFp of rat Bond, on day 3, epoch 2, tetrode 3
-LFP <- readMat("C:/BostonData/Bon_new/LFP/boneeg03-2-03.mat")
+LFP <- readMat(here("boneeg03-2-03.mat"))
 y_1 <- LFP$eeg[[day]][[1]][[epoch]][[1]][[3]][[1]][,, 1]$data
 starttime <- LFP$eeg[[day]][[1]][[epoch]][[1]][[3]][[1]][,, 1]$starttime
 length_LFP <- length(y_1)
@@ -139,22 +140,22 @@ y <- matrix(0, length(idx), length_LFP)
 
 
 ### Read data from tetrode c(3, 5, 12, 14, 24, 29)
-data <- readMat("C:/BostonData/Bon_new/LFP/boneeg03-2-03.mat")  # tetrode 3
+data <- readMat(here("boneeg03-2-03.mat"))  # tetrode 3
 LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[3]][[1]][,, 1]
 y[1, ] <- LFP$data
-LFP <- readMat("C:/BostonData/Bon_new/LFP/boneeg03-2-05.mat")  # tetrode 5
+LFP <- readMat(here("boneeg03-2-05.mat"))  # tetrode 5
 LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[5]][[1]][,, 1]
 y[2, ] <- LFP$data
-LFP <- readMat("C:/BostonData/Bon_new/LFP/boneeg03-2-12.mat")  # tetrode12
+LFP <- readMat(here("boneeg03-2-12.mat"))  # tetrode 12
 LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[12]][[1]][,, 1]
 y[3, ] <- LFP$data
-LFP <- readMat("C:/BostonData/Bon_new/LFP/boneeg03-2-14.mat")  # tetrode 14
+LFP <- readMat(here("boneeg03-2-14.mat"))  # tetrode 14
 LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[14]][[1]][,, 1]
 y[4, ] <- LFP$data
-LFP <- readMat("C:/BostonData/Bon_new/LFP/boneeg03-2-24.mat")  # tetrode 29
+LFP <- readMat(here("boneeg03-2-24.mat"))  # tetrode 24
 LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[24]][[1]][,, 1]
 y[5, ] <- LFP$data[1:dim(y)[2]]
-LFP <- readMat("C:/BostonData/Bon_new/LFP/boneeg03-2-29.mat")
+LFP <- readMat(here("boneeg03-2-29.mat")) # tetrode 29
 LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[29]][[1]][,, 1]
 y[6, ] <- LFP$data[1:dim(y)[2]]
 
@@ -464,10 +465,8 @@ for (tetrode in tetrode_idx) {
   if (tetrode >= 10) {
     idx <- paste(tetrode, sep = "")
   }
-
-  path1 <- paste("C:/BostonData/bond03/raw_spikes/bond0", day, "-", idx,
-                 "_params.mat", sep = "")  # data path
-
+  # data path
+  path1 <- here(paste("bond0", day, "-", idx, "_params.mat", sep = ""))
   data <- readMat(path1)
 
 
@@ -601,13 +600,9 @@ for (tetrode in tetrode_idx) {
     idx <- paste(tetrode, sep = "")
   }
 
-
-  path1 <- paste("C:/BostonData/bond03/raw_spikes/bond0", day, "-", idx,
-                 "_params.mat", sep = "")  # data path
-
+  # data path
+  path1 <- here(paste("bond0", day, "-", idx, "_params.mat", sep = ""))
   data <- readMat(path1)  # position on day 5
-
-
 
   Time <- data$filedata[,, 1]$params[, 1]  # Spike time
 
