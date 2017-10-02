@@ -308,7 +308,6 @@ sum(is.na(Y_f))
 Y_f <- as.numeric(Y_f)
 Y_f <- matrix(Y_f, nrow = 6)
 Y_f <- log(Y_f)  # in the log scale
-#### save(Y_f,file=paste(path,'Data/LFP frequency power Y_f taper 3.RData',sep=''))
 
 
 
