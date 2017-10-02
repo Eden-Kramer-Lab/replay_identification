@@ -5,10 +5,10 @@ library(R.matlab)  # package to read mat file
 day <- 3
 epoch <- 2
 freq <- 500
-############################### 1. Read and clean data
+## 1. Read and clean data ##
 
-## 1.1 AR(1) fit for animal's movement during active exploration; choose faster
-## time rate to be 20~33 here.
+## 1.1 AR(1) fit for animal's movement during active exploration
+## choose faster time rate to be 20~33 here.
 
 by <- 1  # bin size in space
 ### Read animal's linearized velocity by Loren's group
@@ -42,7 +42,8 @@ idx <- (vel[-1]) > 4  # idx for active exploration
 yy <- (x[2:n])[idx]  # X_t
 xx <- (x[1:(n - 1)])[idx]  # X_{t-1}
 fit_position <- lm(yy ~ xx - 1)
-sigma_30 <- sqrt(sum(fit_position$residuals ^ 2) / fit_position$df.residual)  # sigma at original rate, 30 Hz
+# sigma at original rate, 30 Hz
+sigma_30 <- sqrt(sum(fit_position$residuals ^ 2) / fit_position$df.residual)
 alpha_30 <- as.numeric(fit_position$coefficients)
 
 #### Transfer to new frequency rate, 500 Hz.
@@ -92,7 +93,7 @@ summary(time_vel_1)
 #### Perform interpolation for rat's trajectory, freq = 30Hz to 500Hz
 x <- approx(time_vel, lin_pos, n = n)$y
 
-########################################################## 1.3 read ripple state, and consider velocity threshold
+## 1.3 read ripple state, and consider velocity threshold
 data0 <- readMat(paste("bonripplescons0", day, ".mat", sep = ""))
 ripple <- data0$ripplescons[[day]][[1]][[epoch]][[1]][[1]][[1]][,, 1]
 #### day-epoch-1 for CA1, day-epoch-2:5 are data for onther brain regions
@@ -111,7 +112,7 @@ x_2 <- x_2[idx]
 
 
 ### Build indicator function for ripple state, denoted as I_t
-x1 <- round( (x_1 - time_vel[1]) * freq) + 1  # freq is set before read this code
+x1 <- round( (x_1 - time_vel[1]) * freq) + 1
 x2 <- round( (x_2 - time_vel[1]) * freq) + 1
 N <- length(x_1)
 I <- rep(0, n)
@@ -302,7 +303,7 @@ Y_f <- log(Y_f)  # in the log scale
 
 
 
-################################################################# 2.3.2 Calculate spectral power in 2 states: 0 and 1
+## 2.3.2 Calculate spectral power in 2 states: 0 and 1 ##
 P_0 <- matrix(0, 6, sum(I < 1) + 1000)  # sum(I<1) = 45543
 P_1 <- matrix(0, 6, sum(I > 0) + 500)  # sum(I>0) = 1656
 p_0 <- rep(1, dim(P_0)[2])
@@ -390,22 +391,20 @@ sigma_0 <- apply(P_0, 1, sd)
 H_0 <- (diag(sigma_0) * (4 / (p + 2) / n) ^ ( 1 / (p + 4))) ^ 2
 
 for (j in 1:L) {
-  f_1[j] <- mean(dmvnorm(t(P_1), mean = Y_f[, j], sigma = H_1))  # each row of matrix)
+  # each row of matrix
+  f_1[j] <- mean(dmvnorm(t(P_1), mean = Y_f[, j], sigma = H_1))
 }
 for (j in 1:L) {
-  f_0[j] <- mean(dmvnorm(t(P_0), mean = Y_f[, j], sigma = H_0))  # each row of matrix)
+  # each row of matrix
+  f_0[j] <- mean(dmvnorm(t(P_0), mean = Y_f[, j], sigma = H_0))
 }
 summary(log(f_1 / f_0))
-# save(f_1,f_0, file= paste(path,'Data/nonparametric spectral regression
-# day3_epoch6.RData',sep=''))
-
 
 ## & 2.4 GLM for spiking information
 library(R.matlab)  # package to read mat file
 library(doSNOW)  # Parallel computing, Registering cores for parallel process
 cl <- makeCluster(7, type = "SOCK")  # 7 - number of cores
 registerDoSNOW(cl)  # Register back end Cores for Parallel Computing
-# stopCluster(cl) # undo the parallel processing setup
 
 
 # Set bandwidth parameters for kernel functions
