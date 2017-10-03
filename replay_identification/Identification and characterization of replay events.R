@@ -231,7 +231,7 @@ occupancy <- hist(vel_0, breaks = bins, plot = F)
 norm_spike <- spikehist$counts / occupancy$counts
 norm_spike[is.na(norm_spike)] <- 0
 plot(bins[-1], norm_spike, type = "n", xlab = expression(v[t - 1](cm / s)),
-     ylab <- "Ripple state prop", ylim = range(norm_spike) * 1.2)
+     ylab = "Ripple state prop", ylim = range(norm_spike) * 1.2)
 title(main = expression(I[t - 1] == 1))
 for (i in 1:length(bins)) {
   segments(bins[i], 0, bins[i], norm_spike[i], col = 1, lwd = 4)
