@@ -153,29 +153,29 @@ y_1 <- LFP$eeg[[day]][[1]][[epoch]][[1]][[3]][[1]][,, 1]$data
 starttime <- LFP$eeg[[day]][[1]][[epoch]][[1]][[3]][[1]][,, 1]$starttime
 length_LFP <- length(y_1)
 rm(y_1)
-y <- matrix(0, length(idx), length_LFP)
 endtime <- starttime + (length_LFP - 1) / LFP_SAMPLING_FREQUENCY
+lfps <- matrix(0, length(idx), length_LFP)
 
 
 ### Read data from tetrode c(3, 5, 12, 14, 24, 29)
 data <- readMat(here("Raw-Data", "Bond", "EEG", "boneeg03-2-03.mat"))
 LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[3]][[1]][,, 1]
-y[1, ] <- LFP$data
+lfps[1, ] <- LFP$data
 LFP <- readMat(here("Raw-Data", "Bond", "EEG", "boneeg03-2-05.mat"))
 LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[5]][[1]][,, 1]
-y[2, ] <- LFP$data
+lfps[2, ] <- LFP$data
 LFP <- readMat(here("Raw-Data", "Bond", "EEG", "boneeg03-2-12.mat"))
 LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[12]][[1]][,, 1]
-y[3, ] <- LFP$data
+lfps[3, ] <- LFP$data
 LFP <- readMat(here("Raw-Data", "Bond", "EEG", "boneeg03-2-14.mat"))
 LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[14]][[1]][,, 1]
-y[4, ] <- LFP$data
+lfps[4, ] <- LFP$data
 LFP <- readMat(here("Raw-Data", "Bond", "EEG", "boneeg03-2-24.mat"))
 LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[24]][[1]][,, 1]
-y[5, ] <- LFP$data[1:dim(y)[2]]
+lfps[5, ] <- LFP$data[1:dim(lfps)[2]]
 LFP <- readMat(here("Raw-Data", "Bond", "EEG", "boneeg03-2-29.mat"))
 LFP <- LFP$eeg[[day]][[1]][[epoch]][[1]][[29]][[1]][,, 1]
-y[6, ] <- LFP$data[1:dim(y)[2]]
+lfps[6, ] <- LFP$data[1:dim(lfps)[2]]
 
 
 
@@ -333,9 +333,9 @@ x_2 <- c(starttime, x_2)
 x_2 <- x_2[-c(1:(length(x_2) - length(x_1)))]
 x_2 <- c(starttime, x_2)
 
-for (m in 1:dim(y)[1]) {
+for (m in 1:dim(lfps)[1]) {
   k1 <- k0 <- 1
-  Y <- y[m, ]
+  Y <- lfps[m, ]
   for (i in 1:length(x_1)) {
     # length of in state
     l_1 <- (x_2[-1] - x_1)[i] * LFP_SAMPLING_FREQUENCY
