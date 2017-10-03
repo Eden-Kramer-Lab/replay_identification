@@ -295,15 +295,17 @@ starttime <- as.numeric(starttime)
 window_length <- 30  # 30/1.5=20 ms in time
 win_num <- floor(100 * window_length / LFP_SAMPLING_FREQUENCY)
 
-idx <- ceiling( (range(time_vel_1) - c(starttime)) * 1500) + 1
-y_vel <- y[, idx[1]:idx[2]]  # LFP
+idx <- ceiling( (range(time_vel_1) - c(starttime)) *
+               LFP_SAMPLING_FREQUENCY) + 1
+y_vel <- lfps[, idx[1]:idx[2]]  # LFP
 Y_f <- matrix(0, dim(y_vel)[1], (dim(y_vel)[2]) %/% 30)  # 6 * 46048
 idx <- c(1:dim(Y_f)[2])
 for (m in 1:dim(Y_f)[1]) {
   Y <- y_vel[m, ]
   for (i in 1:dim(Y_f)[2]) {
-    m1 <- spec.mtm(Y[(i - 1) * 30 + 1:30], nw = win_num, k = 2 * win_num - 1,
-                   nFFT = 150, log = "no", plot = F, deltat = 1 / 1500)
+    m1 <- spec.mtm(Y[(i - 1) * 30 + 1:30], nw = win_num,
+                   k = 2 * win_num - 1, nFFT = 150, log = "no", plot = F,
+                   deltat = 1 / LFP_SAMPLING_FREQUENCY)
     # nw is time-bandwidth, k is number of tapers set nFFT = 150, then by=10;
     # nFTT=30, then by=50. (freq # -1)*2 = nFTT
     temp <- m1$spec[m1$freq <= 200 & m1$freq >= 200]
