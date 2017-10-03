@@ -325,8 +325,8 @@ Y_f <- log(Y_f)  # in the log scale
 
 
 ## 2.3.2 Calculate spectral power in 2 states: 0 and 1 ##
-P_0 <- matrix(0, 6, sum(I < 1) + 1000)  # sum(I<1) = 45543
-P_1 <- matrix(0, 6, sum(I > 0) + 500)  # sum(I>0) = 1656
+P_0 <- matrix(0, 6, sum(I == 0) + 1000)  # sum(I<1) = 45543
+P_1 <- matrix(0, 6, sum(I == 1) + 500)  # sum(I>0) = 1656
 p_0 <- rep(1, dim(P_0)[2])
 p_1 <- rep(1, dim(P_1)[2])
 x_2 <- c(starttime, x_2)
@@ -449,10 +449,10 @@ tetrode_idx <- c(1:5, 7:8, 10:14, 17:25, 27:29)
 
 x_grid <- seq(-180, 180, by = 1)
 m <- length(x_grid)
-x_0 <- x[I < 1]
+x_0 <- x[I == 0]
 
 
-x_0_30Hz <- lin_pos[I[seq(1, n, by = freq / 30)] < 1]
+x_0_30Hz <- lin_pos[I[seq(1, n, by = freq / 30)] == 0]
 x_0_30Hz <- x_0_30Hz[!is.na(x_0_30Hz)]
 ptm <- proc.time()
 stopCluster(cl)  # undo the parallel processing setup
@@ -473,7 +473,7 @@ proc.time() - ptm
 
 
 
-x_1 <- x[I > 0]
+x_1 <- x[I == 1]
 
 stopCluster(cl)  # undo the parallel processing setup
 cl <- makeCluster(3, type = "SOCK")  # 3 - number of cores
@@ -522,12 +522,12 @@ for (tetrode in tetrode_idx) {
 
   ##########################################
   lambda0 <- numeric(n)
-  idx <- I[(Spike_time - min(time)) * 500] < 1  # idx for non-replay state
+  idx <- I[(Spike_time - min(time)) * 500] == 0  # idx for non-replay state
   # non-ripple period
   x_s_0 <- approx(time_vel, lin_pos, xout = Spike_time[idx])$y
 
   M_0 <- M[idx, ]  # Marked space during non-replay
-  N_0 <- N[I < 1]
+  N_0 <- N[I == 0]
 
 
   # calculate marginal intensity
@@ -573,14 +573,14 @@ for (tetrode in tetrode_idx) {
 
   lambda1 <- numeric(n)
 
-  idx <- I[(Spike_time - min(time)) * freq] > 0
+  idx <- I[(Spike_time - min(time)) * freq] == 1
   # idx for spiking during replay state
-  Lambda1 <- freq * rep(sum(N[I > 0]) / sum(I > 0), n)  # spikes per second
+  Lambda1 <- freq * rep(sum(N[I > 0]) / sum(I == 1), n)  # spikes per second
   x_s_1 <- approx(time_vel, lin_pos, xout = Spike_time[idx])$y
   length(x_s_1)  # in-ripple period
-  x_1 <- x[I > 0]
+  x_1 <- x[I == 1]
   M_1 <- M[idx, ]  # Marked space during non-replay
-  N_1 <- N[I > 0]
+  N_1 <- N[I == 1]
 
 
 
@@ -599,7 +599,7 @@ for (tetrode in tetrode_idx) {
   # the mark value at all spike moment during replay
 
   # denom1 = denom_grid_1[round(x[idx]) - min(x) +1] # This is wrong
-  denom1 <- sum(I > 0) / freq
+  denom1 <- sum(I == 1) / freq
   lambda1[idx] <- N[idx] * num1 / denom1
 
 
