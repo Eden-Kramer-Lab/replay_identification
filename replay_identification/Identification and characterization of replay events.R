@@ -331,8 +331,10 @@ for (m in 1:dim(y)[1]) {
   k1 <- k0 <- 1
   Y <- y[m, ]
   for (i in 1:length(x_1)) {
-    l_1 <- (x_2[-1] - x_1)[i] * 1500  # length of in state
-    l_2 <- (x_1 - x_2[-length(x_2)])[i] * 1500  #length of out state
+    # length of in state
+    l_1 <- (x_2[-1] - x_1)[i] * LFP_SAMPLING_FREQUENCY
+    # length of out state
+    l_2 <- (x_1 - x_2[-length(x_2)])[i] * LFP_SAMPLING_FREQUENCY
 
     N_1 <- floor(l_1 / window_length)  # number of windows in state
     N_2 <- floor(l_2 / window_length)  # number of windows out state
