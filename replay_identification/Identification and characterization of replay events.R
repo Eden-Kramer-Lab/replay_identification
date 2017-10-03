@@ -621,7 +621,8 @@ for (tetrode in tetrode_idx) {
   }
 
   # data path
-  path1 <- here(paste("bond0", day, "-", idx, "_params.mat", sep = ""))
+  path1 <- here("Raw-Data", "Bond", "EEG",
+                paste("bonmarks0", day, "-", idx, ".mat", sep = ""))
   data <- readMat(path1)  # position on day 5
 
   Time <- data$filedata[,, 1]$params[, 1]  # Spike time
