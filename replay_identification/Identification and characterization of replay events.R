@@ -426,6 +426,8 @@ for (j in 1:L) {
   # each row of matrix
   f_0[j] <- mean(dmvnorm(t(P_0), mean = Y_f[, j], sigma = H_0))
 }
+
+l_LFP <- log(f_1 / f_0)
 summary(log(f_1 / f_0))
 
 ## & 2.4 GLM for spiking information
