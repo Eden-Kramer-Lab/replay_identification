@@ -15,6 +15,8 @@ day <- 3
 epoch <- 2
 freq <- 500
 
+LFP_SAMPLING_FREQUENCY <- 1500
+
 ###############################
 # 1. Read and clean data
 ###############################
@@ -148,8 +150,8 @@ y_1 <- LFP$eeg[[day]][[1]][[epoch]][[1]][[3]][[1]][,, 1]$data
 starttime <- LFP$eeg[[day]][[1]][[epoch]][[1]][[3]][[1]][,, 1]$starttime
 length_LFP <- length(y_1)
 rm(y_1)
-endtime <- starttime + (length_LFP - 1) / 1500
 y <- matrix(0, length(idx), length_LFP)
+endtime <- starttime + (length_LFP - 1) / LFP_SAMPLING_FREQUENCY
 
 
 ### Read data from tetrode c(3, 5, 12, 14, 24, 29)
@@ -291,7 +293,7 @@ lines(x_grid, y2, lty = 2)  # up and lower bound
 
 starttime <- as.numeric(starttime)
 window_length <- 30  # 30/1.5=20 ms in time
-win_num <- floor(100 * window_length / 1500)  # calculate the window number
+win_num <- floor(100 * window_length / LFP_SAMPLING_FREQUENCY)
 
 idx <- ceiling( (range(time_vel_1) - c(starttime)) * 1500) + 1
 y_vel <- y[, idx[1]:idx[2]]  # LFP
@@ -338,10 +340,11 @@ for (m in 1:dim(y)[1]) {
     if (N_1 > 0) {
       # calculate the average power for in state
       for (j in 1:(N_1 - 1)) {
-        m1 <- spec.mtm(Y[(x_1[i] - starttime) * 1500 + (j - 1) *
-                       window_length + 1:window_length], nw = win_num,
-                       k = 2 * win_num - 1, nFFT = 150,
-                       log = "no", plot = FALSE, deltat = 1 / 1500)
+        m1 <- spec.mtm(Y[(x_1[i] - starttime) * LFP_SAMPLING_FREQUENCY +
+                       (j - 1) * window_length + 1:window_length],
+                       nw = win_num, k = 2 * win_num - 1, nFFT = 150,
+                       log = "no", plot = FALSE,
+                       deltat = 1 / LFP_SAMPLING_FREQUENCY)
         # nFFT = 150, by=10; nFTT=30, by=50. (freq # -1)*2 = nFTT
         temp <- m1$spec[m1$freq <= 200 & m1$freq >= 200]
         # p_1=c(p_1, temp[!is.na(temp)] )
@@ -349,11 +352,13 @@ for (m in 1:dim(y)[1]) {
         k1 <- k1 + 1
       }
 
-      win_num_1 <- floor(100 * (l_1 - (N_1 - 1) * window_length) / 1500)
-      m1 <- spec.mtm(Y[(x_1[i] - starttime) * 1500 +
+      win_num_1 <- floor(100 * (l_1 - (N_1 - 1) * window_length) /
+                         LFP_SAMPLING_FREQUENCY)
+      m1 <- spec.mtm(Y[(x_1[i] - starttime) * LFP_SAMPLING_FREQUENCY +
                      ( (N_1 - 1) * window_length + 1):l_1], nw = win_num_1,
                      k = floor(2 * win_num_1 - 1), nFFT = 150,
-                     log = "no", plot = F, deltat = 1 / 1500)
+                     log = "no", plot = F,
+                     deltat = 1 / LFP_SAMPLING_FREQUENCY)
       temp <- m1$spec[m1$freq <= 200 & m1$freq >= 200]
       # p_1=c(p_1, temp[!is.na(temp)] )
       p_1[k1] <- temp
@@ -362,21 +367,24 @@ for (m in 1:dim(y)[1]) {
     if (N_2 > 0) {
       # calculate the average power for out state
       for (j in 1:(N_2 - 1)) {
-        m1 <- spec.mtm(Y[(x_2[i] - starttime) * 1500 +
+        m1 <- spec.mtm(Y[(x_2[i] - starttime) * LFP_SAMPLING_FREQUENCY +
                        (j - 1) * window_length + 1:window_length],
                        nw = win_num, k = 2 * win_num - 1, nFFT = 150,
-                       log = "no", plot = F, deltat = 1 / 1500)
+                       log = "no", plot = F,
+                       deltat = 1 / LFP_SAMPLING_FREQUENCY)
         temp <- m1$spec[m1$freq <= 200 & m1$freq >= 200]
         # p_0=c(p_0, temp[!is.na(temp)] )
         p_0[k0] <- temp
         k0 <- k0 + 1
       }
 
-      win_num_1 <- floor(100 * (l_2 - (N_2 - 1) * window_length) / 1500)
-      m1 <- spec.mtm(Y[(x_2[i] - starttime) * 1500 +
+      win_num_1 <- floor(100 * (l_2 - (N_2 - 1) * window_length) /
+                         LFP_SAMPLING_FREQUENCY)
+      m1 <- spec.mtm(Y[(x_2[i] - starttime) * LFP_SAMPLING_FREQUENCY +
                      ( (N_2 - 1) * window_length + 1):l_2],
                      nw = win_num_1, k = floor(2 * win_num - 1),
-                     nFFT = 150, log = "no", plot = F, deltat = 1 / 1500)
+                     nFFT = 150, log = "no", plot = F,
+                     deltat = 1 / LFP_SAMPLING_FREQUENCY)
       temp <- m1$spec[m1$freq <= 200 & m1$freq >= 200]
       # p_0=c(p_0, temp[!is.na(temp)] )
       p_0[k0] <- temp
