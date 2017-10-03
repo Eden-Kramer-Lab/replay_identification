@@ -59,13 +59,15 @@ yy <- (x[2:n])[idx]  # X_t
 xx <- (x[1:(n - 1)])[idx]  # X_{t-1}
 fit_position <- lm(yy ~ xx - 1)
 # sigma at original rate, 30 Hz
-sigma_30 <- sqrt(sum(fit_position$residuals ^ 2) / fit_position$df.residual)
+sigma_30 <- sqrt(sum(fit_position$residuals ^ 2) /
+                 fit_position$df.residual)
 alpha_30 <- as.numeric(fit_position$coefficients)
 
 #### Transfer to new frequency rate, 500 Hz.
 alpha_500 <- (alpha_30 ^ 30) ^ (1 / 500)  # freq = 500 Hz
-sigma_500 <- sqrt( (1 - alpha_500 ^ 2) * (1 - alpha_30 ^ (30 * 2)) /
-                  (1 - alpha_30 ^ 2) / (1 - alpha_500 ^ (500 * 2))) * sigma_30
+sigma_500 <- (sqrt( (1 - alpha_500 ^ 2) * (1 - alpha_30 ^ (30 * 2)) /
+                  (1 - alpha_30 ^ 2) / (1 - alpha_500 ^ (500 * 2))) *
+              sigma_30)
 # Model at faster time rate, 20 times
 alpha_25 <- (alpha_30 ^ 30) ^ (1 / 25)  # 500Hz to 25Hz, 20 times faster
 sigma_25 <- sqrt( (1 - alpha_25 ^ 2) * (1 - alpha_30 ^ 60) /
@@ -207,8 +209,8 @@ log_p_v_0 <- -log(sigma0) - 0.5 * (vel_1[2:n] - mu_0) ^ 2 / sigma0 ^ 2
 l_vel <- log_p_v_1 - log_p_v_0
 time <- time_vel_1
 l_vel[vel_1 > 4] <- -vel_1[vel_1 > 4]
-# Here the setting is a little artiticial,due to subjective understand about the
-# data
+# Here the setting is a little artiticial,due to subjective understand
+# about the data
 
 
 ## & 2.2 Fit p(I_t|I_t-1,v_t-1), replay state transition modeling
@@ -271,9 +273,9 @@ plot(x_grid, y_0, type = "l", col = "red", xlim = c(0, 6),
 y1 <- exp(y_p$fit + 2 * y_p$se.fit) / (1 + exp(y_p$fit + 2 * y_p$se.fit))
 names(y_p)
 lines(x_grid, y1, lty = 2)
-y2 <- exp(y_p$fit - 1.96 * y_p$se.fit) / (1 + exp(y_p$fit - 1.96 * y_p$se.fit))
+y2 <- (exp(y_p$fit - 1.96 * y_p$se.fit) /
+       (1 + exp(y_p$fit - 1.96 * y_p$se.fit)))
 lines(x_grid, y2, lty = 2)
-# abline(v=4,h=0, lty=2)
 
 y_p <- predict(fit12, data.frame(I_x = 1, xx = x_grid), se.fit = TRUE)
 y_0 <- exp(y_p$fit) / (1 + exp(y_p$fit))
@@ -283,7 +285,8 @@ plot(x_grid, y_0, type = "l", col = "red", xlim = c(0, 6),
 y1 <- exp(y_p$fit + 2 * y_p$se.fit) / (1 + exp(y_p$fit + 2 * y_p$se.fit))
 names(y_p)
 lines(x_grid, y1, lty = 2)
-y2 <- exp(y_p$fit - 1.96 * y_p$se.fit) / (1 + exp(y_p$fit - 1.96 * y_p$se.fit))
+y2 <- (exp(y_p$fit - 1.96 * y_p$se.fit) /
+       (1 + exp(y_p$fit - 1.96 * y_p$se.fit)))
 lines(x_grid, y2, lty = 2)  # up and lower bound
 
 
@@ -589,8 +592,8 @@ for (tetrode in tetrode_idx) {
   }
 
 
-  # x_s_1 is the animal's position at all spike moment during replay M_1 is the
-  # mark value at all spike moment during replay
+  # x_s_1 is the animal's position at all spike moment during replay M_1 is
+  # the mark value at all spike moment during replay
 
   # denom1 = denom_grid_1[round(x[idx]) - min(x) +1] # This is wrong
   denom1 <- sum(I > 0) / freq
@@ -650,10 +653,10 @@ for (tetrode in tetrode_idx) {
         range(lambda1_all[k, ]),
         range(Lambda0_all[k, ]),
         range(Lambda1_all[k, ])))) == 0) {
-    log_p_0 <- log_p_0 + (-Lambda0_all[k, ] * dt + N * log(lambda0_all[k, ] *
-                                                             dt + 1e-200))
-    log_p_1 <- log_p_1 + (-Lambda1_all[k, ] * dt + N * log(lambda1_all[k, ] *
-                                                             dt + 1e-200))
+    log_p_0 <- log_p_0 + (-Lambda0_all[k, ] * dt + N * log(lambda0_all[k, ]
+                          * dt + 1e-200))
+    log_p_1 <- log_p_1 + (-Lambda1_all[k, ] * dt + N * log(lambda1_all[k, ]
+                          * dt + 1e-200))
   }
   k <- k + 1
 }
