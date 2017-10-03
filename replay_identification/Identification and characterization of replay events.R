@@ -185,9 +185,9 @@ lfps[6, ] <- LFP$data[1:dim(lfps)[2]]
 
 ## &2.1 Fit P(v_t|v_{t-1},I_t=1), in replay state
 idx <- I[2:n]
-x <- (vel_1[1:(n - 1)])[idx > 0]  # v_{t-1}
-y <- vel_1[2:n][idx > 0]  # v_t
-sigma1 <- sd(y - x)
+v_t_1 <- (vel_1[1:(n - 1)])[idx > 0]  # v_{t-1}
+v_t <- vel_1[2:n][idx > 0]  # v_t
+sigma1 <- sd(v_t - v_t_1)
 alpha1 <- 1  # random walk
 mu_1 <- vel_1[1:(n - 1)]
 mu_1[mu_1 < 0] <- 0
@@ -197,12 +197,12 @@ log_p_v_1 <- -log(sigma1) - 0.5 * (vel_1[2:n] - mu_1) ^ 2 / sigma1 ^ 2
 
 ### Fit P(v_t|v_{t-1},I_t=1), out of replay state and no active exploration
 idx <- I[2:n]
-x <- (vel_1[1:(n - 1)])[idx < 1]
-y <- vel_1[2:n][idx < 1]
-idx <- y <= 4
-x <- x[idx]
-y <- y[idx]
-sigma0 <- sd(y - x)
+v_t_1 <- (vel_1[1:(n - 1)])[idx < 1]
+v_t <- vel_1[2:n][idx < 1]
+idx <- v_t <= 4
+v_t_1 <- v_t_1[idx]
+v_t <- v_t[idx]
+sigma0 <- sd(v_t - v_t_1)
 mu_0 <- vel_1[1:(n - 1)]
 log_p_v_0 <- -log(sigma0) - 0.5 * (vel_1[2:n] - mu_0) ^ 2 / sigma0 ^ 2
 
