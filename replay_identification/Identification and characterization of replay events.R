@@ -14,7 +14,10 @@ package.check <- lapply(packages, FUN = function(x) {
 day <- 3
 epoch <- 2
 freq <- 500
-## 1. Read and clean data ##
+
+###############################
+# 1. Read and clean data
+###############################
 
 ## 1.1 AR(1) fit for animal's movement during active exploration
 ## choose faster time rate to be 20~33 here.
@@ -171,7 +174,9 @@ y[6, ] <- LFP$data[1:dim(y)[2]]
 
 
 
-########################################### 2 Encoding part
+###########################################
+# 2   Encoding part
+###########################################
 
 ## &2.1 Fit P(v_t|v_{t-1},I_t=1), in replay state
 idx <- I[2:n]
@@ -544,7 +549,9 @@ for (tetrode in tetrode_idx) {
   lambda0[idx] <- N[idx] * num0 / denom0
 
 
-  ########################################## during replay time
+  ##########################################
+  # during replay time
+  ##########################################
 
   lambda1 <- numeric(n)
 
@@ -643,7 +650,9 @@ time <- time_vel_1
 
 
 
-## 4. Decoding part, p(I_t|,y_{1:t},v_{1:t}) LFP and velocity only
+#################################################
+# 4. Decoding part, p(I_t|,y_{1:t},v_{1:t})
+#################################################
 vel_idx <- 0  # whether we consider p(v_t|v_{t-1}, I_t)
 q_LFP <- rep(0, n)  # posterior probability given LFP and velocity
 for (i in 2:n) {
