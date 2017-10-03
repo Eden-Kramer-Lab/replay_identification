@@ -312,7 +312,7 @@ for (m in 1:dim(Y_f)[1]) {
                    deltat = 1 / LFP_SAMPLING_FREQUENCY)
     # nw is time-bandwidth, k is number of tapers set nFFT = 150, then by=10;
     # nFTT=30, then by=50. (freq # -1)*2 = nFTT
-    temp <- m1$spec[m1$freq <= 200 & m1$freq >= 200]
+    temp <- m1$spec[m1$freq == 200]
     Y_f[m, i] <- temp
   }
 }
@@ -354,7 +354,7 @@ for (m in 1:dim(lfps)[1]) {
                        log = "no", plot = FALSE,
                        deltat = 1 / LFP_SAMPLING_FREQUENCY)
         # nFFT = 150, by=10; nFTT=30, by=50. (freq # -1)*2 = nFTT
-        temp <- m1$spec[m1$freq <= 200 & m1$freq >= 200]
+        temp <- m1$spec[m1$freq == 200]
         # p_1=c(p_1, temp[!is.na(temp)] )
         p_1[k1] <- temp
         k1 <- k1 + 1
@@ -367,7 +367,7 @@ for (m in 1:dim(lfps)[1]) {
                      k = floor(2 * win_num_1 - 1), nFFT = 150,
                      log = "no", plot = F,
                      deltat = 1 / LFP_SAMPLING_FREQUENCY)
-      temp <- m1$spec[m1$freq <= 200 & m1$freq >= 200]
+      temp <- m1$spec[m1$freq == 200]
       # p_1=c(p_1, temp[!is.na(temp)] )
       p_1[k1] <- temp
       k1 <- k1 + 1
@@ -380,7 +380,7 @@ for (m in 1:dim(lfps)[1]) {
                        nw = win_num, k = 2 * win_num - 1, nFFT = 150,
                        log = "no", plot = F,
                        deltat = 1 / LFP_SAMPLING_FREQUENCY)
-        temp <- m1$spec[m1$freq <= 200 & m1$freq >= 200]
+        temp <- m1$spec[m1$freq == 200]
         # p_0=c(p_0, temp[!is.na(temp)] )
         p_0[k0] <- temp
         k0 <- k0 + 1
@@ -393,7 +393,7 @@ for (m in 1:dim(lfps)[1]) {
                      nw = win_num_1, k = floor(2 * win_num - 1),
                      nFFT = 150, log = "no", plot = F,
                      deltat = 1 / LFP_SAMPLING_FREQUENCY)
-      temp <- m1$spec[m1$freq <= 200 & m1$freq >= 200]
+      temp <- m1$spec[m1$freq == 200]
       # p_0=c(p_0, temp[!is.na(temp)] )
       p_0[k0] <- temp
       k0 <- k0 + 1
