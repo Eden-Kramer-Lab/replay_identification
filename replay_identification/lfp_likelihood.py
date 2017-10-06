@@ -4,7 +4,8 @@ from spectral import Multitaper, Connectivity
 
 
 def lfp_likelihood_ratio(lfps, is_candidate_replay, sampling_frequency):
-    '''
+    '''The likelihood of being in a replay state over time given the
+    spectral power of the local field potentials (LFPs).
 
     Parameters
     ----------
