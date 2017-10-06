@@ -45,12 +45,14 @@ def estimate_kernel_density(ripple_band_power):
 
     '''
     n_time, n_signals = ripple_band_power.shape
+    is_not_nan = np.any(~np.isnan(ripple_band_power), axis=1)
+    ripple_band_power = ripple_band_power[is_not_nan]
     # replace with np.var?
     power_variances = (np.std(ripple_band_power, axis=0) *
                        (4 / (n_signals + 2) / n_time) **
                        (1 / (n_signals + 4))) ** 2
-    return KDEMultivariate(
-        ripple_band_power, bw=power_variances, var_type='c' * n_signals)
+    return KDEMultivariate(ripple_band_power, bw=power_variances,
+                           var_type='c' * n_signals)
 
 
 def estimate_ripple_band_power(lfps, sampling_frequency):
