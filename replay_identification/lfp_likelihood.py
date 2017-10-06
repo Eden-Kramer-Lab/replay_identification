@@ -19,7 +19,6 @@ def lfp_likelihood_ratio(lfps, is_candidate_replay, sampling_frequency):
     '''
     ripple_band_power = estimate_ripple_band_power(
         lfps, sampling_frequency)
-    kde = likelihood_kde(ripple_band_power)
     out_replay_likelihood = kde.score_samples(np.log(
         ripple_band_power[~is_candidate_replay]))
     in_replay_likelihood = kde.score_samples(
@@ -28,7 +27,7 @@ def lfp_likelihood_ratio(lfps, is_candidate_replay, sampling_frequency):
     return in_replay_likelihood - out_replay_likelihood
 
 
-def likelihood_kde(ripple_band_power):
+def estimate_kernel_density(ripple_band_power):
     '''Evaluate a multivariate gaussian kernel for each time point
 
     Parameters
