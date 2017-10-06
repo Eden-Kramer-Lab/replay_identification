@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.neighbors import KernelDensity
+from statsmodels.nonparametric.kernel_density import KDEMultivariate
 from spectral import Multitaper, Connectivity
 
 
@@ -21,9 +21,9 @@ def lfp_likelihood_ratio(lfps, is_candidate_replay, sampling_frequency):
     ripple_band_power = np.log(estimate_ripple_band_power(
         lfps, sampling_frequency))
     kde = estimate_kernel_density(ripple_band_power)
-    out_replay_log_likelihood = kde.score_samples(
+    out_replay_log_likelihood = kde.pdf(
         ripple_band_power[~is_candidate_replay])
-    in_replay_log_likelihood = kde.score_samples(
+    in_replay_log_likelihood = kde.pdf(
         ripple_band_power[is_candidate_replay])
 
     return in_replay_log_likelihood - out_replay_log_likelihood
@@ -46,8 +46,8 @@ def estimate_kernel_density(ripple_band_power):
     power_variances = (np.std(ripple_band_power, axis=0) *
                        (4 / (n_signals + 2) / n_time) **
                        (1 / (n_signals + 4))) ** 2
-    kde = KernelDensity(kernel='gaussian', bandwidth=power_variances)
-    return kde.fit(ripple_band_power)
+    return KDEMultivariate(
+        ripple_band_power, bw=power_variances, var_type='c' * n_signals)
 
 
 def estimate_ripple_band_power(lfps, sampling_frequency):
