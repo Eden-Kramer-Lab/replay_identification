@@ -15,7 +15,7 @@ def lfp_likelihood_ratio(lfps, is_candidate_replay, sampling_frequency):
 
     Returns
     -------
-    lfp_likelihood : ndarray (n_time,)
+    log_likelihood_ratio : ndarray (n_time,)
 
     '''
     ripple_band_power = np.log(estimate_ripple_band_power(
@@ -41,7 +41,7 @@ def estimate_kernel_density(ripple_band_power):
 
     Returns
     -------
-    kernel_density_estimate : sklearn function
+    kernel_density_estimate : function
 
     '''
     n_time, n_signals = ripple_band_power.shape
