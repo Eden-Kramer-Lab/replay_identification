@@ -17,13 +17,13 @@ def lfp_likelihood_ratio(lfps, is_candidate_replay, sampling_frequency):
     lfp_likelihood : ndarray (n_time,)
 
     '''
-    ripple_band_power = estimate_ripple_band_power(
-        lfps, sampling_frequency)
+    ripple_band_power = np.log(estimate_ripple_band_power(
+        lfps, sampling_frequency))
     kde = estimate_kernel_density(ripple_band_power)
-    out_replay_log_likelihood = kde.score_samples(np.log(
-        ripple_band_power[~is_candidate_replay]))
+    out_replay_log_likelihood = kde.score_samples(
+        ripple_band_power[~is_candidate_replay])
     in_replay_log_likelihood = kde.score_samples(
-        np.log(ripple_band_power[is_candidate_replay]))
+        ripple_band_power[is_candidate_replay])
 
     return in_replay_log_likelihood - out_replay_log_likelihood
 
