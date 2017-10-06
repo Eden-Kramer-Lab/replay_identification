@@ -451,19 +451,6 @@ x_grid <- seq(-180, 180, by = 1)
 m <- length(x_grid)
 x_0 <- x[I == 0]
 
-
-x_0_30Hz <- lin_pos[I[seq(1, n, by = freq / 30)] == 0]
-x_0_30Hz <- x_0_30Hz[!is.na(x_0_30Hz)]
-ptm <- proc.time()
-stopCluster(cl)  # undo the parallel processing setup
-cl <- makeCluster(3, type = "SOCK")  # 3 - number of cores
-registerDoSNOW(cl)  # Register back end Cores for Parallel Computing
-denom_grid_0 <- 1 / 30 * foreach(i = 1:m, .combine = "c") %dopar% {
-  sum(dnorm(x_0_30Hz, mean = x_grid[i], sd = b_x))
-}
-proc.time() - ptm
-head(denom_grid_0)
-
 ptm <- proc.time()
 denom_grid_0 <- numeric(m)
 for (i in 1:m) {
@@ -617,8 +604,6 @@ ptm <- proc.time()
 dt <- 1 / freq
 log_p_0 <- log_p_1 <- 0
 tetrode_idx <- c(1:5, 7:8, 10:14, 17:25, 27:29)  # tetrode index
-# load(paste(path,'Data/unsorted spiking kernel fit Bond day3 epoch',epoch,'
-# homogeneous.RData',sep=''))
 
 
 k <- 1
