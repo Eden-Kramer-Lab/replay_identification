@@ -41,7 +41,6 @@ def estimate_kernel_density(ripple_band_power):
 
     '''
     n_time, n_signals = ripple_band_power.shape
-    ripple_band_power = np.log(ripple_band_power)
     # replace with np.var?
     power_variances = (np.std(ripple_band_power, axis=0) *
                        (4 / (n_signals + 2) / n_time) **
