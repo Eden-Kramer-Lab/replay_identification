@@ -66,10 +66,14 @@ def estimate_ripple_band_power(lfps, sampling_frequency):
     ripple_band_power : ndarray (n_time, n_signals)
 
     '''
+    n_time = lfps.shape[0]
     m = Multitaper(lfps, sampling_frequency=sampling_frequency,
                    time_halfbandwidth_product=1,
                    time_window_duration=0.020,
                    time_window_step=1 / sampling_frequency)
     c = Connectivity.from_multitaper(m)
     closest_200Hz_freq_ind = np.argmin(np.abs(c.frequencies - 200))
-    return c.power()[..., closest_200Hz_freq_ind, :].squeeze()
+    power = c.power()[..., closest_200Hz_freq_ind, :].squeeze()
+    n_power_time = power.shape[0]
+    unobserved = np.full((n_time - n_power_time, *power.shape[1:]), np.nan)
+    return np.concatenate((power, unobserved))
