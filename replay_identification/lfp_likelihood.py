@@ -19,13 +19,13 @@ def lfp_likelihood_ratio(lfps, is_candidate_replay, sampling_frequency):
     '''
     ripple_band_power = estimate_ripple_band_power(
         lfps, sampling_frequency)
-    out_replay_likelihood = kde.score_samples(np.log(
     kde = estimate_kernel_density(ripple_band_power)
+    out_replay_log_likelihood = kde.score_samples(np.log(
         ripple_band_power[~is_candidate_replay]))
-    in_replay_likelihood = kde.score_samples(
+    in_replay_log_likelihood = kde.score_samples(
         np.log(ripple_band_power[is_candidate_replay]))
 
-    return in_replay_likelihood - out_replay_likelihood
+    return in_replay_log_likelihood - out_replay_log_likelihood
 
 
 def estimate_kernel_density(ripple_band_power):
