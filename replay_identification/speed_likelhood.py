@@ -16,22 +16,14 @@ def log_likelihood(speed, is_state):
     log_likelihood : ndarray, shape (n_time)
 
     '''
-    likelihood_ratio = (log_likelihood(speed[is_candidate_replay]) -
-                        log_likelihood(speed[~is_candidate_replay]))
-    likelihood_ratio[speed > speed_threshold] = -speed[
-        speed > speed_threshold]
-    return likelihood_ratio
-
     speed_change = np.diff(speed)
     speed_change = np.insert(speed_change, 0, np.nan)
     speed_std = np.nanstd(speed_change[is_state])
     return (-np.log(speed_std) - 0.5 * speed_change ** 2) / speed_std ** 2
 
-def estimate_indicator_probability(speed, is_candidate_replay):
-    '''Estimate the predicted probablity of replay given speed and whether
-    it was a replay in the previous time step.
 
-    p(I_t | I_t-1, v_t-1)
+def estimate_speed_likelihood_ratio(speed, is_replay, speed_threshold=4):
+    '''p(v_t|v_{t-1}, I_t)
 
     l_vel in Long Tao's code
 
@@ -46,3 +38,11 @@ def estimate_indicator_probability(speed, is_candidate_replay):
     likelihood_ratio : ndarray (n_time,)
 
     '''
+    log_likelihood_ratio = (
+        log_likelihood(speed, is_replay) -
+        log_likelihood(speed, ~is_replay & (speed <= speed_threshold)))
+    log_likelihood_ratio[speed > speed_threshold] = -speed[
+        speed > speed_threshold]
+    likelihood_ratio = np.exp(log_likelihood_ratio)
+    likelihood_ratio[np.isposinf(likelihood_ratio)] = 1
+    return likelihood_ratio
