@@ -1,11 +1,10 @@
 import numpy as np
 
 
-def log_likelihood(speed):
-    speed_std = np.std(speed[1:] - speed[:-1])
-    return (-np.log(speed_std) - 0.5 * (speed[1:] -
-            speed[:-1]) ** 2) / speed_std ** 2
+def log_likelihood(speed, is_state):
+    '''Gaussian random walk with state dependent variance.
 
+    Note: 2pi?
 
     Parameters
     ----------
@@ -14,7 +13,7 @@ def log_likelihood(speed):
 
     Returns
     -------
-    likelihood_ratio : ndarray (n_time,)
+    log_likelihood : ndarray, shape (n_time)
 
     '''
     likelihood_ratio = (log_likelihood(speed[is_candidate_replay]) -
@@ -34,7 +33,7 @@ def estimate_indicator_probability(speed, is_candidate_replay):
 
     p(I_t | I_t-1, v_t-1)
 
-    p_I_0, p_I_1 in Long Tao's code
+    l_vel in Long Tao's code
 
     Parameters
     ----------
@@ -44,6 +43,6 @@ def estimate_indicator_probability(speed, is_candidate_replay):
 
     Returns
     -------
-    probability_replay : ndarray, shape (2, n_time)
+    likelihood_ratio : ndarray (n_time,)
 
     '''
