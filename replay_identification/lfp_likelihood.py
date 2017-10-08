@@ -3,28 +3,28 @@ from statsmodels.nonparametric.kernel_density import KDEMultivariate
 from spectral import Multitaper, Connectivity
 
 
-def lfp_likelihood_ratio(lfps, is_candidate_replay, sampling_frequency):
+def lfp_likelihood_ratio(lfps, is_replay, sampling_frequency):
     '''The likelihood of being in a replay state over time given the
     spectral power of the local field potentials (LFPs).
 
     Parameters
     ----------
     lfps : ndarray, shape (n_time, n_signals)
-    is_candidate_replay : bool ndarray, shape (n_time,)
+    is_replay : bool ndarray, shape (n_time,)
     sampling_frequency : float
 
     Returns
     -------
-    log_likelihood_ratio : ndarray (n_time,)
+    likelihood_ratio : ndarray (n_time,)
 
     '''
     ripple_band_power = np.log(estimate_ripple_band_power(
         lfps, sampling_frequency))
 
     out_replay_kde = estimate_kernel_density(
-        ripple_band_power[~is_candidate_replay])
+        ripple_band_power[~is_replay])
     in_replay_kde = estimate_kernel_density(
-        ripple_band_power[is_candidate_replay])
+        ripple_band_power[is_replay])
 
     out_replay_likelihood = out_replay_kde.pdf(ripple_band_power)
     in_replay_likelihood = in_replay_kde.pdf(ripple_band_power)

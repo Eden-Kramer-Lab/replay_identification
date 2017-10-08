@@ -9,17 +9,10 @@ def log_likelihood(speed):
             speed[:-1]) ** 2) / speed_std ** 2
 
 
-def estimate_speed_likelihood_ratio(speed, is_candidate_replay,
-                                    speed_threshold=4):
-    '''p(v_t|v_{t-1}, I_t)
-
-    l_vel in Long Tao's code
-
     Parameters
     ----------
     speed : ndarray, shape (n_time,)
-    is_candidate_replay : boolean ndarray, shape (n_time,)
-    speed_threshold : float, optional
+    is_state, ndarray, bool, shape (n_time,)
 
     Returns
     -------
@@ -44,7 +37,8 @@ def estimate_indicator_probability(speed, is_candidate_replay):
     Parameters
     ----------
     speed : ndarray, shape (n_time,)
-    is_candidate_replay : boolean ndarray, shape (n_time,)
+    is_replay : boolean ndarray, shape (n_time,)
+    speed_threshold : float, optional
 
     Returns
     -------
