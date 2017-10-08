@@ -1,6 +1,4 @@
 import numpy as np
-from statsmodels.api import GLM, families
-from patsy import build_design_matrices, dmatrix
 
 
 def log_likelihood(speed):
@@ -45,15 +43,3 @@ def estimate_indicator_probability(speed, is_candidate_replay):
     probability_replay : ndarray, shape (2, n_time)
 
     '''
-
-    design_matrix = dmatrix('is_replay + bs(speed, knots=[1, 2, 3, 20])',
-                            dict(speed=speed[1:],
-                                 is_replay=is_candidate_replay))
-    fit = GLM(is_candidate_replay[1:], design_matrix,
-              family=families.Binomial()).fit()
-
-    predict_design_matrix = build_design_matrices(
-        [design_matrix.design_info],
-        dict(is_replay=np.unique(is_candidate_replay)))[0]
-    return (np.exp(np.dot(predict_design_matrix, fit.params)) /
-            (1 + np.exp(np.dot(predict_design_matrix, fit.params))))
