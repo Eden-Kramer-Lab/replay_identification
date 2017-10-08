@@ -29,7 +29,7 @@ def lfp_likelihood_ratio(lfps, is_replay, sampling_frequency):
     out_replay_likelihood = out_replay_kde.pdf(ripple_band_power)
     in_replay_likelihood = in_replay_kde.pdf(ripple_band_power)
 
-    return np.log(in_replay_likelihood / out_replay_likelihood)
+    return in_replay_likelihood / out_replay_likelihood
 
 
 def estimate_kernel_density(ripple_band_power):
