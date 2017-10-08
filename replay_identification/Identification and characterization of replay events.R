@@ -184,32 +184,34 @@ lfps[6, ] <- LFP$data[1:dim(lfps)[2]]
 ###########################################
 
 ## &2.1 Fit P(v_t|v_{t-1},I_t=1), in replay state
-velocity_log_likelihood <- function(sigma, vel, n, mu) {
-  log_p_v <- -log(sigma) - 0.5 * (vel[2:n] - mu) ^ 2 / sigma ^ 2
-  return(log_p_v)
-}
+idx <- I[2:n]
+v_t_1 <- (vel_1[1:(n - 1)])[idx > 0]  # v_{t-1}
+v_t <- vel_1[2:n][idx > 0]  # v_t
+sigma1 <- sd(v_t - v_t_1)
+alpha1 <- 1  # random walk
+mu_1 <- vel_1[1:(n - 1)]
+mu_1[mu_1 < 0] <- 0
 
-velocity_probability <- function(n, vel_1) {
-  v_t_1 <- (vel_1[1:(n - 1)])  # v_{t-1}
-  v_t <- vel_1[2:n]  # v_t
-  sigma <- sd(v_t - v_t_1)
-  alpha <- 1  # random walk
-  mu <- vel_1[1:(n - 1)]
-  mu[mu < 0] <- 0
-  return(velocity_log_likelihood(sigma, vel, n, mu))
-}
+# log_likelihood
+log_p_v_1 <- -log(sigma1) - 0.5 * (vel_1[2:n] - mu_1) ^ 2 / sigma1 ^ 2
 
-velocity_log_likelihood_ratio <- function(n, vel_1, I) {
-  log_p_v_1 <- velocity_probability(n, vel_1[I == 1])
-  log_p_v_0 <- velocity_probability(n, vel_1[I == 0])
-  
-  ### log_likelihood ratio
-  l_vel <- log_p_v_1 - log_p_v_0
-  l_vel[vel_1 > 4] <- -vel_1[vel_1 > 4]
-  return(l_vel)
-}
+### Fit P(v_t|v_{t-1},I_t=1), out of replay state and no active exploration
+idx <- I[2:n]
+v_t_1 <- (vel_1[1:(n - 1)])[idx < 1]
+v_t <- vel_1[2:n][idx < 1]
+idx <- v_t <= 4
+v_t_1 <- v_t_1[idx]
+v_t <- v_t[idx]
+sigma0 <- sd(v_t - v_t_1)
+mu_0 <- vel_1[1:(n - 1)]
+log_p_v_0 <- -log(sigma0) - 0.5 * (vel_1[2:n] - mu_0) ^ 2 / sigma0 ^ 2
 
-l_vel <- velocity_log_likelihood_ratio(n, vel_1, I)
+### log_likelihood ratio
+l_vel <- log_p_v_1 - log_p_v_0
+time <- time_vel_1
+l_vel[vel_1 > 4] <- -vel_1[vel_1 > 4]
+# Here the setting is a little artiticial,due to subjective understand
+# about the data
 
 
 ## & 2.2 Fit p(I_t|I_t-1,v_t-1), replay state transition modeling
