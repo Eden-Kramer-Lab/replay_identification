@@ -216,79 +216,29 @@ l_vel[vel_1 > 4] <- -vel_1[vel_1 > 4]
 
 ## & 2.2 Fit p(I_t|I_t-1,v_t-1), replay state transition modeling
 
-I_y <- I[-1]  # time t
-I_x <- I[-n]  # time t-1
-xx <- vel_1[-n]  # time t-1
+replay_state_transition <- function(I, n, vel_1, v, t, cm, s, i) {
+  
+  I_y <- I[-1]  # time t
+  I_x <- I[-n]  # time t-1
+  xx <- vel_1[-n]  # time t-1
+  
+  # logistic regression fit, with natural splines
+  fit12 <- glm(I_y ~ I_x + bs(xx, knots = c(1, 2, 3, 20)),
+               family = binomial(link = "logit"))
+  
+  # p(I_t|I_t-1,v_t-1);t=2:n
+  p_I_1 <- predict(fit12, data.frame(I_x = 1, xx = xx))  #I_t-1=1
+  p_I_0 <- predict(fit12, data.frame(I_x = 0, xx = xx))  #I_t-1=0
+  p_I_1 <- exp(p_I_1) / (1 + exp(p_I_1))
+  p_I_0 <- exp(p_I_0) / (1 + exp(p_I_0))  # predicted probability
+  
+  return(list(p_I_0=p_I_0, p_I_1=p_I_1))
 
-#### Normalized histogram of ripple state versus speed, I_{t-1} = 0
-par(mfrow = c(2, 2))
-temp <- xx < 6 & I_x < 1
-I_t <- I_y[temp]
-vel_0 <- xx[temp]
-bins <- seq(0, 6, by = 0.2)
-spikehist <- hist(vel_0[I_t > 0], breaks = bins, plot = F)
-occupancy <- hist(vel_0, breaks = bins, plot = F)
-norm_spike <- spikehist$counts / occupancy$counts
-norm_spike[is.na(norm_spike)] <- 0
-plot(bins[-1], norm_spike, type = "n", xlab = expression(v[t - 1](cm / s)),
-     ylab = "Ripple state prop", ylim = range(norm_spike) * 1.2)
-title(main = expression(I[t - 1] == 1))
-for (i in 1:length(bins)) {
-  segments(bins[i], 0, bins[i], norm_spike[i], col = 1, lwd = 4)
 }
 
-#### I_t = 1
-temp <- xx < 6 & I_x > 0
-I_t <- I_y[temp]
-vel_0 <- xx[temp]
-bins <- seq(0, 6, by = 0.2)
-spikehist <- hist(vel_0[I_t > 0], breaks = bins, plot = F)
-occupancy <- hist(vel_0, breaks = bins, plot = F)
-norm_spike <- spikehist$counts / occupancy$counts
-norm_spike[is.na(norm_spike)] <- 0
-plot(bins[-1], norm_spike, type = "n", xlab = expression(v[t - 1](cm / s)),
-     ylab = "Ripple state prop", ylim = range(norm_spike) * 1.2)
-title(main = expression(I[t - 1] == 1))
-for (i in 1:length(bins)) {
-  segments(bins[i], 0, bins[i], norm_spike[i], col = 1, lwd = 4)
-}
-
-# logistic regression fit, with natural splines
-fit12 <- glm(I_y ~ I_x + bs(xx, knots = c(1, 2, 3, 20)),
-             family = binomial(link = "logit"))
-
-# p(I_t|I_t-1,v_t-1);t=2:n
-p_I_1 <- predict(fit12, data.frame(I_x = 1, xx = xx))  #I_t-1=1
-p_I_0 <- predict(fit12, data.frame(I_x = 0, xx = xx))  #I_t-1=0
-p_I_1 <- exp(p_I_1) / (1 + exp(p_I_1))
-p_I_0 <- exp(p_I_0) / (1 + exp(p_I_0))  # predicted probability
-
-
-# plot out fitted model
-x_grid <- seq(0, 6, by = 0.1)
-y_p <- predict(fit12, data.frame(I_x = 0, xx = x_grid), se.fit = TRUE)
-y_0 <- exp(y_p$fit) / (1 + exp(y_p$fit))
-plot(x_grid, y_0, type = "l", col = "red", xlim = c(0, 6),
-     main = expression(I[t - 1] == 0), xlab = expression(v[t - 1](cm / s)),
-     ylab = expression(p(I[t] == 1)))
-y1 <- exp(y_p$fit + 2 * y_p$se.fit) / (1 + exp(y_p$fit + 2 * y_p$se.fit))
-names(y_p)
-lines(x_grid, y1, lty = 2)
-y2 <- (exp(y_p$fit - 1.96 * y_p$se.fit) /
-       (1 + exp(y_p$fit - 1.96 * y_p$se.fit)))
-lines(x_grid, y2, lty = 2)
-
-y_p <- predict(fit12, data.frame(I_x = 1, xx = x_grid), se.fit = TRUE)
-y_0 <- exp(y_p$fit) / (1 + exp(y_p$fit))
-plot(x_grid, y_0, type = "l", col = "red", xlim = c(0, 6),
-     ylim = c(0, 1.1), main = expression(I[t - 1] == 1),
-     xlab = expression(v[t - 1](cm / s)), ylab = expression(p(I[t] == 1)))
-y1 <- exp(y_p$fit + 2 * y_p$se.fit) / (1 + exp(y_p$fit + 2 * y_p$se.fit))
-names(y_p)
-lines(x_grid, y1, lty = 2)
-y2 <- (exp(y_p$fit - 1.96 * y_p$se.fit) /
-       (1 + exp(y_p$fit - 1.96 * y_p$se.fit)))
-lines(x_grid, y2, lty = 2)  # up and lower bound
+state_transition = replay_state_transition(I, n, vel_1, v, t, cm, s, i)
+p_I_0 = state_transition$p_I_0
+p_I_1 = state_transition$p_I_1
 
 
 ## 2.3 Spectral regression p(Y_f|I_t)
