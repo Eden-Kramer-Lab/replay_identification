@@ -23,6 +23,10 @@ def log_likelihood(speed):
         speed > speed_threshold]
     return likelihood_ratio
 
+    speed_change = np.diff(speed)
+    speed_change = np.insert(speed_change, 0, np.nan)
+    speed_std = np.nanstd(speed_change[is_state])
+    return (-np.log(speed_std) - 0.5 * speed_change ** 2) / speed_std ** 2
 
 def estimate_indicator_probability(speed, is_candidate_replay):
     '''Estimate the predicted probablity of replay given speed and whether
