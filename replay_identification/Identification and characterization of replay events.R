@@ -645,3 +645,27 @@ for (i in 2:n) {
   q_spiking[i] <- q1 / (q1 + q2)
 }
 summary(q_spiking)
+
+
+
+vel_idx = 0 # whether we consider p(v_t|v_{t-1}, I_t)
+# integrate information form multiple sources, with multiple time scale
+q = numeric(n);  # posterior density
+
+m = length(x_grid)         # x_grid is the discrete grid in linear space, 1:180 (or 1:200) for example
+q1_x = matrix(0, m, n)  # replay period, joint with hidden state $x$.
+q0 = numeric(0)           # non-replay period.
+
+for (i in 2:(n)) {
+  idx = i%%10  # do this since the LFP information comes in every 20 ms, 10 times slower than spiking information
+  temp = p_I_1[i]*(x_transition_1%*%q1_x[,i-1]*by) +
+    p_I_0[i]*(1-q[i-1])*rep(1/m,m)        # the sum and integral calculation, calculating one-step prediction density 
+  p_deltaN_1 = log(Lambda)%*%N_spiking[,i] - rowSums(Lambda)  
+  l_spiking = p_deltaN_1 - p_deltaN_0[i]     # likelihood ratio from spiking
+  
+  q1_x[,i]=exp(l_LFP[i%/%10+1]*(idx==0))*exp(l_vel[i-1]*vel_idx)*exp(l_spiking)*temp
+  q0 = ((1-p_I_0[i-1])*(1-q[i-1])+(1-p_I_1[i-1])*q[i-1])
+  q[i] = sum(q1_x[,i]*by/m)/(sum(q1_x[,i]*by/m) + q0)
+  q1_x[,i] = q1_x[,i]/(sum(q1_x[,i]*by/m)+q0)      # normalize q1_x
+}
+summary(q)
