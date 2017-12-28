@@ -4,8 +4,6 @@ import numpy as np
 def log_likelihood(speed, is_state):
     '''Gaussian random walk with state dependent variance.
 
-    Note: 2pi?
-
     Parameters
     ----------
     speed : ndarray, shape (n_time,)
