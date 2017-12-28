@@ -1,6 +1,7 @@
 import numpy as np
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
-from spectral import Multitaper, Connectivity
+
+from spectral_connectivity import Connectivity, Multitaper
 
 
 def lfp_likelihood_ratio(lfps, is_replay, sampling_frequency):
