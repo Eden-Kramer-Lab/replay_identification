@@ -15,7 +15,8 @@ def mean_squared(x):
 def normalize(y, x=None):
     """normalize power in y to a (standard normal) white noise signal.
     Optionally normalize to power in signal `x`.
-    #The mean power of a Gaussian with :math:`\\mu=0` and :math:`\\sigma=1` is 1.
+    The mean power of a Gaussian with :math:`\\mu=0` and :math:`\\sigma=1` is
+    1.
     https://github.com/python-acoustics/python-acoustics/tree/master/acoustics
     """
     x = mean_squared(x) if x is not None else 1.0
@@ -53,9 +54,10 @@ def white(N, state=None):
     :param state: State of PRNG.
     :type state: :class:`np.random.RandomState`
 
-    White noise has a constant power density. It's narrowband spectrum is therefore flat.
-    The power in white noise will increase by a factor of two for each octave band,
-    and therefore increases with 3 dB per octave.
+    White noise has a constant power density. It's narrowband spectrum is
+    therefore flat. The power in white noise will increase by a factor of two
+    for each octave band and therefore increases with 3 dB per octave.
+
     """
     state = np.random.RandomState() if state is None else state
     return state.randn(N)
