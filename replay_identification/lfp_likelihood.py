@@ -26,10 +26,15 @@ def lfp_likelihood_ratio(lfps, is_replay, sampling_frequency):
     in_replay_kde = estimate_kernel_density(
         ripple_band_power[is_replay])
 
-    out_replay_likelihood = out_replay_kde.pdf(ripple_band_power)
-    in_replay_likelihood = in_replay_kde.pdf(ripple_band_power)
+    out_replay_likelihood = bias_zero(out_replay_kde.pdf(ripple_band_power))
+    in_replay_likelihood = bias_zero(in_replay_kde.pdf(ripple_band_power))
 
     return in_replay_likelihood / out_replay_likelihood
+
+
+def bias_zero(x):
+    x[np.isclose(x, 0.0)] = np.spacing(1)
+    return x
 
 
 def estimate_kernel_density(ripple_band_power):
