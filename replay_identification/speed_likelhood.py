@@ -38,7 +38,7 @@ def estimate_speed_likelihood_ratio(speed, is_replay, speed_threshold=4):
     '''
     log_likelihood_ratio = (
         log_likelihood(speed, is_replay) -
-        log_likelihood(speed, ~is_replay & (speed <= speed_threshold)))
+        log_likelihood(speed, ~is_replay))
     log_likelihood_ratio[speed > speed_threshold] = -speed[
         speed > speed_threshold]
     likelihood_ratio = np.exp(log_likelihood_ratio)
