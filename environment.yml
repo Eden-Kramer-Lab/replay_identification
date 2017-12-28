@@ -2,11 +2,14 @@ name: replay_identification
 channels:
 - defaults
 - conda-forge
+- edeno
 dependencies:
 - "python>=3.4"
 - numpy
+- scipy
 - statsmodels
 - matplotlib
+- spectral_connectivity
 - patsy
 - jupyter
 - nb_conda
