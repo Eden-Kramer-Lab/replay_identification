@@ -6,6 +6,7 @@ dependencies:
 - "python>=3.4"
 - numpy
 - statsmodels
+- matplotlib
 - patsy
 - jupyter
 - nb_conda
