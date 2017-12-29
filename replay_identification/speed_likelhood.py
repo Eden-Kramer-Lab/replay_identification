@@ -15,7 +15,7 @@ def log_likelihood(speed, is_state):
 
     '''
     speed_change = np.diff(speed)
-    speed_change = np.insert(speed_change, 0, np.nan)
+    speed_change = np.insert(speed_change, 0, 0.0)
     speed_std = np.nanstd(speed_change[is_state])
     return -np.log(speed_std) - 0.5 * speed_change ** 2 / speed_std ** 2
 
