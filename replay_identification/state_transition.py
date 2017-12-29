@@ -3,7 +3,7 @@ from statsmodels.api import GLM, families
 from patsy import build_design_matrices, dmatrices
 
 
-def estimate_indicator_probability(speed, is_replay):
+def estimate_indicator_probability(speed, is_replay, penalty=1E-5):
     '''Estimate the predicted probablity of replay given speed and whether
     it was a replay in the previous time step.
 
@@ -22,15 +22,18 @@ def estimate_indicator_probability(speed, is_replay):
 
     '''
     data = {
-        'is_replay': is_replay[:-1],
-        'lagged_is_replay': is_replay[1:],
+        'is_replay': is_replay[:-1].astype(float),
+        'lagged_is_replay': is_replay[1:].astype(float),
         'lagged_speed': speed[1:]
     }
-    MODEL_FORMULA = ('is_replay ~ lagged_is_replay + '
-                     'bs(lagged_speed, knots=[1, 2, 3, 20])')
+    MODEL_FORMULA = ('is_replay ~ 1 + lagged_is_replay + '
+                     'cr(lagged_speed, knots=[1, 2, 3, 20], constraints="center")')
     response, design_matrix = dmatrices(MODEL_FORMULA, data)
     family = families.Binomial()
-    fit = GLM(response, design_matrix, family=family).fit()
+    regularization_weights = np.ones((design_matrix.shape[1],)) * penalty
+    regularization_weights[0] = 0.0
+    model = GLM(response, design_matrix, family=family)
+    fit = model.fit_regularized(alpha=regularization_weights, L1_wt=0)
 
     probability_replay_given_no_previous_replay = predict_probability(
         0, design_matrix, fit, speed, family)
