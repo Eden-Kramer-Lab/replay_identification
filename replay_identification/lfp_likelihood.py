@@ -4,7 +4,7 @@ from statsmodels.nonparametric.kernel_density import KDEMultivariate
 from spectral_connectivity import Connectivity, Multitaper
 
 
-def lfp_likelihood_ratio(lfps, is_replay, sampling_frequency):
+def estimate_lfp_likelihood_ratio(lfps, is_replay, sampling_frequency):
     '''The likelihood of being in a replay state over time given the
     spectral power of the local field potentials (LFPs).
 
