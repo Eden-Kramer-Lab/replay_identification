@@ -27,8 +27,9 @@ def estimate_indicator_probability(speed, is_replay, penalty=1E-5):
         'lagged_is_replay': is_replay[:-1].astype(float),
         'lagged_speed': speed[:-1]
     }
-    MODEL_FORMULA = ('is_replay ~ 1 + lagged_is_replay + '
-                     'cr(lagged_speed, knots=[1, 2, 3, 20], constraints="center")')
+    MODEL_FORMULA = (
+        'is_replay ~ 1 + lagged_is_replay + '
+        'cr(lagged_speed, knots=[1, 2, 3, 20], constraints="center")')
     response, design_matrix = dmatrices(MODEL_FORMULA, data)
     family = families.Binomial()
     regularization_weights = np.ones((design_matrix.shape[1],)) * penalty
