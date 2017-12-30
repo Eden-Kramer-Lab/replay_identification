@@ -69,8 +69,7 @@ def predict_probability(lagged_is_replay, design_matrix, fit, speed,
     }
     predict_design_matrix = build_design_matrices(
         [design_matrix.design_info], predict_data)[0]
-    linear_predictor = np.dot(predict_design_matrix, fit.params)
-    probability = family.link.inverse(linear_predictor)
+    probability = fit.predict(predict_design_matrix)
     return np.insert(np.nan, 1, probability)
 
 
