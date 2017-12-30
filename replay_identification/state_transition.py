@@ -1,6 +1,7 @@
 import numpy as np
 from statsmodels.api import GLM, families
 from patsy import build_design_matrices, dmatrices
+from scipy.stats import norm
 
 
 def estimate_indicator_probability(speed, is_replay, penalty=1E-5):
