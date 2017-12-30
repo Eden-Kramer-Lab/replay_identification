@@ -25,7 +25,6 @@ def estimate_indicator_probability(speed, is_replay, penalty=1E-5):
     data = {
         'is_replay': is_replay[:-1].astype(float),
         'lagged_is_replay': is_replay[1:].astype(float),
-        'lagged_speed': speed[1:]
     }
     MODEL_FORMULA = ('is_replay ~ 1 + lagged_is_replay + '
                      'cr(lagged_speed, knots=[1, 2, 3, 20], constraints="center")')
@@ -63,8 +62,8 @@ def predict_probability(lagged_is_replay, design_matrix, fit, speed,
 
     '''
     predict_data = {
-        'lagged_is_replay': lagged_is_replay * np.ones_like(speed[1:]),
-        'lagged_speed': speed[1:]
+        'lagged_is_replay': lagged_is_replay * np.ones_like(speed[:-1]),
+        'lagged_speed': speed[:-1]
     }
     predict_design_matrix = build_design_matrices(
         [design_matrix.design_info], predict_data)[0]
