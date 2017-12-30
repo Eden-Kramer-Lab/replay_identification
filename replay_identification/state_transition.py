@@ -23,8 +23,9 @@ def estimate_indicator_probability(speed, is_replay, penalty=1E-5):
 
     '''
     data = {
-        'is_replay': is_replay[:-1].astype(float),
-        'lagged_is_replay': is_replay[1:].astype(float),
+        'is_replay': is_replay[1:].astype(float),
+        'lagged_is_replay': is_replay[:-1].astype(float),
+        'lagged_speed': speed[:-1]
     }
     MODEL_FORMULA = ('is_replay ~ 1 + lagged_is_replay + '
                      'cr(lagged_speed, knots=[1, 2, 3, 20], constraints="center")')
