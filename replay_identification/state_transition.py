@@ -2,6 +2,7 @@ import numpy as np
 from statsmodels.api import GLM, families
 from patsy import build_design_matrices, dmatrices
 from scipy.stats import norm
+from statsmodels.tsa.tsatools import lagmat
 
 
 def estimate_indicator_probability(speed, is_replay, penalty=1E-5):
@@ -23,9 +24,9 @@ def estimate_indicator_probability(speed, is_replay, penalty=1E-5):
 
     '''
     data = {
-        'is_replay': is_replay[1:].astype(float),
-        'lagged_is_replay': is_replay[:-1].astype(float),
-        'lagged_speed': speed[:-1]
+        'is_replay': is_replay.astype(np.float64),
+        'lagged_is_replay': lagmat(is_replay, maxlag=1).astype(np.float64),
+        'lagged_speed': lagmat(speed, maxlag=1)
     }
     MODEL_FORMULA = (
         'is_replay ~ 1 + lagged_is_replay + '
