@@ -1,46 +1,78 @@
+"""Calculates the evidence of being in a replay state based on the
+current speed and the speed in the previous time step.
+
+"""
 import numpy as np
+from functools import partial
 
 
-def log_likelihood(speed, is_state):
-    '''Gaussian random walk with state dependent variance.
+def speed_log_likelihood(speed_change, speed_std):
+    """The likelihood based on a Gaussian random walk.
 
     Parameters
     ----------
-    speed : ndarray, shape (n_time,)
-    is_state, ndarray, bool, shape (n_time,)
+    speed_change : ndarray
+    speed_std : float
 
     Returns
     -------
-    log_likelihood : ndarray, shape (n_time)
+    log_likelihood : ndarray
 
-    '''
-    speed_change = np.diff(speed)
-    speed_change = np.insert(speed_change, 0, 0.0)
-    speed_std = np.nanstd(speed_change[is_state])
+    """
     return -np.log(speed_std) - 0.5 * speed_change ** 2 / speed_std ** 2
 
 
-def estimate_speed_likelihood_ratio(speed, is_replay, speed_threshold=4):
-    '''p(v_t|v_{t-1}, I_t)
-
-    l_vel in Long Tao's code
+def speed_likelihood_ratio(speed, lagged_speed, replay_speed_std,
+                           no_replay_speed_std, speed_threshold=4.0):
+    """Calculates the evidence of being in a replay state based on the
+    current speed and the speed in the previous time step.
 
     Parameters
     ----------
-    speed : ndarray, shape (n_time,)
-    is_replay : boolean ndarray, shape (n_time,)
+    speed : ndarray
+    lagged_speed : ndarray
+    replay_speed_std : float
+    no_replay_speed_std : float
     speed_threshold : float, optional
 
     Returns
     -------
-    likelihood_ratio : ndarray (n_time,)
+    speed_likelihood_ratio : ndarray
 
-    '''
-    log_likelihood_ratio = (
-        log_likelihood(speed, is_replay) -
-        log_likelihood(speed, ~is_replay))
+    """
+    speed_change = np.squeeze(speed) - np.squeeze(lagged_speed)
+    replay_log_likelihood = speed_log_likelihood(
+        speed_change, replay_speed_std)
+    no_replay_log_likelihood = speed_log_likelihood(
+        speed_change, no_replay_speed_std)
+    log_likelihood_ratio = replay_log_likelihood - no_replay_log_likelihood
+    # Ask long tao about this line
     log_likelihood_ratio[speed > speed_threshold] = -speed[
         speed > speed_threshold]
     likelihood_ratio = np.exp(log_likelihood_ratio)
     likelihood_ratio[np.isposinf(likelihood_ratio)] = 1
     return likelihood_ratio
+
+
+def fit_speed_likelihood_ratio(speed, is_replay, speed_threshold=4.0):
+    """Fits the standard deviation of the change in speed for the replay and
+    non-replay state.
+
+    Parameters
+    ----------
+    speed : ndarray, shape (n_time,)
+    is_replay : ndarray, shape (n_time,)
+    speed_threshold : float, optional
+
+    Returns
+    -------
+    speed_likelihood_ratio : function
+
+    """
+    speed_change = np.insert(np.diff(speed), 0, np.nan)
+    replay_speed_std = np.nanstd(speed_change[is_replay])
+    no_replay_speed_std = np.nanstd(speed_change[~is_replay])
+    return partial(speed_likelihood_ratio,
+                   replay_speed_std=replay_speed_std,
+                   no_replay_speed_std=no_replay_speed_std,
+                   speed_threshold=speed_threshold)
