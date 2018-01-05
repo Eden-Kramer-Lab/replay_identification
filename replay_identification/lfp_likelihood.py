@@ -1,12 +1,22 @@
 import numpy as np
+from functools import partial
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
 
 from spectral_connectivity import Connectivity, Multitaper
 
 
-def estimate_lfp_likelihood_ratio(lfps, is_replay, sampling_frequency):
-    '''The likelihood of being in a replay state over time given the
-    spectral power of the local field potentials (LFPs).
+def lfp_likelihood_ratio(ripple_band_power, out_replay_kde, in_replay_kde):
+    out_replay_likelihood = bias_zero(out_replay_kde.pdf(
+        np.log(ripple_band_power)))
+    in_replay_likelihood = bias_zero(in_replay_kde.pdf(
+        np.log(ripple_band_power)))
+
+    return in_replay_likelihood / out_replay_likelihood
+
+
+def fit_lfp_likelihood_ratio(lfps, is_replay, sampling_frequency):
+    """Fits the likelihood of being in a replay state over time given the
+     spectral power of the local field potentials (LFPs).
 
     Parameters
     ----------
@@ -16,9 +26,9 @@ def estimate_lfp_likelihood_ratio(lfps, is_replay, sampling_frequency):
 
     Returns
     -------
-    likelihood_ratio : ndarray (n_time,)
+    likelihood_ratio : function
 
-    '''
+    """
     ripple_band_power = np.log(estimate_ripple_band_power(
         lfps, sampling_frequency))
 
@@ -27,10 +37,8 @@ def estimate_lfp_likelihood_ratio(lfps, is_replay, sampling_frequency):
     in_replay_kde = estimate_kernel_density(
         ripple_band_power[is_replay])
 
-    out_replay_likelihood = bias_zero(out_replay_kde.pdf(ripple_band_power))
-    in_replay_likelihood = bias_zero(in_replay_kde.pdf(ripple_band_power))
-
-    return in_replay_likelihood / out_replay_likelihood
+    return partial(lfp_likelihood_ratio, out_replay_kde=out_replay_kde,
+                   in_replay_kde=in_replay_kde)
 
 
 def bias_zero(x):
@@ -39,7 +47,7 @@ def bias_zero(x):
 
 
 def estimate_kernel_density(ripple_band_power):
-    '''Evaluate a multivariate gaussian kernel for each time point
+    """Evaluate a multivariate gaussian kernel for each time point.
 
     Parameters
     ----------
@@ -49,7 +57,7 @@ def estimate_kernel_density(ripple_band_power):
     -------
     kernel_density_estimate : function
 
-    '''
+    """
     n_time, n_signals = ripple_band_power.shape
     is_not_nan = np.any(~np.isnan(ripple_band_power), axis=1)
     ripple_band_power = ripple_band_power[is_not_nan]
@@ -62,7 +70,7 @@ def estimate_kernel_density(ripple_band_power):
 
 
 def estimate_ripple_band_power(lfps, sampling_frequency):
-    '''Estimates the 200 Hz power of each LFP
+    """Estimates the 200 Hz power of each LFP.
 
     Parameters
     ----------
@@ -73,7 +81,7 @@ def estimate_ripple_band_power(lfps, sampling_frequency):
     -------
     ripple_band_power : ndarray (n_time, n_signals)
 
-    '''
+    """
     n_time = lfps.shape[0]
     m = Multitaper(lfps, sampling_frequency=sampling_frequency,
                    time_halfbandwidth_product=1,
