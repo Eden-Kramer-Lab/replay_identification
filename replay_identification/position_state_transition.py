@@ -21,10 +21,10 @@ def estimate_movement_variance(position, speed, speed_threshold=4):
 
 
 def estimate_position_state_transition(place_bins, position, variance):
-    '''Zero mean random walk with covariance based on movement
+    """Zero mean random walk with covariance based on movement
 
     p(x_{k} | x_{k-1}, I_{k}, I_{k-1})
-    '''
+    """
     position_bin_size = np.diff(place_bins)[0]
     state_transition_matrix = norm.pdf(
         place_bins[:, np.newaxis], loc=place_bins[np.newaxis, :],

@@ -5,7 +5,7 @@ from statsmodels.tsa.tsatools import lagmat
 
 
 def estimate_indicator_probability(speed, is_replay, penalty=1E-5):
-    '''Estimate the predicted probablity of replay given speed and whether
+    """Estimate the predicted probablity of replay given speed and whether
     it was a replay in the previous time step.
 
     p(I_t | I_t-1, v_t-1)
@@ -21,7 +21,7 @@ def estimate_indicator_probability(speed, is_replay, penalty=1E-5):
     -------
     probability_replay : ndarray, shape (n_time, 2)
 
-    '''
+    """
     data = {
         'is_replay': is_replay.astype(np.float64),
         'lagged_is_replay': lagmat(is_replay, maxlag=1).astype(np.float64),
@@ -48,7 +48,7 @@ def estimate_indicator_probability(speed, is_replay, penalty=1E-5):
 
 def predict_probability(lagged_is_replay, design_matrix, fit, speed,
                         family):
-    '''Predict probability from model.
+    """Predict probability from model.
 
     Parameters
     ----------
@@ -62,7 +62,7 @@ def predict_probability(lagged_is_replay, design_matrix, fit, speed,
     -------
     predicted_probabilities : ndarray, shape (n_time,)
 
-    '''
+    """
     predict_data = {
         'lagged_is_replay': lagged_is_replay * np.ones_like(speed[:-1]),
         'lagged_speed': speed[:-1]
