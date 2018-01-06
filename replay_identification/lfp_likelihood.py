@@ -14,13 +14,13 @@ def lfp_likelihood_ratio(ripple_band_power, out_replay_kde, in_replay_kde):
     return in_replay_likelihood / out_replay_likelihood
 
 
-def fit_lfp_likelihood_ratio(lfps, is_replay, sampling_frequency):
+def fit_lfp_likelihood_ratio(ripple_band_power, is_replay):
     """Fits the likelihood of being in a replay state over time given the
      spectral power of the local field potentials (LFPs).
 
     Parameters
     ----------
-    lfps : ndarray, shape (n_time, n_signals)
+    ripple_band_power : ndarray, shape (n_time, n_signals)
     is_replay : bool ndarray, shape (n_time,)
     sampling_frequency : float
 
@@ -29,8 +29,7 @@ def fit_lfp_likelihood_ratio(lfps, is_replay, sampling_frequency):
     likelihood_ratio : function
 
     """
-    ripple_band_power = np.log(estimate_ripple_band_power(
-        lfps, sampling_frequency))
+    ripple_band_power = np.log(ripple_band_power)
 
     out_replay_kde = estimate_kernel_density(
         ripple_band_power[~is_replay])
