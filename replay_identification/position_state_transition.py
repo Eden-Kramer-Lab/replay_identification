@@ -36,3 +36,14 @@ def estimate_position_state_transition(place_bins, position, variance):
         state_transition_matrix, axis=0, keepdims=True) / position_bin_size
 
     return state_transition_matrix
+
+
+def fit_position_state_transition(position, speed, spikes, place_bins,
+                                  speed_threshold=4.0):
+    if spikes is None:
+        n_place_bins = place_bins.size
+        return np.eye(n_place_bins)
+    movement_variance = estimate_movement_variance(
+        position, speed, speed_threshold)
+    return estimate_position_state_transition(
+        place_bins, position, movement_variance)
