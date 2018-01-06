@@ -36,3 +36,14 @@ def combined_likelihood(log_likelihood_function):
         except ValueError:
             return log_likelihood_function(*args, **kwargs).squeeze()
     return decorated_function
+
+
+def get_place_bins(position, place_bin_size):
+    n_bins = (np.floor(np.ptp(position) / place_bin_size) + 2).astype(np.int)
+    return np.linspace(np.min(position), np.max(position), n_bins)
+
+
+def get_place_bin_centers(bin_edges):
+    '''Given the outer-points of bins, find their center
+    '''
+    return bin_edges[:-1] + np.diff(bin_edges) / 2
