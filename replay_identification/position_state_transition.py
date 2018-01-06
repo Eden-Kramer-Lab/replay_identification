@@ -1,15 +1,18 @@
 import numpy as np
-from statsmodels.api import GLM, families
 from patsy import dmatrices
 from scipy.stats import norm
+from statsmodels.api import GLM, families
+from statsmodels.tsa.tsatools import lagmat
 
 
 def estimate_movement_variance(position, speed, speed_threshold=4):
-    is_above_threshold = speed[1:] > speed_threshold
+    is_above_threshold = speed > speed_threshold
+
+    lagged_position = lagmat(position, maxlag=1)
 
     data = {
-        'position': position[1:][is_above_threshold],
-        'lagged_position': position[:-1][is_above_threshold]
+        'position': position[is_above_threshold],
+        'lagged_position': lagged_position[is_above_threshold]
     }
 
     MODEL_FORMULA = 'position ~ lagged_position - 1'
