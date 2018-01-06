@@ -129,18 +129,16 @@ def spiking_likelihood_ratio(
     return np.exp(replay_log_likelihood - no_replay_log_likelihood)
 
 
-def fit_spiking_likelihood_ratio(training_position, training_spikes,
-                                 place_bin_centers, penalty=1E-5,
-                                 knot_spacing=30, time_bin_size=1):
+def fit_spiking_likelihood_ratio(position, spikes, place_bin_centers,
+                                 penalty=1E-5, time_bin_size=1):
     """Estimate the place field model.
 
     Parameters
     ----------
-    training_position : ndarray, shape (n_time,)
-    training_spikes : ndarray, shape (n_neurons, n_time)
+    position : ndarray, shape (n_time,)
+    spikes : ndarray, shape (n_neurons, n_time)
     place_bin_centers : ndarray, shape (n_place_bins,)
     penalty : float, optional
-    knot_spacing : float, optional
     time_bin_size : float, optional
 
     Returns
@@ -149,18 +147,18 @@ def fit_spiking_likelihood_ratio(training_position, training_spikes,
 
     """
     knots = place_bin_centers.copy()
-    knots = knots[(knots >= np.min(training_position)) &
-                  (knots <= np.max(training_position))]
+    knots = knots[(knots > np.min(position)) &
+                  (knots < np.max(position))]
     formula = ('1 + cr(position, knots=knots, constraints="center")')
 
-    training_data = pd.DataFrame(dict(position=training_position))
+    training_data = pd.DataFrame(dict(position=position))
     design_matrix = dmatrix(
         formula, training_data, return_type='dataframe')
     place_field_coefficients = np.stack(
         [fit_glm_model(
-            pd.DataFrame(spikes).loc[design_matrix.index], design_matrix,
+            pd.DataFrame(s).loc[design_matrix.index], design_matrix,
             penalty=penalty).params
-         for spikes in training_spikes], axis=1)
+         for s in spikes], axis=1)
     place_design_matrix = create_predict_design_matrix(
         place_bin_centers, design_matrix)
     place_conditional_intensity = get_conditional_intensity(
