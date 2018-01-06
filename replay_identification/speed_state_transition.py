@@ -2,9 +2,10 @@ import numpy as np
 from statsmodels.api import GLM, families
 from patsy import build_design_matrices, dmatrices
 from statsmodels.tsa.tsatools import lagmat
+from functools import partial
 
 
-def estimate_indicator_probability(speed, is_replay, penalty=1E-5):
+def fit_speed_state_transition(speed, is_replay, penalty=1E-5):
     """Estimate the predicted probablity of replay given speed and whether
     it was a replay in the previous time step.
 
@@ -36,39 +37,38 @@ def estimate_indicator_probability(speed, is_replay, penalty=1E-5):
     regularization_weights[0] = 0.0
     model = GLM(response, design_matrix, family=family)
     fit = model.fit_regularized(alpha=regularization_weights, L1_wt=0)
-
-    probability_replay_given_no_previous_replay = predict_probability(
-        0, design_matrix, fit, speed, family)
-    probability_replay_given_previous_replay = predict_probability(
-        1, design_matrix, fit, speed, family)
-
-    return np.stack((probability_replay_given_no_previous_replay,
-                     probability_replay_given_previous_replay), axis=1)
+    return partial(predict_probability, design_matrix=design_matrix, fit=fit)
 
 
-def predict_probability(lagged_is_replay, design_matrix, fit, speed,
-                        family):
-    """Predict probability from model.
+def make_design_matrix(lagged_is_replay, lagged_speed, design_matrix):
+    no_previous_replay_predict_data = {
+        'lagged_is_replay': lagged_is_replay * np.ones_like(lagged_speed),
+        'lagged_speed': lagged_speed
+    }
+    return build_design_matrices(
+        [design_matrix.design_info], no_previous_replay_predict_data)[0]
+
+
+def predict_probability(lagged_speed, design_matrix, fit):
+    """Predict probability of replay state given speed and whether it was a
+    replay in the previous time step.
 
     Parameters
     ----------
-    lagged_is_replay : 0 | 1
     design_matrix : patsy design matrix
     fit : statsmodels fitted model
     speed : ndarray, shape (n_time,)
-    family : statsmodels family
 
     Returns
     -------
-    predicted_probabilities : ndarray, shape (n_time,)
+    replay_probability : ndarray, shape (n_time,)
 
     """
-    predict_data = {
-        'lagged_is_replay': lagged_is_replay * np.ones_like(speed[:-1]),
-        'lagged_speed': speed[:-1]
-    }
-    predict_design_matrix = build_design_matrices(
-        [design_matrix.design_info], predict_data)[0]
+    no_previous_replay_design_matrix = make_design_matrix(
+        0, lagged_speed, design_matrix)
 
-    probability = fit.predict(predict_design_matrix)
-    return np.insert(np.nan, 1, probability)
+    previous_replay_design_matrix = make_design_matrix(
+        1, lagged_speed, design_matrix)
+
+    return np.stack((fit.predict(no_previous_replay_design_matrix),
+                     fit.predict(previous_replay_design_matrix)), axis=1)
