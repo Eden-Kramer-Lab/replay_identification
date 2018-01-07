@@ -84,7 +84,7 @@ class ReplayDetector(object):
         place_bins = self.place_bin_centers
         place_bin_size = np.diff(place_bins)[0]
 
-        posterior_density = np.zeros((n_time,))
+        replay_probability = np.zeros((n_time,))
         replay_posterior = np.zeros((n_time, n_place_bins))
         uniform = np.ones((n_place_bins,)) / n_place_bins
         likelihood = np.ones((n_time, 1))
@@ -109,18 +109,18 @@ class ReplayDetector(object):
                 (self._position_state_transition @
                  replay_posterior[time_ind - 1]) +
                 probability_replay[time_ind, 0] *
-                (1 - posterior_density[time_ind - 1]) * uniform)
+                (1 - replay_probability[time_ind - 1]) * uniform)
             updated_posterior = likelihood[time_ind] * replay_prior
             non_replay_posterior = ((1 - probability_replay[time_ind - 1, 0]) *
-                                    (1 - posterior_density[time_ind - 1]) +
+                                    (1 - replay_probability[time_ind - 1]) +
                                     (1 - probability_replay[time_ind - 1, 1]) *
-                                    posterior_density[time_ind - 1])
+                                    replay_probability[time_ind - 1])
             s = np.sum(updated_posterior * place_bin_size / n_place_bins)
             norm = s + non_replay_posterior
-            posterior_density[time_ind] = s / norm
+            replay_probability[time_ind] = s / norm
             replay_posterior[time_ind] = updated_posterior / norm
 
-        return time, replay_posterior, posterior_density
+        return time, replay_posterior, replay_probability, likelihood
 
 
 class DecodingResults():
