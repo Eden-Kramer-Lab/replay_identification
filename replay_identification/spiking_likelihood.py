@@ -60,7 +60,7 @@ def get_conditional_intensity(coefficients, design_matrix):
     conditional_intensity : ndarray, shape (n_coefficients, n_neurons)
 
     """
-    return np.exp(np.dot(design_matrix, coefficients))
+    return np.exp(design_matrix @ coefficients)
 
 
 def atleast_kd(array, k):

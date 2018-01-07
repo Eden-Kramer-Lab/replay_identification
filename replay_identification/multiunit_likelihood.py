@@ -124,7 +124,7 @@ def joint_mark_intensity(marks, training_marks=None,
         mark_space = evaluate_mark_space(
             marks, training_marks=training_marks,
             mark_std_deviation=mark_std_deviation)
-        return np.dot(place_field, mark_space) / place_occupancy
+        return place_field @ mark_space / place_occupancy
     else:
         return np.ones_like(place_occupancy)
 
@@ -273,5 +273,5 @@ def estimate_marginalized_joint_mark_intensity(
     mark_at_spike = _normal_pdf(
         mark_bin_centers[:, np.newaxis, np.newaxis], training_marks,
         mark_std_deviation)
-    return (np.dot(place_field, mark_at_spike) /
+    return (place_field @ mark_at_spike /
             place_occupancy[:, np.newaxis, np.newaxis])

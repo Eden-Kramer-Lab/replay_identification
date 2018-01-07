@@ -106,8 +106,8 @@ class ReplayDetector(object):
         for time_ind in np.arange(1, n_time):
             replay_prior = (
                 probability_replay[time_ind, 1] *
-                (np.dot(self._position_state_transition,
-                        replay_posterior[time_ind - 1])) +
+                (self._position_state_transition @
+                 replay_posterior[time_ind - 1]) +
                 probability_replay[time_ind, 0] *
                 (1 - posterior_density[time_ind - 1]) * uniform)
             updated_posterior = likelihood[time_ind] * replay_prior
