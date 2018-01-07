@@ -45,5 +45,5 @@ def fit_position_state_transition(position, speed, spikes, place_bins,
         return np.eye(n_place_bins)
     movement_variance = estimate_movement_variance(
         position, speed, speed_threshold)
-    return estimate_position_state_transition(
-        place_bins, position, movement_variance)
+    return np.linalg.matrix_power(estimate_position_state_transition(
+        place_bins, position, movement_variance), speed_up_factor)

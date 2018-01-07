@@ -16,12 +16,13 @@ _DEFAULT_LIKELIHOODS = ['spikes', 'lfp_power', 'speed']
 class ReplayDetector(object):
     def __init__(self, speed_threshold=4.0, spike_model_penalty=1E-5,
                  time_bin_size=1, speed_state_transition_penalty=1E-5,
-                 place_bin_size=30):
+                 place_bin_size=30, replay_speed=20):
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
         self.time_bin_size = time_bin_size
         self.speed_state_transition_penalty = speed_state_transition_penalty
         self.place_bin_size = place_bin_size
+        self.replay_speed = replay_speed
 
     def fit(self, is_replay, speed, lfp_power, position,
             spikes=None, multiunit=None):
@@ -53,7 +54,8 @@ class ReplayDetector(object):
             self._spiking_likelihood_ratio = return_None
 
         self._position_state_transition = fit_position_state_transition(
-            position, speed, spikes, self.place_bins, self.speed_threshold)
+            position, speed, spikes, self.place_bin_centers, self.speed_threshold,
+            self.replay_speed)
         self._speed_state_transition = fit_speed_state_transition(
             speed, is_replay, self.speed_state_transition_penalty)
 
