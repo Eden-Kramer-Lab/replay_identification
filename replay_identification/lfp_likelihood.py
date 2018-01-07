@@ -6,12 +6,26 @@ from spectral_connectivity import Connectivity, Multitaper
 
 
 def lfp_likelihood_ratio(ripple_band_power, out_replay_kde, in_replay_kde):
+    """Estimates the likelihood of being in a replay state over time given the
+     spectral power of the local field potentials (LFPs).
+
+    Parameters
+    ----------
+    ripple_band_power : ndarray, shape (n_time, n_signals)
+    out_replay_kde : statsmodels.nonparametric.kernel_density.KDEMultivariate
+    in_replay_kde : statsmodels.nonparametric.kernel_density.KDEMultivariate
+
+    Returns
+    -------
+    lfp_likelihood_ratio : ndarray, shape (n_time, 1)
+
+    """
     out_replay_likelihood = bias_zero(out_replay_kde.pdf(
         np.log(ripple_band_power)))
     in_replay_likelihood = bias_zero(in_replay_kde.pdf(
         np.log(ripple_band_power)))
 
-    return in_replay_likelihood / out_replay_likelihood
+    return (in_replay_likelihood / out_replay_likelihood)[:, np.newaxis]
 
 
 def fit_lfp_likelihood_ratio(ripple_band_power, is_replay):

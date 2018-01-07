@@ -29,15 +29,15 @@ def speed_likelihood_ratio(speed, lagged_speed, replay_speed_std,
 
     Parameters
     ----------
-    speed : ndarray
-    lagged_speed : ndarray
+    speed : ndarray, shape (n_time,)
+    lagged_speed : ndarray, shape (n_time,)
     replay_speed_std : float
     no_replay_speed_std : float
     speed_threshold : float, optional
 
     Returns
     -------
-    speed_likelihood_ratio : ndarray
+    speed_likelihood_ratio : ndarray, shape (n_time, 1)
 
     """
     speed_change = np.squeeze(speed) - np.squeeze(lagged_speed)
@@ -51,7 +51,7 @@ def speed_likelihood_ratio(speed, lagged_speed, replay_speed_std,
         speed > speed_threshold]
     likelihood_ratio = np.exp(log_likelihood_ratio)
     likelihood_ratio[np.isposinf(likelihood_ratio)] = 1
-    return likelihood_ratio
+    return likelihood_ratio[:, np.newaxis]
 
 
 def fit_speed_likelihood_ratio(speed, is_replay, speed_threshold=4.0):
