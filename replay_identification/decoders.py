@@ -51,8 +51,8 @@ class ReplayDetector(object):
 
         """
 
-        self.place_bins = get_place_bins(position, self.place_bin_size)
-        self.place_bin_centers = get_place_bin_centers(self.place_bins)
+        self.place_bin_centers = get_place_bin_centers(
+            get_place_bins(position, self.place_bin_size))
 
         self._speed_likelihood_ratio = fit_speed_likelihood_ratio(
             speed, is_replay, self.speed_threshold)
