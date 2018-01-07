@@ -93,9 +93,9 @@ class ReplayDetector(object):
             'speed': partial(self._speed_likelihood_ratio, speed=speed,
                              lagged_speed=lagged_speed),
             'lfp_power': partial(self._lfp_likelihood_ratio,
-                                 lfp_power=lfp_power),
-            'spikes': partial(self.spikes_likelihood_ratio,
-                              spikes=spikes, position=position),
+                                 ripple_band_power=lfp_power),
+            'spikes': partial(self._spiking_likelihood_ratio,
+                              is_spike=spikes, position=position),
         }
 
         for name, likelihood_func in likelihoods.items():
