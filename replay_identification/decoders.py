@@ -87,6 +87,7 @@ class ReplayDetector(object):
         posterior_density = np.zeros((n_time,))
         replay_posterior = np.zeros((n_time, n_place_bins))
         uniform = np.ones((n_place_bins,)) / n_place_bins
+        likelihood = np.ones((n_time, 1))
 
         likelihoods = {
             'speed': partial(self._speed_likelihood_ratio, speed=speed,
@@ -97,10 +98,9 @@ class ReplayDetector(object):
                               spikes=spikes, position=position),
         }
 
-        likelihood = np.nanprod(np.stack((
-            [likelihood_func() for name, likelihood_func in likelihoods.items()
-             if name.lower() in use_likelihoods]
-        ), axis=1), axis=1)
+        for name, likelihood_func in likelihoods.items():
+            if name.lower() in use_likelihoods:
+                likelihood = likelihood * likelihood_func()
         probability_replay = self._speed_state_transition(lagged_speed)
 
         for time_ind in np.arange(1, n_time):
