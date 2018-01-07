@@ -114,7 +114,7 @@ class ReplayDetector(object):
 
         for name, likelihood_func in likelihoods.items():
             if name.lower() in use_likelihoods:
-                likelihood = likelihood * likelihood_func()
+                likelihood = likelihood * replace_NaN(likelihood_func())
         probability_replay = self._speed_state_transition(lagged_speed)
 
         for time_ind in np.arange(1, n_time):
@@ -170,3 +170,8 @@ def replace_None_with_NaN(n_time, *args):
 
 def return_None():
     pass
+
+
+def replace_NaN(x):
+    x[np.isnan(x)] = 1
+    return x
