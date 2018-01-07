@@ -93,10 +93,8 @@ def poisson_log_likelihood(is_spike, conditional_intensity=None,
     """
     probability_no_spike = -conditional_intensity * time_bin_size
     is_spike = atleast_kd(is_spike, conditional_intensity.ndim)
-    conditional_intensity[
-        np.isclose(conditional_intensity, 0.0)] = np.spacing(1)
     return (np.log(conditional_intensity) * is_spike +
-            probability_no_spike)
+            probability_no_spike) + np.spacing(1)
 
 
 def spiking_likelihood_ratio(
@@ -106,11 +104,11 @@ def spiking_likelihood_ratio(
 
     Parameters
     ----------
-    is_spike : ndarray, shape (n_neurons,)
-    position : float
+    is_spike : ndarray, shape (n_time, n_neurons)
+    position : ndarray, shape (n_time,)
     design_matrix : ndarray, shape (n_time, n_coefficients)
     place_field_coefficients : ndarray, shape (n_coefficients, n_neurons)
-    place_conditional_intensity : ndarray, shape (n_neurons, n_place_bins)
+    place_conditional_intensity : ndarray, shape (1, n_place_bins, n_neurons)
     time_bin_size : float, optional
 
     Returns
@@ -121,11 +119,11 @@ def spiking_likelihood_ratio(
     no_replay_design_matrix = create_predict_design_matrix(
         position, design_matrix)
     no_replay_conditional_intensity = get_conditional_intensity(
-        place_field_coefficients, no_replay_design_matrix).T
+        place_field_coefficients, no_replay_design_matrix)
     no_replay_log_likelihood = poisson_log_likelihood(
-        is_spike, no_replay_conditional_intensity, time_bin_size)
+        is_spike, no_replay_conditional_intensity, time_bin_size)[:, np.newaxis]
     replay_log_likelihood = poisson_log_likelihood(
-        is_spike, place_conditional_intensity, time_bin_size)
+        is_spike[:, np.newaxis, :], place_conditional_intensity, time_bin_size)
     return np.exp(replay_log_likelihood - no_replay_log_likelihood)
 
 
@@ -136,7 +134,7 @@ def fit_spiking_likelihood_ratio(position, spikes, place_bin_centers,
     Parameters
     ----------
     position : ndarray, shape (n_time,)
-    spikes : ndarray, shape (n_neurons, n_time)
+    spikes : ndarray, shape (n_time, n_neurons)
     place_bin_centers : ndarray, shape (n_place_bins,)
     penalty : float, optional
     time_bin_size : float, optional
@@ -158,11 +156,11 @@ def fit_spiking_likelihood_ratio(position, spikes, place_bin_centers,
         [fit_glm_model(
             pd.DataFrame(s).loc[design_matrix.index], design_matrix,
             penalty=penalty).params
-         for s in spikes], axis=1)
+         for s in spikes.T], axis=1)
     place_design_matrix = create_predict_design_matrix(
         place_bin_centers, design_matrix)
     place_conditional_intensity = get_conditional_intensity(
-        place_field_coefficients, place_design_matrix).T
+        place_field_coefficients, place_design_matrix)[np.newaxis, ...]
     return partial(
         spiking_likelihood_ratio,
         design_matrix=design_matrix,
