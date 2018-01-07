@@ -66,7 +66,7 @@ class ReplayDetector(object):
         speed : ndarray, shape (n_time,)
         lfp_power : ndarray, shape (n_time, n_signals)
         position : ndarray, shape (n_time,)
-        spikes : ndarray or None, shape (n_time,)
+        spikes : ndarray or None, shape (n_time, n_neurons)
         multiunit : ndarray or None, shape (n_time,)
         use_likelihoods : speed | lfp_power | spikes, optional
         sampling_frequency : float, optional
