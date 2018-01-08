@@ -127,7 +127,8 @@ def spiking_likelihood_ratio(
     return np.exp(replay_log_likelihood - no_replay_log_likelihood)
 
 
-def fit_spiking_likelihood_ratio(position, spikes, place_bin_centers,
+def fit_spiking_likelihood_ratio(position, spikes, is_replay,
+                                 place_bin_centers, penalty=1E-5,
                                  time_bin_size=1, df=5):
     """Estimate the place field model.
 
@@ -146,14 +147,14 @@ def fit_spiking_likelihood_ratio(position, spikes, place_bin_centers,
     """
     formula = ('1 + cr(position, df=df, constraints="center")')
 
-    training_data = pd.DataFrame(dict(position=position))
+    training_data = pd.DataFrame(dict(position=position[~is_replay]))
     design_matrix = dmatrix(
         formula, training_data, return_type='dataframe')
     place_field_coefficients = np.stack(
         [fit_glm_model(
             pd.DataFrame(s).loc[design_matrix.index], design_matrix,
             penalty=penalty).params
-         for s in spikes.T], axis=1)
+         for s in spikes[~is_replay].T], axis=1)
     place_design_matrix = create_predict_design_matrix(
         place_bin_centers, design_matrix)
     place_conditional_intensity = get_conditional_intensity(
