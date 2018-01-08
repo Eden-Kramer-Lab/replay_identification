@@ -19,8 +19,7 @@ def estimate_movement_variance(position, speed, speed_threshold=4.0):
     response, design_matrix = dmatrices(MODEL_FORMULA, data)
     fit = GLM(response, design_matrix, family=families.Gaussian()).fit()
 
-    sigma = np.sqrt(np.sum(fit.resid_response ** 2) / fit.df_resid)
-    return fit.params[0], sigma
+    return np.sqrt(np.sum(fit.resid_response ** 2) / fit.df_resid)
 
 
 def estimate_position_state_transition(place_bins, position, variance):
@@ -40,7 +39,7 @@ def estimate_position_state_transition(place_bins, position, variance):
 
 def fit_position_state_transition(position, speed, spikes, place_bins,
                                   speed_threshold=4.0, speed_up_factor=20):
-    _, movement_variance = estimate_movement_variance(
+    movement_variance = estimate_movement_variance(
         position, speed, speed_threshold)
     return np.linalg.matrix_power(estimate_position_state_transition(
         place_bins, position, movement_variance), speed_up_factor)
