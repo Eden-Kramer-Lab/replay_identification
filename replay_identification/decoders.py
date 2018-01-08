@@ -60,8 +60,9 @@ class ReplayDetector(object):
             lfp_power, is_replay)
         if spikes is not None:
             self._spiking_likelihood_ratio = fit_spiking_likelihood_ratio(
-                position, spikes, self.place_bin_centers,
-                self.spike_model_penalty, self.time_bin_size)
+                position, spikes, is_replay, self.place_bin_centers,
+                self.spike_model_penalty, self.time_bin_size,
+                self.spike_glm_df)
         else:
             self._spiking_likelihood_ratio = return_None
 
