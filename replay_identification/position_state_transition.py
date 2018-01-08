@@ -5,7 +5,7 @@ from statsmodels.api import GLM, families
 from statsmodels.tsa.tsatools import lagmat
 
 
-def estimate_movement_variance(position, speed, speed_threshold=4):
+def estimate_movement_variance(position, speed, speed_threshold=4.0):
     is_above_threshold = speed > speed_threshold
 
     lagged_position = lagmat(position, maxlag=1)
