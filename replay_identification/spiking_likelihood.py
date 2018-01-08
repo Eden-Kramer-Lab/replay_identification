@@ -128,7 +128,7 @@ def spiking_likelihood_ratio(
 
 
 def fit_spiking_likelihood_ratio(position, spikes, place_bin_centers,
-                                 penalty=1E-5, time_bin_size=1):
+                                 time_bin_size=1, df=5):
     """Estimate the place field model.
 
     Parameters
@@ -144,10 +144,7 @@ def fit_spiking_likelihood_ratio(position, spikes, place_bin_centers,
     spiking_likelihood_ratio : function
 
     """
-    knots = place_bin_centers.copy()
-    knots = knots[(knots > np.min(position)) &
-                  (knots < np.max(position))]
-    formula = ('1 + cr(position, knots=knots, constraints="center")')
+    formula = ('1 + cr(position, df=df, constraints="center")')
 
     training_data = pd.DataFrame(dict(position=position))
     design_matrix = dmatrix(
