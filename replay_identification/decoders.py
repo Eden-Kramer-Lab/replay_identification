@@ -123,7 +123,7 @@ class ReplayDetector(object):
                 (self._position_state_transition @
                  replay_posterior[time_ind - 1]) +
                 probability_replay[time_ind, 0] *
-                (1 - replay_probability[time_ind - 1]) * uniform)
+                uniform * (1 - replay_probability[time_ind - 1]))
             updated_posterior = likelihood[time_ind] * replay_prior
             non_replay_posterior = ((1 - probability_replay[time_ind - 1, 0]) *
                                     (1 - replay_probability[time_ind - 1]) +
