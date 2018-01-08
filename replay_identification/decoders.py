@@ -66,8 +66,8 @@ class ReplayDetector(object):
             self._spiking_likelihood_ratio = return_None
 
         self._position_state_transition = fit_position_state_transition(
-            position, speed, spikes, self.place_bin_centers, self.speed_threshold,
-            self.replay_speed)
+            position, speed, self.place_bin_centers,
+            self.speed_threshold, self.replay_speed)
         self._speed_state_transition = fit_speed_state_transition(
             speed, is_replay, self.speed_state_transition_penalty)
 
