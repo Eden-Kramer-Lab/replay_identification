@@ -14,7 +14,8 @@ _DEFAULT_LIKELIHOODS = ['spikes', 'lfp_power', 'speed']
 
 
 class ReplayDetector(object):
-    """
+    """Find replay events using information from spikes, lfp ripple band power,
+    and speed.
 
     Attributes
     ----------
@@ -51,7 +52,6 @@ class ReplayDetector(object):
         multiunit : ndarray or None, shape (n_time,)
 
         """
-
         self.place_bin_centers = get_place_bin_centers(
             get_place_bins(position, self.place_bin_size))
 
