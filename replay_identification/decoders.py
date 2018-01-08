@@ -150,26 +150,6 @@ class DecodingResults():
         pass
 
 
-def get_n_time(*args):
-    for arg in args:
-        try:
-            return np.shape(arg)[0]
-        except IndexError:
-            continue
-    else:
-        raise AttributeError('All of the data is None')
-
-
-def replace_None_with_NaN(n_time, *args):
-    new_args = []
-    for arg in args:
-        if arg is None:
-            new_args.append(np.full((n_time,), np.nan))
-        else:
-            new_args.append(arg.copy())
-    return new_args
-
-
 def return_None():
     pass
 
