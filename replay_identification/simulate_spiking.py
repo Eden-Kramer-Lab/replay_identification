@@ -7,9 +7,11 @@ def simulate_time(n_samples, sampling_frequency):
     return np.arange(n_samples) / sampling_frequency
 
 
-def simulate_linear_distance(time, track_height):
-    return ((track_height / 2) * np.sin(2 * np.pi * time - (np.pi) / 2) +
-            (track_height / 2))
+def simulate_linear_distance(time, track_height, running_speed=10):
+    half_height = (track_height / 2)
+
+    return (half_height * np.sin(2 * np.pi * time / running_speed - np.pi / 2)
+            + half_height)
 
 
 def get_trajectory_direction(linear_distance):
