@@ -123,7 +123,7 @@ class ReplayDetector(object):
             replay_prior = (
                 probability_replay[time_ind, 1] *
                 (self._position_state_transition @
-                 replay_posterior[time_ind - 1] * place_bin_size) +
+                 replay_posterior[time_ind - 1]) +
                 probability_replay[time_ind, 0] *
                 uniform * (1 - replay_probability[time_ind - 1]))
             updated_posterior = likelihood[time_ind] * replay_prior

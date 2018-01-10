@@ -27,12 +27,10 @@ def estimate_position_state_transition(place_bins, position, variance):
 
     p(x_{k} | x_{k-1}, I_{k}, I_{k-1})
     """
-    position_bin_size = np.diff(place_bins)[0]
     state_transition_matrix = norm.pdf(
         place_bins[:, np.newaxis], loc=place_bins[np.newaxis, :],
         scale=variance)
-    return _normalize_row_probability(state_transition_matrix,
-                                      position_bin_size)
+    return _normalize_row_probability(state_transition_matrix)
 
 
 def fit_position_state_transition(position, speed, place_bins,
@@ -43,7 +41,7 @@ def fit_position_state_transition(position, speed, place_bins,
         place_bins, position, movement_variance), speed_up_factor)
 
 
-def _normalize_row_probability(x, binsize=1):
+def _normalize_row_probability(x):
     '''Ensure the state transition matrix rows sum to 1
     '''
-    return x / (x.sum(axis=1, keepdims=True) * binsize)
+    return x / x.sum(axis=1, keepdims=True)
