@@ -5,7 +5,7 @@ from statsmodels.tsa.tsatools import lagmat
 
 from .core import get_place_bin_centers, get_place_bins
 from .lfp_likelihood import fit_lfp_likelihood_ratio
-from .position_state_transition import fit_position_state_transition
+from .position_state_transition import fit_position_state_transition, empirical_movement_transition_matrix
 from .speed_likelhood import fit_speed_likelihood_ratio
 from .speed_state_transition import fit_speed_state_transition
 from .spiking_likelihood import fit_spiking_likelihood_ratio
@@ -52,8 +52,8 @@ class ReplayDetector(object):
         multiunit : ndarray or None, shape (n_time,)
 
         """
-        self.place_bin_centers = get_place_bin_centers(
-            get_place_bins(position, self.place_bin_size))
+        place_bin_edges = get_place_bins(position, self.place_bin_size)
+        self.place_bin_centers = get_place_bin_centers(place_bin_edges)
 
         self._speed_likelihood_ratio = fit_speed_likelihood_ratio(
             speed, is_replay, self.speed_threshold)
@@ -67,9 +67,8 @@ class ReplayDetector(object):
         else:
             self._spiking_likelihood_ratio = return_None
 
-        self._position_state_transition = fit_position_state_transition(
-            position, speed, self.place_bin_centers,
-            self.speed_threshold, self.replay_speed)
+        self._position_state_transition = empirical_movement_transition_matrix(
+            position, place_bin_edges, speed, self.replay_speed)
         self._speed_state_transition = fit_speed_state_transition(
             speed, is_replay, self.speed_state_transition_penalty)
 
