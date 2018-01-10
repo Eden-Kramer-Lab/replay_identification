@@ -9,9 +9,24 @@ def simulate_time(n_samples, sampling_frequency):
 
 def simulate_linear_distance(time, track_height, running_speed=10):
     half_height = (track_height / 2)
-
     return (half_height * np.sin(2 * np.pi * time / running_speed - np.pi / 2)
             + half_height)
+
+
+def simulate_linear_distance_with_pauses(time, track_height, running_speed=10,
+                                         pause=0.5, sampling_frequency=1):
+    linear_distance = simulate_linear_distance(
+        time, track_height, running_speed)
+    peaks = np.nonzero(linear_distance == track_height)[0]
+    n_pause_samples = int(pause * sampling_frequency)
+    pause_linear_distance = np.zeros(
+        (time.size + n_pause_samples * peaks.size,))
+    pause_ind = (peaks[:, np.newaxis] + np.arange(n_pause_samples))
+    pause_ind += np.arange(peaks.size)[:, np.newaxis] * n_pause_samples
+
+    pause_linear_distance[pause_ind.ravel()] = track_height
+    pause_linear_distance[pause_linear_distance == 0] = linear_distance
+    return pause_linear_distance[:time.size]
 
 
 def get_trajectory_direction(linear_distance):
