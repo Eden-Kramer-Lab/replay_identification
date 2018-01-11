@@ -1,6 +1,7 @@
 from functools import partial
 
 import numpy as np
+import matplotlib.pyplot as plt
 from statsmodels.tsa.tsatools import lagmat
 
 from .core import get_place_bin_centers, get_place_bins
@@ -52,8 +53,8 @@ class ReplayDetector(object):
         multiunit : ndarray or None, shape (n_time,)
 
         """
-        place_bin_edges = get_place_bins(position, self.place_bin_size)
-        self.place_bin_centers = get_place_bin_centers(place_bin_edges)
+        self.place_bin_edges = get_place_bins(position, self.place_bin_size)
+        self.place_bin_centers = get_place_bin_centers(self.place_bin_edges)
 
         self._speed_likelihood_ratio = fit_speed_likelihood_ratio(
             speed, is_replay, self.speed_threshold)
@@ -68,7 +69,7 @@ class ReplayDetector(object):
             self._spiking_likelihood_ratio = return_None
 
         self._position_state_transition = empirical_movement_transition_matrix(
-            position, place_bin_edges, speed, self.replay_speed)
+            position, self.place_bin_edges, speed, self.replay_speed)
         self._speed_state_transition = fit_speed_state_transition(
             speed, is_replay, self.speed_state_transition_penalty)
 
@@ -136,6 +137,43 @@ class ReplayDetector(object):
             replay_posterior[time_ind] = updated_posterior / norm
 
         return time, replay_posterior, replay_probability, likelihood
+
+    def plot_fitted_place_fields(self, ax=None, sampling_frequency=1):
+        if ax is None:
+            ax = plt.gca()
+
+        place_conditional_intensity = (
+            self._spiking_likelihood_ratio
+            .keywords['place_conditional_intensity']).squeeze()
+        ax.plot(self.place_bin_centers,
+                place_conditional_intensity * sampling_frequency)
+        ax.set_title('Estimated Place Fields')
+
+    def plot_speed_state_transition(self):
+        lagged_speeds = np.arange(0, 40, .5)
+        probablity_replay = self._speed_state_transition(lagged_speeds)
+
+        fig, axes = plt.subplots(2, 1, figsize=(5, 5), sharex=True)
+        axes[0].plot(lagged_speeds, probablity_replay[:, 0])
+        axes[0].set_ylabel('Probability Replay')
+        axes[0].set_title('Previous time step is replay')
+
+        axes[1].plot(lagged_speeds, probablity_replay[:, 1])
+        axes[1].set_xlabel('Speed t - 1')
+        axes[1].set_ylabel('Probability Replay')
+        axes[1].set_title('Previous time step is not replay')
+
+        plt.tight_layout()
+
+    def plot_position_state_transition(self, ax=None):
+        if ax is None:
+            ax = plt.gca()
+        place_t, place_t_1 = np.meshgrid(self.place_bin_edges,
+                                         self.place_bin_edges)
+        vmax = np.percentile(self._position_state_transition, 97.5)
+        cax = ax.pcolormesh(place_t, place_t_1, self._position_state_transition,
+                            vmin=0, vmax=vmax)
+        plt.colorbar(cax)
 
 
 class DecodingResults():
