@@ -173,7 +173,10 @@ class ReplayDetector(object):
         vmax = np.percentile(self._position_state_transition, 97.5)
         cax = ax.pcolormesh(place_t, place_t_1, self._position_state_transition,
                             vmin=0, vmax=vmax)
-        plt.colorbar(cax)
+        ax.set_xlabel('position t')
+        ax.set_ylabel('position t - 1')
+        ax.set_title('Position State Transition')
+        plt.colorbar(cax, label='probability')
 
 
 class DecodingResults():
