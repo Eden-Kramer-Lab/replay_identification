@@ -50,7 +50,6 @@ def _normalize_row_probability(x):
 
 def empirical_movement_transition_matrix(place, place_bin_edges, speed,
                                          sequence_compression_factor=16,
-                                         is_condition=None,
                                          speed_threshold=4.0):
     '''Estimate the probablity of the next position based on the movement
      data, given the movment is sped up by the
@@ -68,7 +67,7 @@ def empirical_movement_transition_matrix(place, place_bin_edges, speed,
     place_bin_edges : array_like, shape (n_bins,)
     sequence_compression_factor : int, optional
         How much the movement is sped-up during a replay event
-    is_condition : array_like, shape (n_time,)
+    is_movement : array_like, shape (n_time,)
         Boolean indicator for an experimental condition.
     Returns
     -------
@@ -77,15 +76,13 @@ def empirical_movement_transition_matrix(place, place_bin_edges, speed,
                                            n_bin_edges-1)
 
     '''
-    place = np.array(place)
     movement_variance = estimate_movement_variance(
         place, speed, speed_threshold)
 
-    if is_condition is None:
-        is_condition = np.ones_like(place, dtype=bool)
+    is_movement = speed > speed_threshold
 
     place = np.stack((place[1:], place[:-1]))
-    place = place[:, is_condition[1:]]
+    place = place[:, is_movement[1:]]
 
     movement_bins, _, _ = np.histogram2d(place[0], place[1],
                                          bins=(place_bin_edges,
