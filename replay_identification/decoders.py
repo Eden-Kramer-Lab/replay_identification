@@ -7,8 +7,8 @@ from statsmodels.tsa.tsatools import lagmat
 from .core import get_place_bin_centers, get_place_bins
 from .lfp_likelihood import fit_lfp_likelihood_ratio
 from .position_state_transition import fit_position_state_transition, empirical_movement_transition_matrix
+from .replay_state_transition import fit_replay_state_transition
 from .speed_likelhood import fit_speed_likelihood_ratio
-from .speed_state_transition import fit_speed_state_transition
 from .spiking_likelihood import fit_spiking_likelihood_ratio
 
 _DEFAULT_LIKELIHOODS = ['spikes', 'lfp_power', 'speed']
@@ -23,18 +23,18 @@ class ReplayDetector(object):
     speed_threshold : float, optional
     spike_model_penalty : float, optional
     time_bin_size : float, optional
-    speed_state_transition_penalty : float, optional
+    replay_state_transition_penalty : float, optional
     place_bin_size : float, optional
 
     """
 
     def __init__(self, speed_threshold=4.0, spike_model_penalty=1E-5,
-                 time_bin_size=1, speed_state_transition_penalty=1E-5,
+                 time_bin_size=1, replay_state_transition_penalty=1E-5,
                  place_bin_size=30, replay_speed=20, spike_glm_df=10):
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
         self.time_bin_size = time_bin_size
-        self.speed_state_transition_penalty = speed_state_transition_penalty
+        self.replay_state_transition_penalty = replay_state_transition_penalty
         self.place_bin_size = place_bin_size
         self.replay_speed = replay_speed
         self.spike_glm_df = spike_glm_df
@@ -70,8 +70,8 @@ class ReplayDetector(object):
 
         self._position_state_transition = empirical_movement_transition_matrix(
             position, self.place_bin_edges, speed, self.replay_speed)
-        self._speed_state_transition = fit_speed_state_transition(
-            speed, is_replay, self.speed_state_transition_penalty)
+        self._replay_state_transition = fit_replay_state_transition(
+            speed, is_replay, self.replay_state_transition_penalty)
 
     def predict(self, speed, lfp_power, position, spikes=None, multiunit=None,
                 use_likelihoods=_DEFAULT_LIKELIHOODS, sampling_frequency=1):
@@ -117,20 +117,21 @@ class ReplayDetector(object):
         for name, likelihood_func in likelihoods.items():
             if name.lower() in use_likelihoods:
                 likelihood = likelihood * replace_NaN(likelihood_func())
-        probability_replay = self._speed_state_transition(lagged_speed)
+        replay_state_transition = self._replay_state_transition(lagged_speed)
 
         for time_ind in np.arange(1, n_time):
             replay_prior = (
-                probability_replay[time_ind, 1] *
-                (self._position_state_transition @
+                replay_state_transition[time_ind, 1] *
+                (self._movement_state_transition @
                  replay_posterior[time_ind - 1]) +
                 probability_replay[time_ind, 0] *
                 uniform * (1 - replay_probability[time_ind - 1]))
             updated_posterior = likelihood[time_ind] * replay_prior
-            non_replay_posterior = ((1 - probability_replay[time_ind - 1, 0]) *
-                                    (1 - replay_probability[time_ind - 1]) +
-                                    (1 - probability_replay[time_ind - 1, 1]) *
-                                    replay_probability[time_ind - 1])
+            non_replay_posterior = (
+                (1 - replay_state_transition[time_ind - 1, 0]) *
+                (1 - replay_probability[time_ind - 1]) +
+                (1 - replay_state_transition[time_ind - 1, 1]) *
+                replay_probability[time_ind - 1])
             s = np.sum(updated_posterior * place_bin_size / n_place_bins)
             norm = s + non_replay_posterior
             replay_probability[time_ind] = s / norm
@@ -149,9 +150,9 @@ class ReplayDetector(object):
                 place_conditional_intensity * sampling_frequency)
         ax.set_title('Estimated Place Fields')
 
-    def plot_speed_state_transition(self):
+    def plot_replay_state_transition(self):
         lagged_speeds = np.arange(0, 40, .5)
-        probablity_replay = self._speed_state_transition(lagged_speeds)
+        probablity_replay = self._replay_state_transition(lagged_speeds)
 
         fig, axes = plt.subplots(2, 1, figsize=(5, 5), sharex=True)
         axes[0].plot(lagged_speeds, probablity_replay[:, 0])

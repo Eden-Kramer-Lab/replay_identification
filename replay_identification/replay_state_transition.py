@@ -5,7 +5,7 @@ from statsmodels.tsa.tsatools import lagmat
 from functools import partial
 
 
-def fit_speed_state_transition(speed, is_replay, penalty=1E-5):
+def fit_replay_state_transition(speed, is_replay, penalty=1E-5):
     """Estimate the predicted probablity of replay given speed and whether
     it was a replay in the previous time step.
 
