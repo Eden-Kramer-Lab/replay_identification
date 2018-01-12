@@ -2,6 +2,7 @@ from functools import partial
 
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.integrate import trapz
 from statsmodels.tsa.tsatools import lagmat
 
 from .core import get_place_bin_centers, get_place_bins
@@ -123,8 +124,8 @@ class ReplayDetector(object):
         for time_ind in np.arange(1, n_time):
             replay_prior = (
                 replay_state_transition[time_ind, 1] *
-                (self._movement_state_transition @
-                 replay_posterior[time_ind - 1]) +
+                trapz(self._movement_state_transition *
+                      replay_posterior[time_ind - 1], dx=place_bin_size) +
                 replay_state_transition[time_ind, 0] *
                 uniform * (1 - replay_probability[time_ind - 1]))
             updated_posterior = likelihood[time_ind] * replay_prior
@@ -133,9 +134,9 @@ class ReplayDetector(object):
                 (1 - replay_probability[time_ind - 1]) +
                 (1 - replay_state_transition[time_ind - 1, 1]) *
                 replay_probability[time_ind - 1])
-            s = np.sum(updated_posterior * place_bin_size / n_place_bins)
-            norm = s + non_replay_posterior
-            replay_probability[time_ind] = s / norm
+            integrated_posterior = trapz(updated_posterior, dx=place_bin_size)
+            norm = integrated_posterior + non_replay_posterior
+            replay_probability[time_ind] = integrated_posterior / norm
             replay_posterior[time_ind] = updated_posterior / norm
 
         return time, replay_posterior, replay_probability, likelihood
