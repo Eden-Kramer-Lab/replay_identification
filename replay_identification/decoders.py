@@ -1,7 +1,7 @@
 from functools import partial
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from statsmodels.tsa.tsatools import lagmat
 
 from .core import get_place_bin_centers, get_place_bins
