@@ -151,6 +151,8 @@ class ReplayDetector(object):
         ax.plot(self.place_bin_centers,
                 place_conditional_intensity * sampling_frequency)
         ax.set_title('Estimated Place Fields')
+        ax.set_ylabel('Spikes / s')
+        ax.set_xlabel('Position')
 
     def plot_replay_state_transition(self):
         lagged_speeds = np.arange(0, 40, .5)
@@ -178,7 +180,7 @@ class ReplayDetector(object):
                             self._movement_state_transition, vmin=0, vmax=vmax)
         ax.set_xlabel('position t')
         ax.set_ylabel('position t - 1')
-        ax.set_title('Position State Transition')
+        ax.set_title('Movement State Transition')
         plt.colorbar(cax, label='probability')
 
 
