@@ -23,7 +23,7 @@ def estimate_movement_variance(position, speed, speed_threshold=4.0):
     return np.sqrt(np.sum(fit.resid_response ** 2) / fit.df_resid)
 
 
-def estimate_position_state_transition(place_bins, position, variance):
+def estimate_movement_state_transition(place_bins, position, variance):
     """Zero mean random walk with covariance based on movement.
 
     p(x_{k} | x_{k-1}, I_{k}, I_{k-1})
@@ -34,11 +34,11 @@ def estimate_position_state_transition(place_bins, position, variance):
     return _normalize_row_probability(state_transition_matrix)
 
 
-def fit_position_state_transition(position, speed, place_bins,
+def fit_movement_state_transition(position, speed, place_bins,
                                   speed_threshold=4.0, speed_up_factor=20):
     movement_variance = estimate_movement_variance(
         position, speed, speed_threshold)
-    return np.linalg.matrix_power(estimate_position_state_transition(
+    return np.linalg.matrix_power(estimate_movement_state_transition(
         place_bins, position, movement_variance), speed_up_factor)
 
 

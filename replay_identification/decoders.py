@@ -6,7 +6,8 @@ from statsmodels.tsa.tsatools import lagmat
 
 from .core import get_place_bin_centers, get_place_bins
 from .lfp_likelihood import fit_lfp_likelihood_ratio
-from .position_state_transition import fit_position_state_transition, empirical_movement_transition_matrix
+from .movement_state_transition import (empirical_movement_transition_matrix,
+                                        fit_movement_state_transition)
 from .replay_state_transition import fit_replay_state_transition
 from .speed_likelhood import fit_speed_likelihood_ratio
 from .spiking_likelihood import fit_spiking_likelihood_ratio
@@ -68,7 +69,7 @@ class ReplayDetector(object):
         else:
             self._spiking_likelihood_ratio = return_None
 
-        self._position_state_transition = empirical_movement_transition_matrix(
+        self._movement_state_transition = empirical_movement_transition_matrix(
             position, self.place_bin_edges, speed, self.replay_speed)
         self._replay_state_transition = fit_replay_state_transition(
             speed, is_replay, self.replay_state_transition_penalty)
@@ -166,14 +167,14 @@ class ReplayDetector(object):
 
         plt.tight_layout()
 
-    def plot_position_state_transition(self, ax=None):
+    def plot_movement_state_transition(self, ax=None):
         if ax is None:
             ax = plt.gca()
         place_t, place_t_1 = np.meshgrid(self.place_bin_edges,
                                          self.place_bin_edges)
-        vmax = np.percentile(self._position_state_transition, 97.5)
-        cax = ax.pcolormesh(place_t, place_t_1, self._position_state_transition,
-                            vmin=0, vmax=vmax)
+        vmax = np.percentile(self._movement_state_transition, 97.5)
+        cax = ax.pcolormesh(place_t, place_t_1,
+                            self._movement_state_transition, vmin=0, vmax=vmax)
         ax.set_xlabel('position t')
         ax.set_ylabel('position t - 1')
         ax.set_title('Position State Transition')
