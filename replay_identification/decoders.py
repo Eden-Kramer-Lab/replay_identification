@@ -76,7 +76,7 @@ class ReplayDetector(object):
             speed, is_replay, self.replay_state_transition_penalty)
 
     def predict(self, speed, lfp_power, position, spikes=None, multiunit=None,
-                use_likelihoods=_DEFAULT_LIKELIHOODS, sampling_frequency=1):
+                use_likelihoods=_DEFAULT_LIKELIHOODS, time=None):
         """Predict the probability of replay and replay position/position.
 
         Parameters
@@ -95,7 +95,8 @@ class ReplayDetector(object):
 
         """
         n_time = speed.shape[0]
-        time = np.arange(n_time) / sampling_frequency
+        if time is None:
+            time = np.arange(n_time)
         lagged_speed = lagmat(speed, maxlag=1).squeeze()
 
         n_place_bins = self.place_bin_centers.size
