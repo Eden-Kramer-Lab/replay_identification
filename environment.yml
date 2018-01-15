@@ -10,6 +10,7 @@ dependencies:
 - scipy
 - statsmodels
 - matplotlib
+- xarray
 - spectral_connectivity
 - patsy
 - jupyter

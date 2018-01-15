@@ -2,14 +2,15 @@
 
 from setuptools import find_packages, setup
 
-INSTALL_REQUIRES = ['numpy >= 1.11', 'statsmodels', 'numba']
+INSTALL_REQUIRES = ['numpy >= 1.11', 'statsmodels', 'numba', 'matplotlib',
+                    'xarray', 'scipy']
 TESTS_REQUIRE = ['pytest >= 2.7.1']
 
 setup(
     name='replay_identification',
     version='0.0.1.dev0',
     license='MIT',
-    description=('Identify replay events'),
+    description=('Identify replay events using multiple information sources'),
     author='Eric Denovellis',
     author_email='edeno@bu.edu',
     url='https://github.com/Eden-Kramer-Lab/replay_identification',

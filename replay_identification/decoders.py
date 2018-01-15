@@ -2,6 +2,7 @@ from functools import partial
 
 import matplotlib.pyplot as plt
 import numpy as np
+import xarray as xr
 from scipy.integrate import trapz
 from statsmodels.tsa.tsatools import lagmat
 
@@ -91,7 +92,7 @@ class ReplayDetector(object):
 
         Returns
         -------
-        decoding_results
+        decoding_results : xarray.Dataset
 
         """
         n_time = speed.shape[0]
@@ -140,7 +141,14 @@ class ReplayDetector(object):
             replay_probability[time_ind] = integrated_posterior / norm
             replay_posterior[time_ind] = updated_posterior / norm
 
-        return time, replay_posterior, replay_probability, likelihood
+        likelihood_dims = (['time', 'position'] if likelihood.shape[1] > 1
+                           else ['time'])
+
+        return xr.Dataset(
+            {'replay_probability': (['time'], replay_probability),
+             'replay_posterior': (['time', 'position'], replay_posterior),
+             'likelihood': (likelihood_dims, likelihood.squeeze())},
+            coords={'time': time, 'position': place_bins})
 
     def plot_fitted_place_fields(self, ax=None, sampling_frequency=1):
         """Plot the place fields used in the spiking likelihood.
