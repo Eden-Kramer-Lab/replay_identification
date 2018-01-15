@@ -200,20 +200,6 @@ class ReplayDetector(object):
         plt.colorbar(cax, label='probability')
 
 
-class DecodingResults():
-    def __init__():
-        pass
-
-    def plot_replay_probability():
-        pass
-
-    def plot_replay_position():
-        pass
-
-
-def return_None():
-    pass
-
 
 def replace_NaN(x):
     x[np.isnan(x)] = 1
