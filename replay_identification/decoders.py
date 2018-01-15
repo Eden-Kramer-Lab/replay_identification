@@ -142,6 +142,14 @@ class ReplayDetector(object):
         return time, replay_posterior, replay_probability, likelihood
 
     def plot_fitted_place_fields(self, ax=None, sampling_frequency=1):
+        """Plot the place fields used in the spiking likelihood.
+
+        Parameters
+        ----------
+        ax : matplotlib axes or None, optional
+        sampling_frequency : float, optional
+
+        """
         if ax is None:
             ax = plt.gca()
 
@@ -155,6 +163,7 @@ class ReplayDetector(object):
         ax.set_xlabel('Position')
 
     def plot_replay_state_transition(self):
+        """Plot fit of the logistic regression models for replay transition."""
         lagged_speeds = np.arange(0, 40, .5)
         probablity_replay = self._replay_state_transition(lagged_speeds)
 
@@ -171,6 +180,13 @@ class ReplayDetector(object):
         plt.tight_layout()
 
     def plot_movement_state_transition(self, ax=None):
+        """Plot the sped up empirical movement state transition.
+
+        Parameters
+        ----------
+        ax : matplotlib axis or None, optional
+
+        """
         if ax is None:
             ax = plt.gca()
         place_t, place_t_1 = np.meshgrid(self.place_bin_edges,
