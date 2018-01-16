@@ -147,7 +147,8 @@ def fit_spiking_likelihood_ratio(position, spikes, is_replay,
     """
     formula = ('1 + cr(position, df=df, constraints="center")')
 
-    training_data = pd.DataFrame(dict(position=position[~is_replay]))
+    training_data = pd.DataFrame(
+        dict(position=position[~is_replay])).dropna()
     design_matrix = dmatrix(
         formula, training_data, return_type='dataframe')
     place_field_coefficients = np.stack(
