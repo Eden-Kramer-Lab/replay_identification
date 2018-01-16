@@ -1,4 +1,5 @@
 from functools import partial
+from logging import getLogger
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,6 +14,8 @@ from .movement_state_transition import (empirical_movement_transition_matrix,
 from .replay_state_transition import fit_replay_state_transition
 from .speed_likelhood import fit_speed_likelihood_ratio
 from .spiking_likelihood import fit_spiking_likelihood_ratio
+
+logger = getLogger(__name__)
 
 _DEFAULT_LIKELIHOODS = ['spikes', 'lfp_power', 'speed']
 
@@ -59,11 +62,14 @@ class ReplayDetector(object):
         self.place_bin_edges = get_place_bins(position, self.place_bin_size)
         self.place_bin_centers = get_place_bin_centers(self.place_bin_edges)
 
+        logger.info('Fitting speed model...')
         self._speed_likelihood_ratio = fit_speed_likelihood_ratio(
             speed, is_replay, self.speed_threshold)
+        logger.info('Fitting LFP power model...')
         self._lfp_likelihood_ratio = fit_lfp_likelihood_ratio(
             lfp_power, is_replay)
         if spikes is not None:
+            logger.info('Fitting spiking model...')
             self._spiking_likelihood_ratio = fit_spiking_likelihood_ratio(
                 position, spikes, is_replay, self.place_bin_centers,
                 self.spike_model_penalty, self.time_bin_size,
@@ -71,8 +77,10 @@ class ReplayDetector(object):
         else:
             self._spiking_likelihood_ratio = return_None
 
+        logger.info('Fitting movement state transition...')
         self._movement_state_transition = empirical_movement_transition_matrix(
             position, self.place_bin_edges, speed, self.replay_speed)
+        logger.info('Fitting replay state transition...')
         self._replay_state_transition = fit_replay_state_transition(
             speed, is_replay, self.replay_state_transition_penalty)
 
@@ -120,9 +128,11 @@ class ReplayDetector(object):
 
         for name, likelihood_func in likelihoods.items():
             if name.lower() in use_likelihoods:
+                logger.info('Predicting {0} likelihood...'.format(name))
                 likelihood = likelihood * replace_NaN(likelihood_func())
         replay_state_transition = self._replay_state_transition(lagged_speed)
 
+        logger.info('Predicting replay probability and density...')
         for time_ind in np.arange(1, n_time):
             replay_prior = (
                 replay_state_transition[time_ind, 1] *
