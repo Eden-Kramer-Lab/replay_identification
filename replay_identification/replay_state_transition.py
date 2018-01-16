@@ -1,8 +1,10 @@
-import numpy as np
-from statsmodels.api import GLM, families
-from patsy import build_design_matrices, dmatrices
-from statsmodels.tsa.tsatools import lagmat
 from functools import partial
+
+import numpy as np
+import pandas as pd
+from patsy import build_design_matrices, dmatrices
+from statsmodels.api import GLM, families
+from statsmodels.tsa.tsatools import lagmat
 
 
 def fit_replay_state_transition(speed, is_replay, penalty=1E-5):
@@ -23,11 +25,12 @@ def fit_replay_state_transition(speed, is_replay, penalty=1E-5):
     probability_replay : ndarray, shape (n_time, 2)
 
     """
-    data = {
+    data = pd.DataFrame({
         'is_replay': is_replay.astype(np.float64),
-        'lagged_is_replay': lagmat(is_replay, maxlag=1).astype(np.float64),
-        'lagged_speed': lagmat(speed, maxlag=1)
-    }
+        'lagged_is_replay': lagmat(
+            is_replay, maxlag=1).astype(np.float64).squeeze(),
+        'lagged_speed': lagmat(speed, maxlag=1).squeeze()
+    }).dropna()
     MODEL_FORMULA = (
         'is_replay ~ 1 + lagged_is_replay + '
         'cr(lagged_speed, knots=[1, 2, 3, 20], constraints="center")')
@@ -36,7 +39,8 @@ def fit_replay_state_transition(speed, is_replay, penalty=1E-5):
     regularization_weights = np.ones((design_matrix.shape[1],)) * penalty
     regularization_weights[0] = 0.0
     model = GLM(response, design_matrix, family=family)
-    fit = model.fit_regularized(alpha=regularization_weights, L1_wt=0)
+    fit = model.fit_regularized(
+        alpha=regularization_weights, L1_wt=0, maxiter=30)
     return partial(predict_probability, design_matrix=design_matrix, fit=fit)
 
 
