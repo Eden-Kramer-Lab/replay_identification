@@ -33,11 +33,12 @@ def fit_glm_model(spikes, design_matrix, penalty=1E-5):
     model = GLM(spikes, design_matrix, family=families.Poisson(),
                 drop='missing')
     if penalty is None:
-        return model.fit()
+        return model.fit(maxiter=30)
     else:
         regularization_weights = np.ones((design_matrix.shape[1],)) * penalty
         regularization_weights[0] = 0.0
-        return model.fit_regularized(alpha=regularization_weights, L1_wt=0)
+        return model.fit_regularized(
+            alpha=regularization_weights, L1_wt=0, maxiter=30)
 
 
 def create_predict_design_matrix(position, design_matrix):
