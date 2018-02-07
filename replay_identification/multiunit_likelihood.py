@@ -34,6 +34,7 @@ def _normal_pdf(x, mean=0, std_deviation=1):
     return np.exp(-0.5 * z ** 2) / (np.sqrt(2.0 * np.pi) * std_deviation)
 
 
+@combined_likelihood
 def poisson_mark_log_likelihood(marks, joint_mark_intensity_functions=None,
                                 ground_process_intensity=None,
                                 time_bin_size=1):
