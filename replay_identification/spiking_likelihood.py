@@ -42,9 +42,13 @@ def fit_glm_model(spikes, design_matrix, penalty=1E-5):
 
 
 def create_predict_design_matrix(position, design_matrix):
+    is_nan = np.isnan(position)
+    position[is_nan] = 0
     predictors = {'position': position}
-    return build_design_matrices(
+    design_matrix = build_design_matrices(
         [design_matrix.design_info], predictors)[0]
+    design_matrix[is_nan] = np.nan
+    return design_matrix
 
 
 def get_conditional_intensity(coefficients, design_matrix):
