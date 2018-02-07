@@ -59,9 +59,8 @@ def poisson_mark_log_likelihood(marks, joint_mark_intensity_functions=None,
     """
     probability_no_spike = -ground_process_intensity * time_bin_size
     joint_mark_intensity = np.stack(
-        [[jmi(signal_marks) for jmi in jmi_by_state]
-         for signal_marks, jmi_by_state
-         in zip(marks, joint_mark_intensity_functions)])
+        [jmi(signal_marks) for signal_marks, jmi
+         in zip(marks, joint_mark_intensity_functions)], axis=1)
     return np.log(joint_mark_intensity) + probability_no_spike
 
 
