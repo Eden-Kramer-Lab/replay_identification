@@ -56,7 +56,7 @@ class ReplayDetector(object):
         lfp_power : ndarray, shape (n_time, n_signals)
         position : ndarray, shape (n_time,)
         spikes : ndarray or None, shape (n_time, n_neurons)
-        multiunit : ndarray or None, shape (n_time,)
+        multiunit : ndarray or None, shape (n_time, n_marks, n_signals)
 
         """
         self.place_bin_edges = get_place_bins(position, self.place_bin_size)
