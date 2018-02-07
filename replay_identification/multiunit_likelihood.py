@@ -1,5 +1,5 @@
-'''
-'''
+"""
+"""
 
 from functools import partial
 
@@ -9,7 +9,7 @@ from numba import jit
 
 @jit(nopython=True)
 def _normal_pdf(x, mean=0, std_deviation=1):
-    '''Evaluate the normal probability density function at specified points.
+    """Evaluate the normal probability density function at specified points.
 
     Unlike the `scipy.stats.norm.pdf`, this function is not general and does
     not do any sanity checking of the inputs. As a result it is a much faster
@@ -29,7 +29,7 @@ def _normal_pdf(x, mean=0, std_deviation=1):
     probability_density
         The normal probability density function evaluated at `x`
 
-    '''
+    """
     z = (x - mean) / std_deviation
     return np.exp(-0.5 * z ** 2) / (np.sqrt(2.0 * np.pi) * std_deviation)
 
@@ -37,7 +37,7 @@ def _normal_pdf(x, mean=0, std_deviation=1):
 def poisson_mark_log_likelihood(marks, joint_mark_intensity_functions=None,
                                 ground_process_intensity=None,
                                 time_bin_size=1):
-    '''Probability of parameters given spiking indicator at a particular
+    """Probability of parameters given spiking indicator at a particular
     time and associated marks.
 
     Parameters
@@ -47,8 +47,7 @@ def poisson_mark_log_likelihood(marks, joint_mark_intensity_functions=None,
         Instantaneous probability of observing a spike given mark vector
         from data. The parameters for this function should already be set,
         before it is passed to `poisson_mark_log_likelihood`.
-    ground_process_intensity : array, shape (n_signals, n_states,
-                                             n_place_bins)
+    ground_process_intensity : array, shape (n_place_bins, n_signals)
         Probability of observing a spike regardless of marks.
     time_bin_size : float, optional
 
@@ -56,7 +55,7 @@ def poisson_mark_log_likelihood(marks, joint_mark_intensity_functions=None,
     -------
     poisson_mark_log_likelihood : array_like, shape (n_signals, n_place_bins)
 
-    '''
+    """
     probability_no_spike = -ground_process_intensity * time_bin_size
     joint_mark_intensity = np.stack(
         [[jmi(signal_marks) for jmi in jmi_by_state]
@@ -67,7 +66,7 @@ def poisson_mark_log_likelihood(marks, joint_mark_intensity_functions=None,
 
 def evaluate_mark_space(test_marks, training_marks=None,
                         mark_std_deviation=20):
-    '''Evaluate the multivariate Gaussian kernel for the mark space
+    """Evaluate the multivariate Gaussian kernel for the mark space
     given training marks.
 
     For each mark in the training data (`training_marks`), a univariate
@@ -89,7 +88,7 @@ def evaluate_mark_space(test_marks, training_marks=None,
     -------
     mark_space_estimator : array, shape (n_training_spikes,)
 
-    '''
+    """
     return np.nanprod(
         _normal_pdf(test_marks, mean=training_marks,
                     std_deviation=mark_std_deviation), axis=1)
@@ -98,7 +97,7 @@ def evaluate_mark_space(test_marks, training_marks=None,
 def joint_mark_intensity(marks, training_marks=None,
                          mark_std_deviation=None,
                          place_field=None, place_occupancy=None):
-    '''Evaluate the multivariate density function of the marks and place
+    """Evaluate the multivariate density function of the marks and place
     field for each signal
 
     Parameters
@@ -118,7 +117,7 @@ def joint_mark_intensity(marks, training_marks=None,
     -------
     joint_mark_intensity : array_like, shape (n_place_bins,)
 
-    '''
+    """
     if np.any(~np.isnan(marks)):
         # If there is a spike, evaluate
         mark_space = evaluate_mark_space(
@@ -131,7 +130,7 @@ def joint_mark_intensity(marks, training_marks=None,
 
 def build_joint_mark_intensity(position, training_marks, place_bin_centers,
                                place_std_deviation, mark_std_deviation):
-    '''Make a joint mark intensity function with precalculated quauntities
+    """Make a joint mark intensity function with precalculated quauntities
     (`training_marks`, `place_field`, 'place_occupancy') preset.
 
     The new function only needs to be passed marks to be evaluated because
@@ -154,7 +153,7 @@ def build_joint_mark_intensity(position, training_marks, place_bin_centers,
     -------
     joint_mark_intensity : partial function
 
-    '''
+    """
     is_spike = np.any(~np.isnan(training_marks), axis=1)
     place_occupancy = estimate_place_occupancy(
         position, place_bin_centers, place_std_deviation)
@@ -172,7 +171,7 @@ def build_joint_mark_intensity(position, training_marks, place_bin_centers,
 
 def estimate_place_field(position, is_spike, place_bin_centers,
                          place_std_deviation=1):
-    '''Non-parametric estimate of the neuron receptive field with respect
+    """Non-parametric estimate of the neuron receptive field with respect
     to place.
 
     Puts a Gaussian with a mean at the position the animal is located at
@@ -193,7 +192,7 @@ def estimate_place_field(position, is_spike, place_bin_centers,
     -------
     place_field_estimator : array, shape (n_place_bins, n_spikes)
 
-    '''
+    """
     return _normal_pdf(
         place_bin_centers[:, np.newaxis], mean=position[is_spike],
         std_deviation=place_std_deviation)
@@ -201,7 +200,7 @@ def estimate_place_field(position, is_spike, place_bin_centers,
 
 def estimate_ground_process_intensity(position, marks, place_bin_centers,
                                       place_std_deviation):
-    '''The probability of observing a spike regardless of mark.
+    """The probability of observing a spike regardless of mark.
 
     Marginalizes the joint mark intensity over the mark space.
 
@@ -217,7 +216,7 @@ def estimate_ground_process_intensity(position, marks, place_bin_centers,
     -------
     ground_process_intensity : array, shape (n_place_bins,)
 
-    '''
+    """
     is_spike = np.any(~np.isnan(marks), axis=1)
     place_field = estimate_place_field(
         position, is_spike, place_bin_centers, place_std_deviation)
@@ -228,7 +227,7 @@ def estimate_ground_process_intensity(position, marks, place_bin_centers,
 
 def estimate_place_occupancy(position, place_bin_centers,
                              place_std_deviation=1):
-    '''How often the animal is at a position
+    """How often the animal is at a position
 
     Denominator in equation #12 and #13 of [1]
 
@@ -244,7 +243,7 @@ def estimate_place_occupancy(position, place_bin_centers,
     place_occupancy : array, shape (n_place_bins,)
         How often the animal is at a position
 
-    '''
+    """
     return _normal_pdf(
         place_bin_centers[:, np.newaxis], mean=position,
         std_deviation=place_std_deviation).sum(axis=1)
@@ -253,7 +252,7 @@ def estimate_place_occupancy(position, place_bin_centers,
 def estimate_marginalized_joint_mark_intensity(
     mark_bin_centers, training_marks, place_field, place_occupancy,
         mark_std_deviation):
-    '''
+    """
 
     Parameters
     ----------
@@ -268,7 +267,7 @@ def estimate_marginalized_joint_mark_intensity(
     marginalized_joint_mark_intensity : array, shape (n_place_bins,
                                                       n_mark_bins, n_marks)
 
-    '''
+    """
 
     mark_at_spike = _normal_pdf(
         mark_bin_centers[:, np.newaxis, np.newaxis], training_marks,
