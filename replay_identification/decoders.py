@@ -36,14 +36,14 @@ class ReplayDetector(object):
 
     def __init__(self, speed_threshold=4.0, spike_model_penalty=1E-5,
                  time_bin_size=1, replay_state_transition_penalty=1E-5,
-                 place_bin_size=30, replay_speed=20, spike_glm_df=10):
+                 place_bin_size=30, replay_speed=20, knot_spacing=30):
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
         self.time_bin_size = time_bin_size
         self.replay_state_transition_penalty = replay_state_transition_penalty
         self.place_bin_size = place_bin_size
         self.replay_speed = replay_speed
-        self.spike_glm_df = spike_glm_df
+        self.knot_spacing = knot_spacing
 
     def fit(self, is_replay, speed, lfp_power, position,
             spikes=None, multiunit=None):
@@ -73,7 +73,7 @@ class ReplayDetector(object):
             self._spiking_likelihood_ratio = fit_spiking_likelihood_ratio(
                 position, spikes, is_replay, self.place_bin_centers,
                 self.spike_model_penalty, self.time_bin_size,
-                self.spike_glm_df)
+                self.knot_spacing)
         else:
             self._spiking_likelihood_ratio = return_None
 
