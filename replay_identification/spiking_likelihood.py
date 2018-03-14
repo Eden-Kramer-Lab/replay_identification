@@ -131,7 +131,7 @@ def spiking_likelihood_ratio(
 
 def fit_spiking_likelihood_ratio(position, spikes, is_replay,
                                  place_bin_centers, penalty=1E-5,
-                                 time_bin_size=1, df=5):
+                                 time_bin_size=1, knot_spacing=30):
     """Estimate the place field model.
 
     Parameters
@@ -147,7 +147,10 @@ def fit_spiking_likelihood_ratio(position, spikes, is_replay,
     spiking_likelihood_ratio : function
 
     """
-    formula = ('1 + cr(position, df=df, constraints="center")')
+    min_position, max_position = position.min(), position.max()
+    n_steps = (max_position - min_position) // knot_spacing
+    position_knots = min_position + np.arange(1, n_steps) * knot_spacing
+    formula = ('1 + cr(position, knots=position_knots, constraints="center")')
 
     training_data = pd.DataFrame(
         dict(position=position[~is_replay])).dropna()
