@@ -3,8 +3,9 @@ from functools import partial
 import numpy as np
 import pandas as pd
 from patsy import build_design_matrices, dmatrices
-from statsmodels.api import GLM, families
+from statsmodels.api import families
 from statsmodels.tsa.tsatools import lagmat
+from regularized_glm import penalized_IRLS
 
 
 def fit_replay_state_transition(speed, is_replay, penalty=1E-5):
@@ -36,11 +37,10 @@ def fit_replay_state_transition(speed, is_replay, penalty=1E-5):
         'cr(lagged_speed, knots=[1, 2, 3, 20], constraints="center")')
     response, design_matrix = dmatrices(MODEL_FORMULA, data)
     family = families.Binomial()
-    regularization_weights = np.ones((design_matrix.shape[1],)) * penalty
-    regularization_weights[0] = 0.0
-    model = GLM(response, design_matrix, family=family)
-    fit = model.fit_regularized(
-        alpha=regularization_weights, L1_wt=0, maxiter=30)
+    penalty = np.ones((design_matrix.shape[1],)) * penalty
+    penalty[0] = 0.0
+    fit = penalized_IRLS(design_matrix, response, family=family,
+                         penalty=penalty)
     return partial(predict_probability, design_matrix=design_matrix, fit=fit)
 
 
@@ -73,6 +73,13 @@ def predict_probability(lagged_speed, design_matrix, fit):
 
     previous_replay_design_matrix = make_design_matrix(
         1, lagged_speed, design_matrix)
+    coefficients = np.squeeze(fit.coefficients)
 
-    return np.stack((fit.predict(no_previous_replay_design_matrix),
-                     fit.predict(previous_replay_design_matrix)), axis=1)
+    return np.stack((predict(no_previous_replay_design_matrix, coefficients),
+                     predict(previous_replay_design_matrix, coefficients)),
+                    axis=1)
+
+
+def predict(design_matrix, coefficients):
+    family = families.Binomial()
+    return family.link.inverse(design_matrix @ np.squeeze(coefficients))
