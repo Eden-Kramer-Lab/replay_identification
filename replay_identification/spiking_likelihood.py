@@ -16,7 +16,7 @@ from .core import combined_likelihood
 logger = getLogger(__name__)
 
 
-def fit_glm_model(spikes, design_matrix, penalty=1E-5):
+def fit_glm_model(spikes, design_matrix, penalty=1E-1):
     """Fits the Poisson model to the spikes from a neuron.
 
     Parameters
