@@ -187,11 +187,11 @@ class ReplayDetector(object):
         probablity_replay = self._replay_state_transition(lagged_speeds)
 
         fig, axes = plt.subplots(2, 1, figsize=(5, 5), sharex=True)
-        axes[0].plot(lagged_speeds, probablity_replay[:, 0])
+        axes[0].plot(lagged_speeds, probablity_replay[:, 1])
         axes[0].set_ylabel('Probability Replay')
         axes[0].set_title('Previous time step is replay')
 
-        axes[1].plot(lagged_speeds, probablity_replay[:, 1])
+        axes[1].plot(lagged_speeds, probablity_replay[:, 0])
         axes[1].set_xlabel('Speed t - 1')
         axes[1].set_ylabel('Probability Replay')
         axes[1].set_title('Previous time step is not replay')
@@ -217,7 +217,6 @@ class ReplayDetector(object):
         ax.set_ylabel('position t - 1')
         ax.set_title('Movement State Transition')
         plt.colorbar(cax, label='probability')
-
 
 
 def replace_NaN(x):
