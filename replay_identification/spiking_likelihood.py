@@ -8,7 +8,8 @@ from logging import getLogger
 import numpy as np
 import pandas as pd
 from patsy import build_design_matrices, dmatrix
-from statsmodels.api import GLM, families
+from statsmodels.api import families
+from regularized_glm import penalized_IRLS
 
 from .core import combined_likelihood
 
@@ -30,15 +31,11 @@ def fit_glm_model(spikes, design_matrix, penalty=1E-5):
     fitted_model : statsmodel results
 
     """
-    model = GLM(spikes, design_matrix, family=families.Poisson(),
-                drop='missing')
-    if penalty is None:
-        return model.fit(maxiter=30)
-    else:
-        regularization_weights = np.ones((design_matrix.shape[1],)) * penalty
-        regularization_weights[0] = 0.0
-        return model.fit_regularized(
-            alpha=regularization_weights, L1_wt=0, maxiter=30)
+    penalty = np.ones((design_matrix.shape[1],)) * penalty
+    penalty[0] = 0.0
+    results = penalized_IRLS(
+        design_matrix.values, spikes, family=families.Poisson())
+    return np.squeeze(results.coefficients)
 
 
 def create_predict_design_matrix(position, design_matrix):
@@ -159,7 +156,7 @@ def fit_spiking_likelihood_ratio(position, spikes, is_replay,
     place_field_coefficients = np.stack(
         [fit_glm_model(
             pd.DataFrame(s).loc[design_matrix.index], design_matrix,
-            penalty=penalty).params
+            penalty=penalty)
          for s in spikes[~is_replay].T], axis=1)
     place_design_matrix = create_predict_design_matrix(
         place_bin_centers, design_matrix)
