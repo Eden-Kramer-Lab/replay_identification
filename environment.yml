@@ -12,6 +12,7 @@ dependencies:
 - matplotlib
 - xarray
 - spectral_connectivity
+- regularized_glm
 - patsy
 - jupyter
 - nb_conda
