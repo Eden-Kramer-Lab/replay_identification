@@ -45,6 +45,9 @@ class ReplayDetector(object):
         self.replay_speed = replay_speed
         self.knot_spacing = knot_spacing
 
+    def __dir__(self):
+        return self.keys()
+
     def fit(self, is_replay, speed, lfp_power, position,
             spikes=None, multiunit=None):
         """Train the model on replay and non-replay periods.
