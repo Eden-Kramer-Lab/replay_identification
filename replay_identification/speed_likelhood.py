@@ -10,6 +10,7 @@ from statsmodels.tsa.tsatools import lagmat
 
 
 def speed_log_likelihood(endog, mu, var_weights=1., scale=1.):
+    '''Gaussian log likelihood by observation'''
     ll_obs = -var_weights * (endog - mu) ** 2 / scale
     ll_obs += -np.log(scale / var_weights) - np.log(2 * np.pi)
     ll_obs /= 2
