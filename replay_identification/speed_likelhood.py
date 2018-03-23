@@ -2,10 +2,11 @@
 current speed and the speed in the previous time step.
 
 """
-import numpy as np
 from functools import partial
-from statsmodels.tsa.tsatools import lagmat
+
+import numpy as np
 from statsmodels.api import GLM, families
+from statsmodels.tsa.tsatools import lagmat
 
 
 def speed_log_likelihood(endog, mu, var_weights=1., scale=1.):
@@ -66,7 +67,8 @@ def fit_speed_likelihood_ratio(speed, is_replay, speed_threshold=4.0):
     """
     lagged_speed = lagmat(speed, 1)
     replay_fit = fit_speed_model(speed[is_replay], lagged_speed[is_replay])
-    no_replay_fit = fit_speed_model(speed[~is_replay], lagged_speed[~is_replay])
+    no_replay_fit = fit_speed_model(
+        speed[~is_replay], lagged_speed[~is_replay])
     return partial(speed_likelihood_ratio,
                    replay_fit=replay_fit,
                    no_replay_fit=no_replay_fit,
