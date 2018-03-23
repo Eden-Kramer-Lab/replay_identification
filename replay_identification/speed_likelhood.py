@@ -57,10 +57,9 @@ def speed_likelihood_ratio(speed, lagged_speed, replay_fit,
         speed, no_replay_prediction, scale=no_replay_fit.scale)
     log_likelihood_ratio = replay_log_likelihood - no_replay_log_likelihood
 
-    log_likelihood_ratio[speed > speed_threshold] = -speed[
-        speed > speed_threshold]
     likelihood_ratio = np.exp(log_likelihood_ratio)
     likelihood_ratio[np.isposinf(likelihood_ratio)] = 1
+
     return likelihood_ratio[:, np.newaxis]
 
 
@@ -90,4 +89,5 @@ def fit_speed_likelihood_ratio(speed, is_replay, speed_threshold=4.0):
 
 
 def fit_speed_model(speed, lagged_speed):
-    return GLM(speed, lagged_speed, family=families.Gaussian()).fit()
+    family = families.Gaussian(link=families.links.log)
+    return GLM(speed, lagged_speed, family=family).fit()
