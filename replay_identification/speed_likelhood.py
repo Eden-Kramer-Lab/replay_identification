@@ -9,10 +9,23 @@ from statsmodels.api import GLM, families
 from statsmodels.tsa.tsatools import lagmat
 
 
-def speed_log_likelihood(endog, mu, var_weights=1., scale=1.):
-    '''Gaussian log likelihood by observation'''
-    ll_obs = -var_weights * (endog - mu) ** 2 / scale
-    ll_obs += -np.log(scale / var_weights) - np.log(2 * np.pi)
+def speed_log_likelihood(response, predicted_response, weights=1., scale=1.):
+    '''Gaussian log likelihood by observation
+
+    Parameters
+    ----------
+    response : ndarray, shape (n_observations,)
+    predicted_response : ndarray, shape (n_observations,)
+    weights : ndarray or float, shape (n_observations,)
+    scale : float
+
+    Returns
+    -------
+    log_likelihood : ndarray, shape (n_observations,)
+
+    '''
+    ll_obs = -weights * (response - predicted_response) ** 2 / scale
+    ll_obs += -np.log(scale / weights) - np.log(2 * np.pi)
     ll_obs /= 2
     return ll_obs
 
