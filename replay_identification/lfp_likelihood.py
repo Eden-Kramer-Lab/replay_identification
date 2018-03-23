@@ -1,11 +1,11 @@
 import numpy as np
 from functools import partial
-from statsmodels.nonparametric.kernel_density import KDEMultivariate
+from sklearn.mixture import GaussianMixture
 
 from spectral_connectivity import Connectivity, Multitaper
 
 
-def lfp_likelihood_ratio(ripple_band_power, out_replay_kde, in_replay_kde):
+def lfp_likelihood_ratio(ripple_band_power, replay_model, no_replay_model):
     """Estimates the likelihood of being in a replay state over time given the
      spectral power of the local field potentials (LFPs).
 
@@ -20,12 +20,17 @@ def lfp_likelihood_ratio(ripple_band_power, out_replay_kde, in_replay_kde):
     lfp_likelihood_ratio : ndarray, shape (n_time, 1)
 
     """
-    out_replay_likelihood = bias_zero(out_replay_kde.pdf(
-        np.log(ripple_band_power)))
-    in_replay_likelihood = bias_zero(in_replay_kde.pdf(
-        np.log(ripple_band_power)))
+    not_nan = np.sum(~np.isnan(ripple_band_power), axis=1).astype(bool)
+    n_time = ripple_band_power.shape[0]
+    likelihood_ratio = np.full((n_time, 1), np.nan, dtype=np.float)
+    no_replay_log_likelihood = no_replay_model.score_samples(
+        np.log(ripple_band_power[not_nan]))
+    replay_log_likelihood = replay_model.score_samples(
+        np.log(ripple_band_power[not_nan]))
 
-    return (in_replay_likelihood / out_replay_likelihood)[:, np.newaxis]
+    likelihood_ratio[not_nan, 0] = np.exp(
+        replay_log_likelihood - no_replay_log_likelihood)
+    return likelihood_ratio
 
 
 def fit_lfp_likelihood_ratio(ripple_band_power, is_replay):
@@ -43,43 +48,17 @@ def fit_lfp_likelihood_ratio(ripple_band_power, is_replay):
     likelihood_ratio : function
 
     """
-    ripple_band_power = np.log(ripple_band_power)
 
-    out_replay_kde = estimate_kernel_density(
-        ripple_band_power[~is_replay])
-    in_replay_kde = estimate_kernel_density(
+    not_nan = np.sum(~np.isnan(ripple_band_power), axis=1).astype(bool)
+    ripple_band_power = np.log(ripple_band_power[not_nan])
+    is_replay = is_replay[not_nan]
+    replay_model = GaussianMixture(n_components=2).fit(
         ripple_band_power[is_replay])
+    no_replay_model = GaussianMixture(n_components=2).fit(
+        ripple_band_power[~is_replay])
 
-    return partial(lfp_likelihood_ratio, out_replay_kde=out_replay_kde,
-                   in_replay_kde=in_replay_kde)
-
-
-def bias_zero(x):
-    x[np.isclose(x, 0.0)] = np.spacing(1)
-    return x
-
-
-def estimate_kernel_density(ripple_band_power):
-    """Evaluate a multivariate gaussian kernel for each time point.
-
-    Parameters
-    ----------
-    ripple_band_power : ndarray, shape (n_time, n_signals)
-
-    Returns
-    -------
-    kernel_density_estimate : function
-
-    """
-    n_time, n_signals = ripple_band_power.shape
-    is_not_nan = np.any(~np.isnan(ripple_band_power), axis=1)
-    ripple_band_power = ripple_band_power[is_not_nan]
-    # replace with np.var?
-    power_variances = (np.std(ripple_band_power, axis=0) *
-                       (4 / (n_signals + 2) / n_time) **
-                       (1 / (n_signals + 4))) ** 2
-    return KDEMultivariate(ripple_band_power, bw=power_variances,
-                           var_type='c' * n_signals)
+    return partial(lfp_likelihood_ratio, replay_model=replay_model,
+                   no_replay_model=no_replay_model)
 
 
 def estimate_ripple_band_power(lfps, sampling_frequency):

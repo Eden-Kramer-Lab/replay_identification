@@ -9,6 +9,7 @@ dependencies:
 - numba
 - scipy
 - statsmodels
+- scikit-learn
 - matplotlib
 - xarray
 - spectral_connectivity
