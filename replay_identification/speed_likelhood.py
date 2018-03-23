@@ -4,26 +4,19 @@ current speed and the speed in the previous time step.
 """
 import numpy as np
 from functools import partial
+from statsmodels.tsa.tsatools import lagmat
+from statsmodels.api import GLM, families
 
 
-def speed_log_likelihood(speed_change, speed_std):
-    """The likelihood based on a Gaussian random walk.
-
-    Parameters
-    ----------
-    speed_change : ndarray
-    speed_std : float
-
-    Returns
-    -------
-    log_likelihood : ndarray
-
-    """
-    return -np.log(speed_std) - 0.5 * speed_change ** 2 / speed_std ** 2
+def speed_log_likelihood(endog, mu, var_weights=1., scale=1.):
+    ll_obs = -var_weights * (endog - mu) ** 2 / scale
+    ll_obs += -np.log(scale / var_weights) - np.log(2 * np.pi)
+    ll_obs /= 2
+    return ll_obs
 
 
-def speed_likelihood_ratio(speed, lagged_speed, replay_speed_std,
-                           no_replay_speed_std, speed_threshold=4.0):
+def speed_likelihood_ratio(speed, lagged_speed, replay_fit,
+                           no_replay_fit, speed_threshold=4.0):
     """Calculates the evidence of being in a replay state based on the
     current speed and the speed in the previous time step.
 
@@ -40,13 +33,15 @@ def speed_likelihood_ratio(speed, lagged_speed, replay_speed_std,
     speed_likelihood_ratio : ndarray, shape (n_time, 1)
 
     """
-    speed_change = np.squeeze(speed) - np.squeeze(lagged_speed)
+    no_replay_prediction = no_replay_fit.predict(lagged_speed)
+    replay_prediction = replay_fit.predict(lagged_speed)
+
     replay_log_likelihood = speed_log_likelihood(
-        speed_change, replay_speed_std)
+        speed, replay_prediction, scale=replay_fit.scale)
     no_replay_log_likelihood = speed_log_likelihood(
-        speed_change, no_replay_speed_std)
+        speed, no_replay_prediction, scale=no_replay_fit.scale)
     log_likelihood_ratio = replay_log_likelihood - no_replay_log_likelihood
-    # Ask long tao about this line
+
     log_likelihood_ratio[speed > speed_threshold] = -speed[
         speed > speed_threshold]
     likelihood_ratio = np.exp(log_likelihood_ratio)
@@ -69,10 +64,14 @@ def fit_speed_likelihood_ratio(speed, is_replay, speed_threshold=4.0):
     speed_likelihood_ratio : function
 
     """
-    speed_change = np.insert(np.diff(speed), 0, np.nan)
-    replay_speed_std = np.nanstd(speed_change[is_replay])
-    no_replay_speed_std = np.nanstd(speed_change[~is_replay])
+    lagged_speed = lagmat(speed, 1)
+    replay_fit = fit_speed_model(speed[is_replay], lagged_speed[is_replay])
+    no_replay_fit = fit_speed_model(speed[~is_replay], lagged_speed[~is_replay])
     return partial(speed_likelihood_ratio,
-                   replay_speed_std=replay_speed_std,
-                   no_replay_speed_std=no_replay_speed_std,
+                   replay_fit=replay_fit,
+                   no_replay_fit=no_replay_fit,
                    speed_threshold=speed_threshold)
+
+
+def fit_speed_model(speed, lagged_speed):
+    return GLM(speed, lagged_speed, family=families.Gaussian()).fit()
