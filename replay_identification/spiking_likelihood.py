@@ -34,7 +34,7 @@ def fit_glm_model(spikes, design_matrix, penalty=1E-1):
     penalty = np.ones((design_matrix.shape[1],)) * penalty
     penalty[0] = 0.0
     results = penalized_IRLS(
-        design_matrix.values, spikes, family=families.Poisson())
+        np.array(design_matrix), np.array(spikes),
         family=families.Poisson(), penalty=penalty)
     return np.squeeze(results.coefficients)
 
@@ -151,16 +151,15 @@ def fit_spiking_likelihood_ratio(position, spikes, is_replay,
     min_position, max_position = np.nanmin(position), np.nanmax(position)
     n_steps = (max_position - min_position) // knot_spacing
     position_knots = min_position + np.arange(1, n_steps) * knot_spacing
-    formula = ('1 + cr(position, knots=position_knots, constraints="center")')
-
+    FORMULA = ('1 + cr(position, knots=position_knots, constraints="center")')
     training_data = pd.DataFrame(
         dict(position=position[~is_replay])).dropna()
     design_matrix = dmatrix(
-        formula, training_data, return_type='dataframe')
+        FORMULA, training_data, return_type='dataframe')
     place_field_coefficients = np.stack(
         [fit_glm_model(
-            pd.DataFrame(s).loc[design_matrix.index], design_matrix,
-            penalty=penalty)
+            pd.DataFrame(s).loc[design_matrix.index],
+            design_matrix, penalty=penalty)
          for s in spikes[~is_replay].T], axis=1)
     place_design_matrix = create_predict_design_matrix(
         place_bin_centers, design_matrix)
