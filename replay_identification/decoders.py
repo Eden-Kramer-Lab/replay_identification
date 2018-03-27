@@ -186,7 +186,7 @@ class ReplayDetector(object):
 
     def plot_replay_state_transition(self):
         """Plot fit of the logistic regression models for replay transition."""
-        lagged_speeds = np.arange(0, 40, .1)
+        lagged_speeds = np.arange(0, 30, .1)
         probablity_replay = self._replay_state_transition(lagged_speeds)
 
         fig, axes = plt.subplots(2, 1, figsize=(5, 5), sharex=True)
