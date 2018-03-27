@@ -35,6 +35,7 @@ def fit_glm_model(spikes, design_matrix, penalty=1E-1):
     penalty[0] = 0.0
     results = penalized_IRLS(
         design_matrix.values, spikes, family=families.Poisson())
+        family=families.Poisson(), penalty=penalty)
     return np.squeeze(results.coefficients)
 
 
