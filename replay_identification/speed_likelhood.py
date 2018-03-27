@@ -7,6 +7,7 @@ from functools import partial
 import numpy as np
 from statsmodels.api import GLM, families
 from statsmodels.tsa.tsatools import lagmat
+from patsy import dmatrices
 
 
 def speed_log_likelihood(response, predicted_response, weights=1., scale=1.):
@@ -89,5 +90,8 @@ def fit_speed_likelihood_ratio(speed, is_replay, speed_threshold=4.0):
 
 
 def fit_speed_model(speed, lagged_speed):
+    FORMULA = 'speed ~ lagged_speed - 1'
+    response, design_matrix = dmatrices(
+        FORMULA, dict(speed=speed, lagged_speed=lagged_speed))
     family = families.Gaussian(link=families.links.log)
-    return GLM(speed, lagged_speed, family=family).fit()
+    return GLM(response, design_matrix, family=family).fit()
