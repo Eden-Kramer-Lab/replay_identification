@@ -8,7 +8,7 @@ from statsmodels.tsa.tsatools import lagmat
 from regularized_glm import penalized_IRLS
 
 
-def fit_replay_state_transition(speed, is_replay, penalty=1E-1):
+def fit_replay_state_transition(speed, is_replay, penalty=1E-5):
     """Estimate the predicted probablity of replay given speed and whether
     it was a replay in the previous time step.
 
