@@ -33,7 +33,9 @@ def lfp_likelihood_ratio(ripple_band_power, replay_model, no_replay_model):
     return likelihood_ratio
 
 
-def fit_lfp_likelihood_ratio(ripple_band_power, is_replay):
+def fit_lfp_likelihood_ratio(ripple_band_power, is_replay,
+                             model=GaussianMixture,
+                             model_kwargs=dict(n_components=2)):
     """Fits the likelihood of being in a replay state over time given the
      spectral power of the local field potentials (LFPs).
 
@@ -52,9 +54,9 @@ def fit_lfp_likelihood_ratio(ripple_band_power, is_replay):
     not_nan = np.all(~np.isnan(ripple_band_power), axis=1)
     ripple_band_power = np.log(ripple_band_power[not_nan])
     is_replay = is_replay[not_nan]
-    replay_model = GaussianMixture(n_components=2).fit(
+    replay_model = model(**model_kwargs).fit(
         ripple_band_power[is_replay])
-    no_replay_model = GaussianMixture(n_components=2).fit(
+    no_replay_model = model(**model_kwargs).fit(
         ripple_band_power[~is_replay])
 
     return partial(lfp_likelihood_ratio, replay_model=replay_model,
