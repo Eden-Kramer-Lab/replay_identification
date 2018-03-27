@@ -16,7 +16,7 @@ from .core import combined_likelihood
 logger = getLogger(__name__)
 
 
-def fit_glm_model(spikes, design_matrix, penalty=1E-1):
+def fit_glm_model(spikes, design_matrix, penalty=1E1):
     """Fits the Poisson model to the spikes from a neuron.
 
     Parameters
@@ -131,7 +131,7 @@ def spiking_likelihood_ratio(
 
 
 def fit_spiking_likelihood_ratio(position, spikes, is_replay,
-                                 place_bin_centers, penalty=1E-5,
+                                 place_bin_centers, penalty=1E1,
                                  time_bin_size=1, knot_spacing=30):
     """Estimate the place field model.
 
