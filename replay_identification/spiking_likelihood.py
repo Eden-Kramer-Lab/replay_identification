@@ -147,7 +147,7 @@ def fit_spiking_likelihood_ratio(position, spikes, is_replay,
     spiking_likelihood_ratio : function
 
     """
-    min_position, max_position = position.min(), position.max()
+    min_position, max_position = np.nanmin(position), np.nanmax(position)
     n_steps = (max_position - min_position) // knot_spacing
     position_knots = min_position + np.arange(1, n_steps) * knot_spacing
     formula = ('1 + cr(position, knots=position_knots, constraints="center")')
