@@ -7,6 +7,8 @@ from logging import getLogger
 
 import numpy as np
 import pandas as pd
+import dask.array as da
+
 from patsy import build_design_matrices, dmatrix
 from statsmodels.api import families
 from regularized_glm import penalized_IRLS
@@ -102,7 +104,7 @@ def poisson_log_likelihood(is_spike, conditional_intensity=None,
 
 def spiking_likelihood_ratio(
         is_spike, position, design_matrix, place_field_coefficients,
-        place_conditional_intensity, time_bin_size=1):
+        place_conditional_intensity, time_bin_size=1, chunks=1E3):
     """Computes the likelihood ratio between replay and not replay events.
 
     Parameters
@@ -123,11 +125,15 @@ def spiking_likelihood_ratio(
         position, design_matrix)
     no_replay_conditional_intensity = get_conditional_intensity(
         place_field_coefficients, no_replay_design_matrix)
-    no_replay_log_likelihood = poisson_log_likelihood(
-        is_spike, no_replay_conditional_intensity, time_bin_size)[:, np.newaxis]
+    no_replay_log_likelihood = da.from_array(poisson_log_likelihood(
+        is_spike, no_replay_conditional_intensity,
+        time_bin_size)[:, np.newaxis], chunks)
+    is_spike = da.from_array(is_spike[:, np.newaxis, :], chunks)
+    place_conditional_intensity = da.from_array(
+        place_conditional_intensity[np.newaxis, ...], chunks)
     replay_log_likelihood = poisson_log_likelihood(
-        is_spike[:, np.newaxis, :], place_conditional_intensity, time_bin_size)
-    return np.exp(replay_log_likelihood - no_replay_log_likelihood)
+        is_spike, place_conditional_intensity, time_bin_size)
+    return np.exp(replay_log_likelihood - no_replay_log_likelihood).compute()
 
 
 def fit_spiking_likelihood_ratio(position, spikes, is_replay,
@@ -164,7 +170,7 @@ def fit_spiking_likelihood_ratio(position, spikes, is_replay,
     place_design_matrix = create_predict_design_matrix(
         place_bin_centers, design_matrix)
     place_conditional_intensity = get_conditional_intensity(
-        place_field_coefficients, place_design_matrix)[np.newaxis, ...]
+        place_field_coefficients, place_design_matrix)
     return partial(
         spiking_likelihood_ratio,
         design_matrix=design_matrix,
