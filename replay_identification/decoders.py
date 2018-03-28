@@ -133,6 +133,7 @@ class ReplayDetector(object):
             if name.lower() in use_likelihoods:
                 logger.info('Predicting {0} likelihood...'.format(name))
                 likelihood = likelihood * replace_NaN(likelihood_func())
+
         replay_state_transition = self._replay_state_transition(lagged_speed)
 
         logger.info('Predicting replay probability and density...')
