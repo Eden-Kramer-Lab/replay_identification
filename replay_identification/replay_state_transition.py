@@ -2,7 +2,7 @@ from functools import partial
 
 import numpy as np
 import pandas as pd
-from patsy import build_design_matrices, dmatrices
+from patsy import build_design_matrices, dmatrices, NAAction
 from statsmodels.api import families
 from statsmodels.tsa.tsatools import lagmat
 from regularized_glm import penalized_IRLS
@@ -50,7 +50,8 @@ def make_design_matrix(lagged_is_replay, lagged_speed, design_matrix):
         'lagged_speed': lagged_speed
     }
     return build_design_matrices(
-        [design_matrix.design_info], no_previous_replay_predict_data)[0]
+        [design_matrix.design_info], no_previous_replay_predict_data,
+        NA_action=NAAction(NA_types=[]))[0]
 
 
 def predict_probability(lagged_speed, design_matrix, fit):
@@ -73,11 +74,15 @@ def predict_probability(lagged_speed, design_matrix, fit):
 
     previous_replay_design_matrix = make_design_matrix(
         1, lagged_speed, design_matrix)
-    coefficients = np.squeeze(fit.coefficients)
 
-    return np.stack((predict(no_previous_replay_design_matrix, coefficients),
-                     predict(previous_replay_design_matrix, coefficients)),
-                    axis=1)
+    replay_probability = np.stack(
+        (predict(no_previous_replay_design_matrix, fit.coefficients),
+         predict(previous_replay_design_matrix, fit.coefficients)),
+        axis=1)
+
+    replay_probability[np.isnan(replay_probability)] = 0
+
+    return replay_probability
 
 
 def predict(design_matrix, coefficients):
