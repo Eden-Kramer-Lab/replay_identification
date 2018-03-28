@@ -41,7 +41,8 @@ def fit_replay_state_transition(speed, is_replay, penalty=1E-5):
     penalty[0] = 0.0
     fit = penalized_IRLS(design_matrix, response, family=family,
                          penalty=penalty)
-    return partial(predict_probability, design_matrix=design_matrix, fit=fit)
+    return partial(predict_probability, design_matrix=design_matrix,
+                   coefficients=fit.coefficients)
 
 
 def make_design_matrix(lagged_is_replay, lagged_speed, design_matrix):
@@ -54,7 +55,7 @@ def make_design_matrix(lagged_is_replay, lagged_speed, design_matrix):
         NA_action=NAAction(NA_types=[]))[0]
 
 
-def predict_probability(lagged_speed, design_matrix, fit):
+def predict_probability(lagged_speed, design_matrix, coefficients):
     """Predict probability of replay state given speed and whether it was a
     replay in the previous time step.
 
@@ -76,8 +77,8 @@ def predict_probability(lagged_speed, design_matrix, fit):
         1, lagged_speed, design_matrix)
 
     replay_probability = np.stack(
-        (predict(no_previous_replay_design_matrix, fit.coefficients),
-         predict(previous_replay_design_matrix, fit.coefficients)),
+        (predict(no_previous_replay_design_matrix, coefficients),
+         predict(previous_replay_design_matrix, coefficients)),
         axis=1)
 
     replay_probability[np.isnan(replay_probability)] = 0
