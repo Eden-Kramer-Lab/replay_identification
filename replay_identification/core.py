@@ -22,7 +22,8 @@ def scaled_likelihood(log_likelihood_func):
     @wraps(log_likelihood_func)
     def decorated_function(*args, **kwargs):
         log_likelihood = log_likelihood_func(*args, **kwargs)
-        return np.exp(log_likelihood - np.max(log_likelihood))
+        axis = tuple(range(log_likelihood.ndim))[1:]
+        return np.exp(log_likelihood - np.max(log_likelihood, axis=axis))
 
     return decorated_function
 
