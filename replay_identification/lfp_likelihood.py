@@ -35,7 +35,7 @@ def lfp_likelihood_ratio(ripple_band_power, replay_model, no_replay_model):
 
 def fit_lfp_likelihood_ratio(ripple_band_power, is_replay,
                              model=GaussianMixture,
-                             model_kwargs=dict(n_components=2)):
+                             model_kwargs=dict(n_components=3)):
     """Fits the likelihood of being in a replay state over time given the
      spectral power of the local field potentials (LFPs).
 
