@@ -36,7 +36,7 @@ class ReplayDetector(object):
 
     def __init__(self, speed_threshold=4.0, spike_model_penalty=1E1,
                  time_bin_size=1, replay_state_transition_penalty=1E-5,
-                 place_bin_size=30, replay_speed=20, knot_spacing=30):
+                 place_bin_size=1, replay_speed=20, knot_spacing=30):
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
         self.time_bin_size = time_bin_size
