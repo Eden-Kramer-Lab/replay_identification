@@ -4,7 +4,7 @@ from logging import getLogger
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-from scipy.integrate import trapz
+from numba import jit
 from statsmodels.tsa.tsatools import lagmat
 
 from .core import get_place_bin_centers, get_place_bins
@@ -115,9 +115,6 @@ class ReplayDetector(object):
         place_bins = self.place_bin_centers
         place_bin_size = np.diff(place_bins)[0]
 
-        replay_probability = np.zeros((n_time,))
-        replay_posterior = np.zeros((n_time, n_place_bins))
-        uniform = np.ones((n_place_bins,)) / n_place_bins
         likelihood = np.ones((n_time, 1))
 
         likelihoods = {
@@ -137,23 +134,9 @@ class ReplayDetector(object):
         replay_state_transition = self._replay_state_transition(lagged_speed)
 
         logger.info('Predicting replay probability and density...')
-        for time_ind in np.arange(1, n_time):
-            replay_prior = (
-                replay_state_transition[time_ind, 1] *
-                trapz(self._movement_state_transition *
-                      replay_posterior[time_ind - 1], dx=place_bin_size) +
-                replay_state_transition[time_ind, 0] *
-                uniform * (1 - replay_probability[time_ind - 1]))
-            updated_posterior = likelihood[time_ind] * replay_prior
-            non_replay_posterior = (
-                (1 - replay_state_transition[time_ind - 1, 0]) *
-                (1 - replay_probability[time_ind - 1]) +
-                (1 - replay_state_transition[time_ind - 1, 1]) *
-                replay_probability[time_ind - 1])
-            integrated_posterior = trapz(updated_posterior, dx=place_bin_size)
-            norm = integrated_posterior + non_replay_posterior
-            replay_probability[time_ind] = integrated_posterior / norm
-            replay_posterior[time_ind] = updated_posterior / norm
+        replay_probability, replay_posterior = _predict(
+            likelihood, self._movement_state_transition,
+            replay_state_transition, n_time, n_place_bins, place_bin_size)
 
         likelihood_dims = (['time', 'position'] if likelihood.shape[1] > 1
                            else ['time'])
@@ -221,6 +204,34 @@ class ReplayDetector(object):
         ax.set_ylabel('position t - 1')
         ax.set_title('Movement State Transition')
         plt.colorbar(cax, label='probability')
+
+
+@jit(nopython=True)
+def _predict(likelihood, movement_state_transition, replay_state_transition,
+             n_time, n_place_bins, place_bin_size):
+    replay_probability = np.zeros((n_time,))
+    replay_posterior = np.zeros((n_time, n_place_bins))
+    uniform = np.ones((n_place_bins,)) / n_place_bins
+
+    for time_ind in np.arange(1, n_time):
+        replay_prior = (
+            replay_state_transition[time_ind, 1]
+            * np.dot(movement_state_transition, replay_posterior[time_ind - 1])
+            * place_bin_size
+            + replay_state_transition[time_ind, 0]
+            * uniform * (1 - replay_probability[time_ind - 1]))
+        updated_posterior = likelihood[time_ind] * replay_prior
+        non_replay_posterior = (
+            (1 - replay_state_transition[time_ind, 0]) *
+            (1 - replay_probability[time_ind - 1]) +
+            (1 - replay_state_transition[time_ind, 1]) *
+            replay_probability[time_ind - 1])
+        integrated_posterior = np.sum(updated_posterior) * place_bin_size
+        norm = integrated_posterior + non_replay_posterior
+        replay_probability[time_ind] = integrated_posterior / norm
+        replay_posterior[time_ind] = updated_posterior / norm
+
+    return replay_probability, replay_posterior
 
 
 def replace_NaN(x):
