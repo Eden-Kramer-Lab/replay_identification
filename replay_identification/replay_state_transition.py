@@ -46,12 +46,12 @@ def fit_replay_state_transition(speed, is_replay, penalty=1E-5):
 
 
 def make_design_matrix(lagged_is_replay, lagged_speed, design_matrix):
-    no_previous_replay_predict_data = {
+    predict_data = {
         'lagged_is_replay': lagged_is_replay * np.ones_like(lagged_speed),
         'lagged_speed': lagged_speed
     }
     return build_design_matrices(
-        [design_matrix.design_info], no_previous_replay_predict_data,
+        [design_matrix.design_info], predict_data,
         NA_action=NAAction(NA_types=[]))[0]
 
 
