@@ -12,6 +12,7 @@ dependencies:
 - scikit-learn
 - matplotlib
 - xarray
+- dask
 - spectral_connectivity
 - regularized_glm
 - patsy
