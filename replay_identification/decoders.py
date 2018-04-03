@@ -6,11 +6,12 @@ import numpy as np
 import xarray as xr
 from numba import jit
 from statsmodels.tsa.tsatools import lagmat
+from sklearn.mixture import GaussianMixture
 
 from .core import get_place_bin_centers, get_place_bins
 from .lfp_likelihood import fit_lfp_likelihood_ratio
-from .movement_state_transition import (empirical_movement_transition_matrix,
-                                        fit_movement_state_transition)
+from .movement_state_transition import empirical_movement_transition_matrix
+from .multiunit_likelihood import fit_multiunit_likelihood_ratio
 from .replay_state_transition import fit_replay_state_transition
 from .speed_likelhood import fit_speed_likelihood_ratio
 from .spiking_likelihood import fit_spiking_likelihood_ratio
@@ -49,7 +50,8 @@ class ReplayDetector(object):
         return self.keys()
 
     def fit(self, is_replay, speed, lfp_power, position,
-            spikes=None, multiunit=None):
+            spikes=None, multiunit=None, model=GaussianMixture,
+            model_kwargs=dict(n_components=3)):
         """Train the model on replay and non-replay periods.
 
         Parameters
@@ -79,6 +81,14 @@ class ReplayDetector(object):
                 self.knot_spacing)
         else:
             self._spiking_likelihood_ratio = return_None
+
+        if multiunit is not None:
+            logger.info('Fitting multiunit model...')
+            self._multiunit_likelihood_ratio = fit_multiunit_likelihood_ratio(
+                position, multiunit, is_replay, self.place_bin_centers, model,
+                model_kwargs)
+        else:
+            self._multiunit_likelihood_ratio = return_None
 
         logger.info('Fitting movement state transition...')
         self._movement_state_transition = empirical_movement_transition_matrix(
@@ -124,6 +134,8 @@ class ReplayDetector(object):
                                  ripple_band_power=lfp_power),
             'spikes': partial(self._spiking_likelihood_ratio,
                               is_spike=spikes, position=position),
+            'multiunit': partial(self._multiunit_likelihood_ratio,
+                                 marks=multiunit, position=position)
         }
 
         for name, likelihood_func in likelihoods.items():
@@ -237,3 +249,7 @@ def _predict(likelihood, movement_state_transition, replay_state_transition,
 def replace_NaN(x):
     x[np.isnan(x)] = 1
     return x
+
+
+def return_None(*args, **kwargs):
+    return None

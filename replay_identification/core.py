@@ -32,8 +32,7 @@ def combined_likelihood(log_likelihood_function):
     @wraps(log_likelihood_function)
     def decorated_function(*args, **kwargs):
         try:
-            return np.sum(log_likelihood_function(*args, **kwargs),
-                          axis=-1)
+            return np.sum(log_likelihood_function(*args, **kwargs), axis=-1)
         except ValueError:
             return log_likelihood_function(*args, **kwargs).squeeze()
     return decorated_function
