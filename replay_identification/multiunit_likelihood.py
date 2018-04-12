@@ -5,43 +5,57 @@ from functools import partial
 
 import numpy as np
 
-from .core import combined_likelihood
 
-
-def multiunit_likelihood_ratio(marks, position, place_bin_centers,
+def multiunit_likelihood_ratio(multiunit, position, place_bin_centers,
                                joint_mark_intensity_functions=None,
                                ground_process_intensity=None, time_bin_size=1):
 
     position = np.atleast_2d(np.squeeze(position))
 
-    no_replay_log_likelihood = poisson_mark_log_likelihood(
-        marks, position, joint_mark_intensity_functions,
+    no_replay_log_likelihood = combined_likelihood(
+        multiunit, position, joint_mark_intensity_functions,
         ground_process_intensity, time_bin_size)
-    replay_log_likelihood = poisson_mark_log_likelihood(
-        marks, place_bin_centers,
+    replay_log_likelihood = combined_likelihood(
+        multiunit, place_bin_centers,
         joint_mark_intensity_functions, ground_process_intensity,
         time_bin_size)
     return np.exp(replay_log_likelihood - no_replay_log_likelihood)
 
 
-@combined_likelihood
-def poisson_mark_log_likelihood(marks, position,
-                                joint_mark_intensity_functions=None,
-                                ground_process_intensity=None,
+def combined_likelihood(multiunit, position, joint_mark_intensity_functions,
+                        ground_process_intensity, time_bin_size):
+    n_bin = ground_process_intensity.shape[0]
+    n_time = multiunit.shape[0]
+    log_likelihood = np.zeros((n_time, n_bin))
+    multiunit = np.moveaxis(multiunit, -1, 0)
+    ground_process_intensity = ground_process_intensity.T
+
+    for signal_marks, jmi, gpi in zip(
+            multiunit, joint_mark_intensity_functions,
+            ground_process_intensity):
+        log_likelihood += poisson_mark_log_likelihood(
+            multiunit, jmi(signal_marks, position), gpi,
+            time_bin_size)
+
+    return log_likelihood
+
+
+def poisson_mark_log_likelihood(multiunit, joint_mark_intensity,
+                                ground_process_intensity,
                                 time_bin_size=1):
     '''Probability of parameters given spiking indicator at a particular
     time and associated marks.
 
     Parameters
     ----------
-    marks : array, shape (n_signals, n_marks)
+    multiunit : array, shape (n_signals, n_marks)
     joint_mark_intensity : function
         Instantaneous probability of observing a spike given mark vector
         from data. The parameters for this function should already be set,
         before it is passed to `poisson_mark_log_likelihood`.
     ground_process_intensity : array, shape (n_signals, n_states,
                                              n_place_bins)
-        Probability of observing a spike regardless of marks.
+        Probability of observing a spike regardless of multiunit.
     time_bin_size : float, optional
 
     Returns
@@ -50,34 +64,30 @@ def poisson_mark_log_likelihood(marks, position,
                                                      n_time, n_place_bins)
 
     '''
-    marks = np.moveaxis(marks, -1, 0)
+
     probability_no_spike = -ground_process_intensity * time_bin_size
-    joint_mark_intensity = np.stack(
-        [jmi(signal_marks, position) for signal_marks, jmi
-         in zip(marks, joint_mark_intensity_functions)], axis=-1)
     return np.log(joint_mark_intensity) + probability_no_spike
 
 
 def joint_mark_intensity(
-        marks, place_bin_centers, place_occupancy, fitted_model, mean_rate):
-    marks = np.atleast_2d(marks)
+        multiunit, place_bin_centers, place_occupancy, fitted_model,
+        mean_rate):
+    multiunit = np.atleast_2d(multiunit)
     n_place_bins = place_bin_centers.shape[0]
-    n_time = marks.shape[0]
-    is_nan = np.any(np.isnan(marks), axis=1)
-    n_spikes = np.sum(~is_nan)
-    density = np.zeros((n_time, n_place_bins))
+    n_time = multiunit.shape[0]
+    is_nan = np.any(np.isnan(multiunit), axis=1)
+    joint_mark_intensity = np.ones((n_time, n_place_bins))
 
-    if n_spikes > 0:
-        for bin_ind, bin in enumerate(place_bin_centers):
-            bin = atleast_2d(bin * np.ones((n_time,)))
-            not_nan = ~is_nan & ~np.isnan(bin.squeeze())
-            predict_data = np.concatenate(
-                (marks[not_nan], bin[not_nan]), axis=1)
-            density[not_nan, bin_ind] = np.exp(
-                fitted_model.score_samples(predict_data))
+    for bin_ind, bin in enumerate(place_bin_centers):
+        bin = atleast_2d(bin * np.ones((n_time,)))
+        not_nan = ~is_nan & ~np.isnan(bin.squeeze())
+        predict_data = np.concatenate(
+            (multiunit[not_nan], bin[not_nan]), axis=1)
+        joint_mark_intensity[not_nan, bin_ind] = np.exp(
+            fitted_model.score_samples(predict_data))
 
-    joint_mark_intensity = mean_rate * density / place_occupancy
-    joint_mark_intensity[is_nan] = 1.0
+    joint_mark_intensity = mean_rate * joint_mark_intensity / place_occupancy
+    joint_mark_intensity[~not_nan] = 1.0
     return joint_mark_intensity
 
 
@@ -87,8 +97,8 @@ def estimate_place_occupancy(position, place_bin_centers, model, model_kwargs):
 
 
 def estimate_ground_process_intensity(
-        position, marks, place_bin_centers, model, model_kwargs):
-    is_spike = np.any(~np.isnan(marks), axis=1)
+        position, multiunit, place_bin_centers, model, model_kwargs):
+    is_spike = np.any(~np.isnan(multiunit), axis=1)
     not_nan = ~np.isnan(position)
     position = atleast_2d(position)
     place_field = np.exp(model(**model_kwargs)
@@ -127,13 +137,13 @@ def fit_multiunit_likelihood_ratio(position, spike_marks, is_replay,
 
     position = position[~is_replay]
 
-    for marks in np.moveaxis(spike_marks[~is_replay], -1, 0):
+    for multiunit in np.moveaxis(spike_marks[~is_replay], -1, 0):
         joint_mark_intensity_functions.append(
             build_joint_mark_intensity(
-                position, marks, place_bin_centers, model, model_kwargs))
+                position, multiunit, place_bin_centers, model, model_kwargs))
         ground_process_intensity.append(
             estimate_ground_process_intensity(
-                position, marks, place_bin_centers, model, model_kwargs))
+                position, multiunit, place_bin_centers, model, model_kwargs))
 
     ground_process_intensity = np.concatenate(
         ground_process_intensity, axis=0).T

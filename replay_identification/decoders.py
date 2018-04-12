@@ -135,7 +135,7 @@ class ReplayDetector(object):
             'spikes': partial(self._spiking_likelihood_ratio,
                               is_spike=spikes, position=position),
             'multiunit': partial(self._multiunit_likelihood_ratio,
-                                 marks=multiunit, position=position)
+                                 multiunit=multiunit, position=position)
         }
 
         for name, likelihood_func in likelihoods.items():
