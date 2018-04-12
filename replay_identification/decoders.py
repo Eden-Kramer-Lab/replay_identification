@@ -51,7 +51,7 @@ class ReplayDetector(object):
 
     def fit(self, is_replay, speed, lfp_power, position,
             spikes=None, multiunit=None, model=GaussianMixture,
-            model_kwargs=dict(n_components=3)):
+            model_kwargs=dict(n_components=10)):
         """Train the model on replay and non-replay periods.
 
         Parameters
