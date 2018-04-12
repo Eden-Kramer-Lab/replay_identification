@@ -23,45 +23,79 @@ _DEFAULT_LIKELIHOODS = ['spikes', 'lfp_power', 'speed']
 
 class ReplayDetector(object):
     """Find replay events using information from spikes, lfp ripple band power,
-    and speed.
+    speed, and/or multiunit.
 
     Attributes
     ----------
     speed_threshold : float, optional
+        Speed cutoff that denotes when the animal is moving vs. not moving.
     spike_model_penalty : float, optional
     time_bin_size : float, optional
     replay_state_transition_penalty : float, optional
     place_bin_size : float, optional
+    replay_speed : int, optional
+        The amount of speedup expected from the replay events vs.
+        normal movement.
+    spike_model_knot_spacing : float, optional
+        Determines how far apart to place to the spline knots over position.
+    multiunit_density_model : Class, optional
+        Fits the mark space vs. position density. Can be any class with a fit,
+        score_samples, and a sample method. For example, density estimators
+        from scikit-learn such as sklearn.neighbors.KernelDensity,
+        sklearn.mixture.GaussianMixture, and
+        sklearn.mixture.BayesianGaussianMixture.
+    multiunit_model_kwargs : dict, optional
+        Arguments for the `multiunit_density_model`
+
+    Methods
+    -------
+    fit
+        Fits the model to the training data.
+    predict
+        Predicts the replay probability and posterior density to new data.
+    plot_fitted_place_fields
+        Plot the place fields from the fitted spiking data.
+    plot_fitted_multiunit_model
+        Plot position by mark from the fitted multiunit data.
+    plot_replay_state_transition
+        Plot the replay state transition model over speed lags.
+    plot_movement_state_transition
+        Plot the semi-latent state movement transition model.
 
     """
 
     def __init__(self, speed_threshold=4.0, spike_model_penalty=1E1,
                  time_bin_size=1, replay_state_transition_penalty=1E-5,
-                 place_bin_size=1, replay_speed=20, knot_spacing=30):
+                 place_bin_size=1, replay_speed=20,
+                 spike_model_knot_spacing=30,
+                 multiunit_density_model=GaussianMixture,
+                 multiunit_model_kwargs=dict(n_components=10)):
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
         self.time_bin_size = time_bin_size
         self.replay_state_transition_penalty = replay_state_transition_penalty
         self.place_bin_size = place_bin_size
         self.replay_speed = replay_speed
-        self.knot_spacing = knot_spacing
+        self.spike_model_knot_spacing = spike_model_knot_spacing
+        self.multiunit_density_model = multiunit_density_model
+        self.multiunit_model_kwargs = multiunit_model_kwargs
 
     def __dir__(self):
         return self.keys()
 
     def fit(self, is_replay, speed, lfp_power, position,
-            spikes=None, multiunit=None, model=GaussianMixture,
-            model_kwargs=dict(n_components=10)):
+            spikes=None, multiunit=None):
         """Train the model on replay and non-replay periods.
 
         Parameters
         ----------
-        is_replay : ndarray, shape (n_time,)
+        is_replay : bool ndarray, shape (n_time,)
         speed : ndarray, shape (n_time,)
         lfp_power : ndarray, shape (n_time, n_signals)
         position : ndarray, shape (n_time,)
         spikes : ndarray or None, shape (n_time, n_neurons)
         multiunit : ndarray or None, shape (n_time, n_marks, n_signals)
+            np.nan represents times with no multiunit activity.
 
         """
         self.place_bin_edges = get_place_bins(position, self.place_bin_size)
@@ -78,15 +112,15 @@ class ReplayDetector(object):
             self._spiking_likelihood_ratio = fit_spiking_likelihood_ratio(
                 position, spikes, is_replay, self.place_bin_centers,
                 self.spike_model_penalty, self.time_bin_size,
-                self.knot_spacing)
+                self.spike_model_knot_spacing)
         else:
             self._spiking_likelihood_ratio = return_None
 
         if multiunit is not None:
             logger.info('Fitting multiunit model...')
             self._multiunit_likelihood_ratio = fit_multiunit_likelihood_ratio(
-                position, multiunit, is_replay, self.place_bin_centers, model,
-                model_kwargs)
+                position, multiunit, is_replay, self.place_bin_centers,
+                self.multiunit_density_model, self.multiunit_model_kwargs)
         else:
             self._multiunit_likelihood_ratio = return_None
 
@@ -106,14 +140,20 @@ class ReplayDetector(object):
         speed : ndarray, shape (n_time,)
         lfp_power : ndarray, shape (n_time, n_signals)
         position : ndarray, shape (n_time,)
-        spikes : ndarray or None, shape (n_time, n_neurons)
-        multiunit : ndarray or None, shape (n_time,)
-        use_likelihoods : speed | lfp_power | spikes, optional
-        sampling_frequency : float, optional
+        spikes : ndarray or None, shape (n_time, n_neurons), optional
+        multiunit : ndarray or None, shape (n_time, n_marks, n_signals),
+                    optional
+        use_likelihoods : list of str, optional
+            Valid strings in the list are:
+             (speed | lfp_power | spikes | multiunit)
+        time : ndarray or None, shape (n_time,), optional
+            Experiment time will be included in the results if specified.
+
 
         Returns
         -------
         decoding_results : xarray.Dataset
+            Includes replay probability and posterior density.
 
         """
         n_time = speed.shape[0]
@@ -160,7 +200,7 @@ class ReplayDetector(object):
             coords={'time': time, 'position': place_bins})
 
     def plot_fitted_place_fields(self, ax=None, sampling_frequency=1):
-        """Plot the place fields used in the spiking likelihood.
+        """Plot the place fields from the fitted spiking data.
 
         Parameters
         ----------
@@ -180,10 +220,29 @@ class ReplayDetector(object):
         ax.set_ylabel('Spikes / s')
         ax.set_xlabel('Position')
 
-    def plot_multiunit_model(self, sampling_frequency=1,
-                             n_samples=1E4,
-                             mark_edges=np.linspace(0, 400, 100),
-                             is_histogram=True):
+    def plot_fitted_multiunit_model(self, sampling_frequency=1,
+                                    n_samples=1E4,
+                                    mark_edges=np.linspace(0, 400, 100),
+                                    is_histogram=True):
+        """Plot position by mark from the fitted multiunit data.
+
+        Parameters
+        ----------
+        sampling_frequency : float, optional
+            If 'is_histogram' is True, then used for computing the intensity.
+        n_samples : int, optional
+            Number of samples to generate from the fitted model.
+        mark_edges : ndarray, shape (n_edges,)
+            If `is_histogram` is True, then the edges that define the mark bins
+        is_histogram : bool, optional
+            If True, plots the joint mark intensity of the samples. Otherwise,
+            a scatter plot of the samples is returned.
+
+        Returns
+        -------
+        axes : matplotlib.pyplot axes
+
+        """
         joint_mark_intensity_functions = (
             self._multiunit_likelihood_ratio.keywords[
                 'joint_mark_intensity_functions'])
@@ -217,7 +276,7 @@ class ReplayDetector(object):
         return axes
 
     def plot_replay_state_transition(self):
-        """Plot fit of the logistic regression models for replay transition."""
+        """Plot the replay state transition model over speed lags."""
         lagged_speeds = np.arange(0, 30, .1)
         probablity_replay = self._replay_state_transition(lagged_speeds)
 
