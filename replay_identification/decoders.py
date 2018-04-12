@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from numba import jit
-from statsmodels.tsa.tsatools import lagmat
 from sklearn.mixture import GaussianMixture
+from statsmodels.tsa.tsatools import lagmat
 
 from .core import get_place_bin_centers, get_place_bins
 from .lfp_likelihood import fit_lfp_likelihood_ratio
