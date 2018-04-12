@@ -180,6 +180,42 @@ class ReplayDetector(object):
         ax.set_ylabel('Spikes / s')
         ax.set_xlabel('Position')
 
+    def plot_multiunit_model(self, sampling_frequency=1,
+                             n_samples=1E4,
+                             mark_edges=np.linspace(0, 400, 100),
+                             is_histogram=True):
+        joint_mark_intensity_functions = (
+            self._multiunit_likelihood_ratio.keywords[
+                'joint_mark_intensity_functions'])
+        n_signals = len(joint_mark_intensity_functions)
+        n_marks = (joint_mark_intensity_functions[0]
+                   .keywords['fitted_model'].means_.shape[1] - 1)
+        bins = (self.place_bin_edges, mark_edges)
+
+        fig, axes = plt.subplots(n_signals, n_marks,
+                                 figsize=(n_marks * 3, n_signals * 3),
+                                 sharex=True, sharey=True)
+        for jmi, row_axes in zip(joint_mark_intensity_functions, axes):
+            samples = jmi.keywords['fitted_model'].sample(n_samples)[0]
+            place_occupancy = jmi.keywords['place_occupancy']
+            mean_rate = jmi.keywords['mean_rate']
+
+            for mark_ind, ax in enumerate(row_axes):
+                if is_histogram:
+                    H = np.histogram2d(samples[:, -1], samples[:, mark_ind],
+                                       bins=bins, normed=True)[0]
+                    H = sampling_frequency * mean_rate * H.T / place_occupancy
+                    X, Y = np.meshgrid(*bins)
+                    ax.pcolormesh(X, Y, H, vmin=0, vmax=1)
+                else:
+                    ax.scatter(samples[:, -1], samples[:, mark_ind], alpha=0.1)
+
+        plt.xlim((bins[0].min(), bins[0].max()))
+        plt.ylim((bins[1].min(), bins[1].max()))
+        plt.tight_layout()
+
+        return axes
+
     def plot_replay_state_transition(self):
         """Plot fit of the logistic regression models for replay transition."""
         lagged_speeds = np.arange(0, 30, .1)
