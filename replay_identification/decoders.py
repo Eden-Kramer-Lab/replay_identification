@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from numba import jit
-from sklearn.mixture import GaussianMixture
+from sklearn.mixture import BayesianGaussianMixture
 from statsmodels.tsa.tsatools import lagmat
 
 from .core import get_place_bin_centers, get_place_bins
@@ -68,7 +68,7 @@ class ReplayDetector(object):
                  time_bin_size=1, replay_state_transition_penalty=1E-5,
                  place_bin_size=1, replay_speed=20,
                  spike_model_knot_spacing=30,
-                 multiunit_density_model=GaussianMixture,
+                 multiunit_density_model=BayesianGaussianMixture,
                  multiunit_model_kwargs=dict(n_components=10)):
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
