@@ -1,5 +1,7 @@
 # replay_identification
 [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/Eden-Kramer-Lab/replay_identification/python-version)
+[![DOI](https://zenodo.org/badge/105480682.svg)](https://zenodo.org/badge/latestdoi/105480682)
+
 
 A semi-latent state-space model that combines movement, LFP, and ensemble single unit/multiunit information to identify periods of replay and decode its content.
 
