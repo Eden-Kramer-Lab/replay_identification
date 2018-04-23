@@ -230,7 +230,7 @@ class ReplayDetector(object):
     def plot_fitted_multiunit_model(self, sampling_frequency=1,
                                     n_samples=1E4,
                                     mark_edges=np.linspace(0, 400, 100),
-                                    is_histogram=True):
+                                    is_histogram=False):
         """Plot position by mark from the fitted multiunit data.
 
         Parameters
