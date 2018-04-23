@@ -83,7 +83,7 @@ class ReplayDetector(object):
     def __dir__(self):
         return self.keys()
 
-    def fit(self, is_replay, speed, lfp_power, position,
+    def fit(self, is_replay, speed, position, lfp_power=None,
             spikes=None, multiunit=None):
         """Train the model on replay and non-replay periods.
 
@@ -91,10 +91,10 @@ class ReplayDetector(object):
         ----------
         is_replay : bool ndarray, shape (n_time,)
         speed : ndarray, shape (n_time,)
-        lfp_power : ndarray, shape (n_time, n_signals)
         position : ndarray, shape (n_time,)
-        spikes : ndarray or None, shape (n_time, n_neurons)
-        multiunit : ndarray or None, shape (n_time, n_marks, n_signals)
+        lfp_power : ndarray or None, shape (n_time, n_signals), optional
+        spikes : ndarray or None, shape (n_time, n_neurons), optional
+        multiunit : ndarray or None, shape (n_time, n_marks, n_signals), optional
             np.nan represents times with no multiunit activity.
 
         """
@@ -104,9 +104,13 @@ class ReplayDetector(object):
         logger.info('Fitting speed model...')
         self._speed_likelihood_ratio = fit_speed_likelihood_ratio(
             speed, is_replay, self.speed_threshold)
-        logger.info('Fitting LFP power model...')
-        self._lfp_likelihood_ratio = fit_lfp_likelihood_ratio(
-            lfp_power, is_replay)
+        if lfp_power is not None:
+            logger.info('Fitting LFP power model...')
+            self._lfp_likelihood_ratio = fit_lfp_likelihood_ratio(
+                lfp_power, is_replay)
+        else:
+            self._lfp_likelihood_ratio = return_None
+
         if spikes is not None:
             logger.info('Fitting spiking model...')
             self._spiking_likelihood_ratio = fit_spiking_likelihood_ratio(
@@ -131,15 +135,18 @@ class ReplayDetector(object):
         self._replay_state_transition = fit_replay_state_transition(
             speed, is_replay, self.replay_state_transition_penalty)
 
-    def predict(self, speed, lfp_power, position, spikes=None, multiunit=None,
-                use_likelihoods=_DEFAULT_LIKELIHOODS, time=None):
+        return self
+
+    def predict(self, speed, position, lfp_power=None, spikes=None,
+                multiunit=None, use_likelihoods=_DEFAULT_LIKELIHOODS,
+                time=None):
         """Predict the probability of replay and replay position/position.
 
         Parameters
         ----------
         speed : ndarray, shape (n_time,)
-        lfp_power : ndarray, shape (n_time, n_signals)
         position : ndarray, shape (n_time,)
+        lfp_power : ndarray, shape (n_time, n_signals)
         spikes : ndarray or None, shape (n_time, n_neurons), optional
         multiunit : ndarray or None, shape (n_time, n_marks, n_signals),
                     optional
