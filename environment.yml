@@ -13,6 +13,7 @@ dependencies:
 - matplotlib
 - xarray
 - dask
+- tqdm
 - spectral_connectivity
 - regularized_glm
 - patsy

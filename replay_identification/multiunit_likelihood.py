@@ -5,6 +5,14 @@ from functools import partial
 
 import numpy as np
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    def tqdm(*args, **kwargs):
+        if args:
+            return args[0]
+        return kwargs.get('iterable', None)
+
 
 def multiunit_likelihood_ratio(multiunit, position, place_bin_centers,
                                joint_mark_intensity_functions,
@@ -62,7 +70,7 @@ def combined_likelihood(multiunit, position, joint_mark_intensity_functions,
     ground_process_intensity = ground_process_intensity.T
 
     for signal_marks, jmi, gpi in zip(
-            multiunit, joint_mark_intensity_functions,
+            tqdm(multiunit), joint_mark_intensity_functions,
             ground_process_intensity):
         log_likelihood += poisson_mark_log_likelihood(
             multiunit, jmi(signal_marks, position), gpi,
@@ -245,7 +253,7 @@ def fit_multiunit_likelihood_ratio(position, multiunit, is_replay,
 
     position = position[~is_replay]
 
-    for m in np.moveaxis(multiunit[~is_replay], -1, 0):
+    for m in tqdm(np.moveaxis(multiunit[~is_replay], -1, 0), desc='signals'):
         joint_mark_intensity_functions.append(
             build_joint_mark_intensity(
                 position, m, place_bin_centers, model, model_kwargs))

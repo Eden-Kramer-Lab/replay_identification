@@ -7,13 +7,22 @@ from logging import getLogger
 
 import numpy as np
 import pandas as pd
-import dask.array as da
-
 from patsy import build_design_matrices, dmatrix
 from statsmodels.api import families
+
+import dask.array as da
 from regularized_glm import penalized_IRLS
 
 from .core import combined_likelihood
+
+try:
+    from tqdm import tqdm
+except ImportError:
+    def tqdm(*args, **kwargs):
+        if args:
+            return args[0]
+        return kwargs.get('iterable', None)
+
 
 logger = getLogger(__name__)
 
@@ -166,7 +175,7 @@ def fit_spiking_likelihood_ratio(position, spikes, is_replay,
         [fit_glm_model(
             pd.DataFrame(s).loc[design_matrix.index],
             design_matrix, penalty=penalty)
-         for s in spikes[~is_replay].T], axis=1)
+         for s in tqdm(spikes[~is_replay].T, desc='neurons')], axis=1)
     place_design_matrix = create_predict_design_matrix(
         place_bin_centers, design_matrix)
     place_conditional_intensity = get_conditional_intensity(
