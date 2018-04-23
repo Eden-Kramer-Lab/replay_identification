@@ -69,7 +69,7 @@ class ReplayDetector(object):
                  place_bin_size=1, replay_speed=20,
                  spike_model_knot_spacing=30,
                  multiunit_density_model=BayesianGaussianMixture,
-                 multiunit_model_kwargs=dict(n_components=10)):
+                 multiunit_model_kwargs=dict(n_components=20)):
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
         self.time_bin_size = time_bin_size
