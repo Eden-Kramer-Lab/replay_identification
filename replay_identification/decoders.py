@@ -255,7 +255,7 @@ class ReplayDetector(object):
                 'joint_mark_intensity_functions'])
         n_signals = len(joint_mark_intensity_functions)
         n_marks = (joint_mark_intensity_functions[0]
-                   .keywords['fitted_model'].means_.shape[1] - 1)
+                   .keywords['fitted_model'].sample().shape[1] - 1)
         bins = (self.place_bin_edges, mark_edges)
 
         fig, axes = plt.subplots(n_signals, n_marks,
