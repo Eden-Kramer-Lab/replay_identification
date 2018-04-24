@@ -323,6 +323,26 @@ class ReplayDetector(object):
         ax.set_title('Movement State Transition')
         plt.colorbar(cax, label='probability')
 
+    @staticmethod
+    def plot_multiunit(multiunit, linear_distance, axes=None):
+        '''Plot the multiunit training data for comparison with the
+        fitted model.
+        '''
+        if axes is None:
+            _, n_marks, n_signals = multiunit.shape
+            _, axes = plt.subplots(n_signals, n_marks,
+                                   figsize=(n_marks * 3, n_signals * 3),
+                                   sharex=True, sharey=True)
+
+        for row_axes, m in zip(axes, np.moveaxis(multiunit, 2, 0)):
+            not_nan = np.any(~np.isnan(m), axis=-1)
+            for mark_ind, ax in enumerate(row_axes):
+                ax.scatter(linear_distance[not_nan],
+                           m[not_nan, mark_ind], alpha=0.1, zorder=-1)
+
+        plt.ylim((0, 400))
+        plt.xlim((np.nanmin(linear_distance), np.nanmax(linear_distance)))
+
     def save_model(self, filename='model.pkl'):
         joblib.dump(self, filename)
 
