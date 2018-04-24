@@ -262,7 +262,10 @@ class ReplayDetector(object):
                                  figsize=(n_marks * 3, n_signals * 3),
                                  sharex=True, sharey=True)
         for jmi, row_axes in zip(joint_mark_intensity_functions, axes):
-            samples = jmi.keywords['fitted_model'].sample(n_samples)[0]
+            try:
+                samples, *_ = jmi.keywords['fitted_model'].sample(n_samples)
+            except ValueError:
+                samples = jmi.keywords['fitted_model'].sample(n_samples)
             place_occupancy = jmi.keywords['place_occupancy']
             mean_rate = jmi.keywords['mean_rate']
 
