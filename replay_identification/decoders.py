@@ -264,7 +264,7 @@ class ReplayDetector(object):
                                  sharex=True, sharey=True)
         for jmi, row_axes in zip(joint_mark_intensity_functions, axes):
             try:
-                samples, *_ = jmi.keywords['fitted_model'].sample(n_samples)
+                samples, _ = jmi.keywords['fitted_model'].sample(n_samples)
             except ValueError:
                 samples = jmi.keywords['fitted_model'].sample(n_samples)
             place_occupancy = jmi.keywords['place_occupancy']
