@@ -6,6 +6,7 @@ import numpy as np
 import xarray as xr
 from numba import jit
 from sklearn.mixture import BayesianGaussianMixture
+from sklearn.externals import joblib
 from statsmodels.tsa.tsatools import lagmat
 
 from .core import get_place_bin_centers, get_place_bins
@@ -321,6 +322,13 @@ class ReplayDetector(object):
         ax.set_ylabel('position t - 1')
         ax.set_title('Movement State Transition')
         plt.colorbar(cax, label='probability')
+
+    def save_model(self, filename='model.pkl'):
+        joblib.dump(self, filename)
+
+    @staticmethod
+    def load_model(filename='model.pkl'):
+        return joblib.load(filename)
 
 
 @jit(nopython=True)
