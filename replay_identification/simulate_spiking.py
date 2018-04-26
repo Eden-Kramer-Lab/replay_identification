@@ -46,6 +46,6 @@ def create_place_field(
         is_condition = np.ones_like(linear_distance, dtype=bool)
     field_firing_rate = norm(
         place_field_mean, place_field_std_deviation).pdf(linear_distance)
-    field_firing_rate /= field_firing_rate.max()
+    field_firing_rate /= np.nanmax(field_firing_rate)
     field_firing_rate[~is_condition] = 0
     return baseline_firing_rate + max_firing_rate * field_firing_rate
