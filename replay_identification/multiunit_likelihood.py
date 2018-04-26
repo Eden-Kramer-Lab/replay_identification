@@ -161,6 +161,7 @@ def estimate_place_occupancy(position, place_bin_centers, model, model_kwargs):
     place_occupancy : ndarray, shape (n_place_bins,)
 
     """
+    position = atleast_2d(position[~np.isnan(position)])
     return np.exp(model(**model_kwargs).fit(position)
                   .score_samples(place_bin_centers[:, np.newaxis]))
 
