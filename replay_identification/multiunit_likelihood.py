@@ -182,7 +182,7 @@ def estimate_ground_process_intensity(
 
     Returns
     -------
-    ground_process_intensity : shape (n_place_bins,)
+    ground_process_intensity : shape (1, n_place_bins)
 
     """
     if place_occupancy is None:
