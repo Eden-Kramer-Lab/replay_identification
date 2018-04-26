@@ -166,8 +166,11 @@ def estimate_place_occupancy(position, place_bin_centers, model, model_kwargs):
 
 
 def estimate_ground_process_intensity(
-        position, multiunit, place_bin_centers, model, model_kwargs):
-    """The probability of observing a spike regardless of mark.
+        position, multiunit, place_bin_centers, model, model_kwargs,
+        place_occupancy=None):
+    """The marginal rate function.
+
+    The probability of observing a spike regardless of mark.
 
     Parameters
     ----------
@@ -182,7 +185,11 @@ def estimate_ground_process_intensity(
     ground_process_intensity : shape (n_place_bins,)
 
     """
-    is_spike = np.any(~np.isnan(multiunit), axis=1)
+    if place_occupancy is None:
+        place_occupancy = estimate_place_occupancy(
+            position, place_bin_centers, model, model_kwargs)
+
+    is_spike = np.all(~np.isnan(multiunit), axis=1)
     not_nan = ~np.isnan(position)
     position = atleast_2d(position)
     place_field = np.exp(model(**model_kwargs)
@@ -195,7 +202,8 @@ def estimate_ground_process_intensity(
 
 
 def build_joint_mark_intensity(
-        position, multiunit, place_bin_centers, model, model_kwargs):
+        position, multiunit, place_bin_centers, model, model_kwargs,
+        place_occupancy=None):
     """Make a joint mark intensity function with precalculated quauntities
     set.
 
@@ -212,8 +220,12 @@ def build_joint_mark_intensity(
     joint_mark_intensity : function
 
     """
-    multiunit = atleast_2d(multiunit)[~np.isnan(position)]
-    position = atleast_2d(position)[~np.isnan(position)]
+    if place_occupancy is None:
+        place_occupancy = estimate_place_occupancy(
+            position, place_bin_centers, model, model_kwargs)
+
+    multiunit = atleast_2d(multiunit)
+    position = atleast_2d(position)
 
     is_spike = np.any(~np.isnan(multiunit), axis=1)
     mean_rate = np.mean(is_spike, dtype=np.float)
@@ -221,8 +233,6 @@ def build_joint_mark_intensity(
     training_data = np.concatenate(
         (multiunit[is_spike], position[is_spike]), axis=1)
     fitted_model = model(**model_kwargs).fit(training_data)
-    place_occupancy = estimate_place_occupancy(
-        position, place_bin_centers, model, model_kwargs)
 
     return partial(joint_mark_intensity,
                    place_occupancy=place_occupancy,
@@ -253,13 +263,18 @@ def fit_multiunit_likelihood_ratio(position, multiunit, is_replay,
 
     position = position[~is_replay]
 
+    place_occupancy = estimate_place_occupancy(
+        position, place_bin_centers, model, model_kwargs)
+
     for m in tqdm(np.moveaxis(multiunit[~is_replay], -1, 0), desc='signals'):
         joint_mark_intensity_functions.append(
             build_joint_mark_intensity(
-                position, m, place_bin_centers, model, model_kwargs))
+                position, m, place_bin_centers, model, model_kwargs,
+                place_occupancy=place_occupancy))
         ground_process_intensity.append(
             estimate_ground_process_intensity(
-                position, m, place_bin_centers, model, model_kwargs))
+                position, m, place_bin_centers, model, model_kwargs,
+                place_occupancy=place_occupancy))
 
     ground_process_intensity = np.concatenate(
         ground_process_intensity, axis=0).T
