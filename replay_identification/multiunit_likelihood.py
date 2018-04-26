@@ -130,15 +130,15 @@ def joint_mark_intensity(
     multiunit = np.atleast_2d(multiunit)
     n_place_bins = place_bin_centers.shape[0]
     n_time = multiunit.shape[0]
-    is_nan = np.any(np.isnan(multiunit), axis=1)
+    is_spike = np.all(~np.isnan(multiunit), axis=1)
     joint_mark_intensity = np.ones((n_time, n_place_bins))
 
-    for bin_ind, bin in enumerate(place_bin_centers):
-        bin = atleast_2d(bin * np.ones((n_time,)))
-        not_nan = ~is_nan & ~np.isnan(bin.squeeze())
+    for ind, position in enumerate(place_bin_centers):
+        position = atleast_2d(position * np.ones((n_time,)))
+        not_nan = is_spike & ~np.isnan(position.squeeze())
         predict_data = np.concatenate(
-            (multiunit[not_nan], bin[not_nan]), axis=1)
-        joint_mark_intensity[not_nan, bin_ind] = np.exp(
+            (multiunit[not_nan], position[not_nan]), axis=1)
+        joint_mark_intensity[not_nan, ind] = np.exp(
             fitted_model.score_samples(predict_data))
 
     joint_mark_intensity = mean_rate * joint_mark_intensity / place_occupancy
@@ -227,11 +227,12 @@ def build_joint_mark_intensity(
     multiunit = atleast_2d(multiunit)
     position = atleast_2d(position)
 
-    is_spike = np.any(~np.isnan(multiunit), axis=1)
+    is_spike = np.all(~np.isnan(multiunit), axis=1)
+    not_nan = ~np.isnan(position)
     mean_rate = np.mean(is_spike, dtype=np.float)
 
     training_data = np.concatenate(
-        (multiunit[is_spike], position[is_spike]), axis=1)
+        (multiunit[is_spike & not_nan], position[is_spike & not_nan]), axis=1)
     fitted_model = model(**model_kwargs).fit(training_data)
 
     return partial(joint_mark_intensity,
