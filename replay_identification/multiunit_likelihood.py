@@ -67,7 +67,6 @@ def combined_likelihood(multiunit, position, joint_mark_intensity_functions,
     n_time = multiunit.shape[0]
     log_likelihood = np.zeros((n_time, n_bin))
     multiunit = np.moveaxis(multiunit, -1, 0)
-    ground_process_intensity = ground_process_intensity.T
 
     for signal_marks, jmi, gpi in zip(
             tqdm(multiunit), joint_mark_intensity_functions,
@@ -279,7 +278,7 @@ def fit_multiunit_likelihood_ratio(position, multiunit, is_replay,
                 place_occupancy=place_occupancy))
 
     ground_process_intensity = np.concatenate(
-        ground_process_intensity, axis=0).T
+        ground_process_intensity, axis=0)
 
     return partial(
         multiunit_likelihood_ratio,
