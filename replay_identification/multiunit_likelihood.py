@@ -63,7 +63,7 @@ def combined_likelihood(multiunit, position, joint_mark_intensity_functions,
     combined_likelihood : ndarray, shape (n_time, n_place_bins)
 
     """
-    n_bin = ground_process_intensity.shape[0]
+    n_bin = ground_process_intensity.shape[1]
     n_time = multiunit.shape[0]
     log_likelihood = np.zeros((n_time, n_bin))
     multiunit = np.moveaxis(multiunit, -1, 0)
