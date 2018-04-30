@@ -72,13 +72,13 @@ def combined_likelihood(multiunit, position, joint_mark_intensity_functions,
             tqdm(multiunit), joint_mark_intensity_functions,
             ground_process_intensity):
         log_likelihood += poisson_mark_log_likelihood(
-            multiunit, jmi(signal_marks, position), gpi,
+            jmi(signal_marks, position), gpi,
             time_bin_size)
 
     return log_likelihood
 
 
-def poisson_mark_log_likelihood(multiunit, joint_mark_intensity,
+def poisson_mark_log_likelihood(joint_mark_intensity,
                                 ground_process_intensity,
                                 time_bin_size=1):
     """Probability of parameters given spiking indicator at a particular
