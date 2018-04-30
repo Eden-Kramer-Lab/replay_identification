@@ -228,7 +228,7 @@ def build_joint_mark_intensity(
     position = atleast_2d(position)
 
     is_spike = np.all(~np.isnan(multiunit), axis=1)
-    not_nan = ~np.isnan(position)
+    not_nan = ~np.isnan(np.squeeze(position))
     mean_rate = np.mean(is_spike, dtype=np.float)
 
     training_data = np.concatenate(
