@@ -5,7 +5,8 @@ from scipy.stats import norm
 
 def simulate_speed(time, sampling_frequency, ripple_times, sigma=0.010,
                    ripple_width=0.050):
-    ripple_start_end = ripple_times[:, np.newaxis] + ripple_width * np.array([-1, 1])
+    ripple_start_end = (ripple_times[:, np.newaxis]
+                        + ripple_width * np.array([-1, 1]))
 
     is_replay = np.zeros_like(time, dtype=bool)
 
