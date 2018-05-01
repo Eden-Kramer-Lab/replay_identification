@@ -256,8 +256,12 @@ class ReplayDetector(object):
             self._multiunit_likelihood_ratio.keywords[
                 'joint_mark_intensity_functions'])
         n_signals = len(joint_mark_intensity_functions)
-        n_marks = (joint_mark_intensity_functions[0]
-                   .keywords['fitted_model'].sample().shape[1] - 1)
+        try:
+            n_marks = (joint_mark_intensity_functions[0]
+                       .keywords['fitted_model'].sample().shape[1] - 1)
+        except AttributeError:
+            n_marks = (joint_mark_intensity_functions[0]
+                       .keywords['fitted_model'].sample()[0].shape[1] - 1)
         bins = (self.place_bin_edges, mark_edges)
 
         fig, axes = plt.subplots(n_signals, n_marks,
