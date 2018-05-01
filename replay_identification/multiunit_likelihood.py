@@ -42,8 +42,11 @@ def multiunit_likelihood_ratio(multiunit, position, place_bin_centers,
         joint_mark_intensity_functions, ground_process_intensity,
         time_bin_size)
     bin_ind = np.digitize(position, place_bins)
+    is_nan = np.isnan(np.squeeze(position))
+    bin_ind[is_nan] = 0
     no_replay_log_likelihood = replay_log_likelihood[
         (np.arange(n_time), bin_ind - 1)][:, np.newaxis]
+    no_replay_log_likelihood[is_nan] = np.nan
 
     return np.exp(replay_log_likelihood - no_replay_log_likelihood)
 
