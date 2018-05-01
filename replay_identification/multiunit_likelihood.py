@@ -15,7 +15,7 @@ except ImportError:
 
 
 def multiunit_likelihood_ratio(multiunit, position, place_bin_centers,
-                               joint_mark_intensity_functions,
+                               place_bins, joint_mark_intensity_functions,
                                ground_process_intensity, time_bin_size=1):
     """The ratio of being in a replay state vs. not a replay state based on
     whether the multiunits correspond to the current position of the animal.
@@ -34,15 +34,17 @@ def multiunit_likelihood_ratio(multiunit, position, place_bin_centers,
     multiunit_likelihood_ratio : ndarray, shape (n_time, n_place_bins)
 
     """
-    position = np.atleast_2d(np.squeeze(position))
+    position = position
+    n_time = position.shape[0]
 
-    no_replay_log_likelihood = combined_likelihood(
-        multiunit, position, joint_mark_intensity_functions,
-        ground_process_intensity, time_bin_size)
     replay_log_likelihood = combined_likelihood(
         multiunit, place_bin_centers,
         joint_mark_intensity_functions, ground_process_intensity,
         time_bin_size)
+    bin_ind = np.digitize(position, place_bins)
+    no_replay_log_likelihood = replay_log_likelihood[
+        (np.arange(n_time), bin_ind - 1)][:, np.newaxis]
+
     return np.exp(replay_log_likelihood - no_replay_log_likelihood)
 
 
@@ -241,7 +243,8 @@ def build_joint_mark_intensity(
 
 
 def fit_multiunit_likelihood_ratio(position, multiunit, is_replay,
-                                   place_bin_centers, model, model_kwargs):
+                                   place_bin_centers, place_bins,
+                                   model, model_kwargs):
     """Precompute quantities to fit the multiunit likelihood ratio to new data.
 
     Parameters
@@ -282,6 +285,7 @@ def fit_multiunit_likelihood_ratio(position, multiunit, is_replay,
     return partial(
         multiunit_likelihood_ratio,
         place_bin_centers=place_bin_centers,
+        place_bins=place_bins,
         joint_mark_intensity_functions=joint_mark_intensity_functions,
         ground_process_intensity=ground_process_intensity,
     )
