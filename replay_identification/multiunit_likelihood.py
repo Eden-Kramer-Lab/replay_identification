@@ -164,8 +164,8 @@ def estimate_place_occupancy(position, place_bin_centers, model, model_kwargs):
     place_occupancy : ndarray, shape (n_place_bins,)
 
     """
-    position = atleast_2d(position[~np.isnan(position)])
-    return np.exp(model(**model_kwargs).fit(position)
+    return np.exp(model(**model_kwargs)
+                  .fit(atleast_2d(position[~np.isnan(position)]))
                   .score_samples(place_bin_centers[:, np.newaxis]))
 
 
@@ -195,9 +195,8 @@ def estimate_ground_process_intensity(
 
     is_spike = np.all(~np.isnan(multiunit), axis=1)
     not_nan = ~np.isnan(position)
-    position = atleast_2d(position)
     place_field = np.exp(model(**model_kwargs)
-                         .fit(position[is_spike & not_nan])
+                         .fit(atleast_2d(position)[is_spike & not_nan])
                          .score_samples(place_bin_centers[:, np.newaxis]))
     mean_rate = np.mean(is_spike)
     return np.atleast_2d(mean_rate * place_field / place_occupancy)
