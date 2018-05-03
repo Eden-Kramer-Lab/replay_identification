@@ -270,7 +270,8 @@ def fit_multiunit_likelihood_ratio(position, multiunit, is_replay,
     place_occupancy = estimate_place_occupancy(
         position, place_bin_centers, model, model_kwargs)
 
-    for m in tqdm(np.moveaxis(multiunit[~is_replay], -1, 0), desc='signals'):
+    for m in tqdm(np.moveaxis(multiunit[~is_replay], -1, 0),
+                  desc='electrodes'):
         joint_mark_intensity_functions.append(
             build_joint_mark_intensity(
                 position, m, place_bin_centers, model, model_kwargs,
