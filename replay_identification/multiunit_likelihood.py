@@ -199,8 +199,6 @@ def estimate_ground_process_intensity(
     place_field = np.exp(model(**model_kwargs)
                          .fit(position[is_spike & not_nan])
                          .score_samples(place_bin_centers[:, np.newaxis]))
-    place_occupancy = estimate_place_occupancy(
-        position[not_nan], place_bin_centers, model, model_kwargs)
     mean_rate = np.mean(is_spike)
     return np.atleast_2d(mean_rate * place_field / place_occupancy)
 
