@@ -136,18 +136,15 @@ def joint_mark_intensity(
     n_place_bins = place_bin_centers.shape[0]
     n_time = multiunit.shape[0]
     is_spike = np.all(~np.isnan(multiunit), axis=1)
+    n_spikes = np.sum(is_spike)
     joint_mark_intensity = np.ones((n_time, n_place_bins))
 
     for ind, position in enumerate(place_bin_centers):
-        position = atleast_2d(position * np.ones((n_time,)))
-        not_nan = is_spike & ~np.isnan(position.squeeze())
         predict_data = np.concatenate(
-            (multiunit[not_nan], position[not_nan]), axis=1)
-        joint_mark_intensity[not_nan, ind] = np.exp(
-            fitted_model.score_samples(predict_data))
+            (multiunit[is_spike], position * np.ones((n_spikes, 1))), axis=1)
+        joint_mark_intensity[is_spike, ind] = mean_rate * np.exp(
+            fitted_model.score_samples(predict_data)) / place_occupancy[ind]
 
-    joint_mark_intensity = mean_rate * joint_mark_intensity / place_occupancy
-    joint_mark_intensity[~not_nan] = 1.0
     return joint_mark_intensity
 
 
