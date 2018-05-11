@@ -262,22 +262,19 @@ def fit_multiunit_likelihood_ratio(position, multiunit, is_replay,
     """
     joint_mark_intensity_functions = []
     ground_process_intensity = []
-
-    position = position[~is_replay]
-
     place_occupancy = estimate_place_occupancy(
-        position, place_bin_centers, model, model_kwargs)
+        position[~is_replay], place_bin_centers, model, model_kwargs)
 
     for m in tqdm(np.moveaxis(multiunit[~is_replay], -1, 0),
                   desc='electrodes'):
         joint_mark_intensity_functions.append(
             build_joint_mark_intensity(
-                position, m, place_bin_centers, model, model_kwargs,
-                place_occupancy=place_occupancy))
+                position[~is_replay], m, place_bin_centers, model,
+                model_kwargs, place_occupancy=place_occupancy))
         ground_process_intensity.append(
             estimate_ground_process_intensity(
-                position, m, place_bin_centers, model, model_kwargs,
-                place_occupancy=place_occupancy))
+                position[~is_replay], m, place_bin_centers, model,
+                model_kwargs, place_occupancy=place_occupancy))
 
     ground_process_intensity = np.concatenate(
         ground_process_intensity, axis=0)
