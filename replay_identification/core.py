@@ -1,15 +1,4 @@
 import numpy as np
-from functools import wraps
-
-
-def combined_likelihood(log_likelihood_function):
-    @wraps(log_likelihood_function)
-    def decorated_function(*args, **kwargs):
-        try:
-            return np.nansum(log_likelihood_function(*args, **kwargs), axis=-1)
-        except ValueError:
-            return log_likelihood_function(*args, **kwargs).squeeze()
-    return decorated_function
 
 
 def get_place_bins(position, place_bin_size):
@@ -24,3 +13,8 @@ def get_place_bin_centers(bin_edges):
     '''Given the outer-points of bins, find their center
     '''
     return bin_edges[:-1] + np.diff(bin_edges) / 2
+
+
+def atleast_2d(x):
+    """Adds a dimension to the last axis if the array is 1D."""
+    return np.atleast_2d(x).T if x.ndim < 2 else x

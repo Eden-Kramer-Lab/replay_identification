@@ -5,6 +5,8 @@ from functools import partial
 
 import numpy as np
 
+from .core import atleast_2d
+
 try:
     from tqdm import tqdm
 except ImportError:
@@ -290,8 +292,3 @@ def fit_multiunit_likelihood_ratio(position, multiunit, is_replay,
         joint_mark_intensity_functions=joint_mark_intensity_functions,
         ground_process_intensity=ground_process_intensity,
     )
-
-
-def atleast_2d(x):
-    """Adds a dimension to the last axis if the array is 1D."""
-    return np.atleast_2d(x).T if x.ndim < 2 else x

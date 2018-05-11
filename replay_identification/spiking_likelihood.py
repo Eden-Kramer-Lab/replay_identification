@@ -10,10 +10,9 @@ import pandas as pd
 from patsy import build_design_matrices, dmatrix
 from statsmodels.api import families
 
-import dask.array as da
 from regularized_glm import penalized_IRLS
 
-from .core import combined_likelihood
+from .core import atleast_2d
 
 try:
     from tqdm import tqdm
@@ -77,15 +76,6 @@ def get_conditional_intensity(coefficients, design_matrix):
     return np.exp(design_matrix @ coefficients)
 
 
-def atleast_kd(array, k):
-    """
-    https://stackoverflow.com/questions/42516569/numpy-add-variable-number-of-dimensions-to-an-array
-    """
-    new_shape = array.shape + (1,) * (k - array.ndim)
-    return array.reshape(new_shape)
-
-
-@combined_likelihood
 def poisson_log_likelihood(is_spike, conditional_intensity=None,
                            time_bin_size=1):
     """Probability of parameters given spiking at a particular time.
@@ -105,10 +95,8 @@ def poisson_log_likelihood(is_spike, conditional_intensity=None,
                                                 n_place_bins)
 
     """
-    probability_no_spike = -conditional_intensity * time_bin_size
-    is_spike = atleast_kd(is_spike, conditional_intensity.ndim)
-    return (np.log(conditional_intensity) * is_spike +
-            probability_no_spike) + np.spacing(1)
+    return (np.log(conditional_intensity) * is_spike
+            - conditional_intensity * time_bin_size + np.spacing(1))
 
 
 def spiking_likelihood_ratio(
@@ -134,15 +122,25 @@ def spiking_likelihood_ratio(
         position, design_matrix)
     no_replay_conditional_intensity = get_conditional_intensity(
         place_field_coefficients, no_replay_design_matrix)
-    no_replay_log_likelihood = da.from_array(poisson_log_likelihood(
-        is_spike, no_replay_conditional_intensity,
-        time_bin_size)[:, np.newaxis], chunks)
-    is_spike = da.from_array(is_spike[:, np.newaxis, :], chunks)
-    place_conditional_intensity = da.from_array(
-        place_conditional_intensity[np.newaxis, ...], chunks)
-    replay_log_likelihood = poisson_log_likelihood(
-        is_spike, place_conditional_intensity, time_bin_size)
-    return np.exp(replay_log_likelihood - no_replay_log_likelihood).compute()
+    no_replay_log_likelihood = combined_likelihood(
+        is_spike.T, no_replay_conditional_intensity.T, time_bin_size)
+    replay_log_likelihood = combined_likelihood(
+        is_spike.T[..., np.newaxis],
+        place_conditional_intensity.T[:, np.newaxis, :], time_bin_size)
+    return np.exp(replay_log_likelihood - no_replay_log_likelihood)
+
+
+def combined_likelihood(spikes, conditional_intensity, time_bin_size=1):
+    n_time = spikes.shape[1]
+    n_bins = (conditional_intensity.shape[-1]
+              if conditional_intensity.ndim > 2 else 1)
+    log_likelihood = np.zeros((n_time, n_bins))
+
+    for is_spike, ci in zip(tqdm(spikes), conditional_intensity):
+        log_likelihood += atleast_2d(
+            poisson_log_likelihood(is_spike, ci, time_bin_size))
+
+    return log_likelihood
 
 
 def fit_spiking_likelihood_ratio(position, spikes, is_replay,
