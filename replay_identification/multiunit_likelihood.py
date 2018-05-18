@@ -36,7 +36,6 @@ def multiunit_likelihood_ratio(multiunit, position, place_bin_centers,
     multiunit_likelihood_ratio : ndarray, shape (n_time, n_place_bins)
 
     """
-    position = position
     n_time = position.shape[0]
 
     replay_log_likelihood = combined_likelihood(
