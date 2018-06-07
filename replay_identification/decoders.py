@@ -282,7 +282,7 @@ class ReplayDetector(object):
                                        bins=bins, normed=True)[0]
                     H = sampling_frequency * mean_rate * H.T / place_occupancy
                     X, Y = np.meshgrid(*bins)
-                    ax.pcolormesh(X, Y, H, vmin=0, vmax=1)
+                    ax.pcolormesh(X, Y, H, vmin=0)
                 else:
                     ax.scatter(samples[:, -1], samples[:, mark_ind], alpha=0.1)
 
