@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from numba import jit
-from sklearn.neighbors import KernelDensity
 from sklearn.externals import joblib
+from sklearn.neighbors import KernelDensity
 from statsmodels.tsa.tsatools import lagmat
 
 from .core import get_place_bin_centers, get_place_bins
@@ -252,28 +252,29 @@ class ReplayDetector(object):
         axes : matplotlib.pyplot axes
 
         """
-        joint_mark_intensity_functions = (
-            self._multiunit_likelihood_ratio.keywords[
-                'joint_mark_intensity_functions'])
-        n_signals = len(joint_mark_intensity_functions)
-        try:
-            n_marks = (joint_mark_intensity_functions[0]
-                       .keywords['fitted_model'].sample().shape[1] - 1)
-        except AttributeError:
-            n_marks = (joint_mark_intensity_functions[0]
-                       .keywords['fitted_model'].sample()[0].shape[1] - 1)
+        joint_models = (self._multiunit_likelihood_ratio
+                        .keywords['joint_models'])
+        mean_rates = self._multiunit_likelihood_ratio.keywords['mean_rates']
         bins = (self.place_bin_edges, mark_edges)
+        if is_histogram:
+            place_occupancy = np.exp(
+                self._multiunit_likelihood_ratio
+                .keywords['occupancy_model']
+                .score_samples(self.place_bin_centers[:, np.newaxis]))
+        n_signals = len(joint_models)
+        try:
+            n_marks = joint_models[0].sample().shape[1] - 1
+        except AttributeError:
+            n_marks = joint_models[0].sample()[0].shape[1] - 1
 
         fig, axes = plt.subplots(n_signals, n_marks,
                                  figsize=(n_marks * 3, n_signals * 3),
                                  sharex=True, sharey=True)
-        for jmi, row_axes in zip(joint_mark_intensity_functions, axes):
+        for model, mean_rate, row_axes in zip(joint_models, mean_rates, axes):
             try:
-                samples, _ = jmi.keywords['fitted_model'].sample(n_samples)
+                samples, _ = model.sample(n_samples)
             except ValueError:
-                samples = jmi.keywords['fitted_model'].sample(n_samples)
-            place_occupancy = jmi.keywords['place_occupancy']
-            mean_rate = jmi.keywords['mean_rate']
+                samples = model.sample(n_samples)
 
             for mark_ind, ax in enumerate(row_axes):
                 if is_histogram:
