@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from numba import jit
-from sklearn.mixture import BayesianGaussianMixture
+from sklearn.neighbors import KernelDensity
 from sklearn.externals import joblib
 from statsmodels.tsa.tsatools import lagmat
 
@@ -69,8 +69,9 @@ class ReplayDetector(object):
                  time_bin_size=1, replay_state_transition_penalty=1E-5,
                  place_bin_size=1, replay_speed=20,
                  spike_model_knot_spacing=30,
-                 multiunit_density_model=BayesianGaussianMixture,
-                 multiunit_model_kwargs=dict(n_components=20)):
+                 multiunit_density_model=KernelDensity,
+                 multiunit_model_kwargs=dict(bandwidth=10, leaf_size=10000,
+                                             rtol=1E-1)):
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
         self.time_bin_size = time_bin_size
