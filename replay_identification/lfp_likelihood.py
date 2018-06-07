@@ -52,12 +52,10 @@ def fit_lfp_likelihood_ratio(ripple_band_power, is_replay,
     """
 
     not_nan = np.all(~np.isnan(ripple_band_power), axis=1)
-    ripple_band_power = np.log(ripple_band_power[not_nan])
-    is_replay = is_replay[not_nan]
     replay_model = model(**model_kwargs).fit(
-        ripple_band_power[is_replay])
+        np.log(ripple_band_power[is_replay & not_nan]))
     no_replay_model = model(**model_kwargs).fit(
-        ripple_band_power[~is_replay])
+        np.log(ripple_band_power[~is_replay & not_nan]))
 
     return partial(lfp_likelihood_ratio, replay_model=replay_model,
                    no_replay_model=no_replay_model)
