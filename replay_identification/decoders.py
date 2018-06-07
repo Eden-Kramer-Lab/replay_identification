@@ -125,8 +125,7 @@ class ReplayDetector(object):
             logger.info('Fitting multiunit model...')
             self._multiunit_likelihood_ratio = fit_multiunit_likelihood_ratio(
                 position, multiunit, is_replay, self.place_bin_centers,
-                self.place_bin_edges, self.multiunit_density_model,
-                self.multiunit_model_kwargs)
+                self.multiunit_density_model, self.multiunit_model_kwargs)
         else:
             self._multiunit_likelihood_ratio = return_None
 
