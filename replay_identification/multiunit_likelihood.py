@@ -120,6 +120,8 @@ def poisson_mark_log_likelihood(joint_mark_intensity,
                                                      n_time, n_place_bins)
 
     """
+    joint_mark_intensity += np.spacing(1)
+    ground_process_intensity += np.spacing(1)
     return np.log(joint_mark_intensity) - (
         ground_process_intensity * time_bin_size)
 

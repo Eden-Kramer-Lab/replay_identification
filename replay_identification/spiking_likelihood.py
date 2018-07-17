@@ -95,8 +95,9 @@ def poisson_log_likelihood(is_spike, conditional_intensity=None,
                                                 n_place_bins)
 
     """
+    conditional_intensity += np.spacing(1)
     return (np.log(conditional_intensity) * is_spike
-            - conditional_intensity * time_bin_size + np.spacing(1))
+            - conditional_intensity * time_bin_size)
 
 
 def spiking_likelihood_ratio(
