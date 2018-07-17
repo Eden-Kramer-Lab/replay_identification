@@ -8,7 +8,8 @@ from statsmodels.tsa.tsatools import lagmat
 from regularized_glm import penalized_IRLS
 
 
-def fit_replay_state_transition(speed, is_replay, penalty=1E-5):
+def fit_replay_state_transition(speed, is_replay, penalty=1E-5,
+                                speed_knots=None):
     """Estimate the predicted probablity of replay given speed and whether
     it was a replay in the previous time step.
 
@@ -20,6 +21,7 @@ def fit_replay_state_transition(speed, is_replay, penalty=1E-5):
     ----------
     speed : ndarray, shape (n_time,)
     is_replay : boolean ndarray, shape (n_time,)
+    speed_knots : ndarray, shape (n_knots,)
 
     Returns
     -------
@@ -32,9 +34,14 @@ def fit_replay_state_transition(speed, is_replay, penalty=1E-5):
             is_replay, maxlag=1).astype(np.float64).squeeze(),
         'lagged_speed': lagmat(speed, maxlag=1).squeeze()
     }).dropna()
+
+    if speed_knots is None:
+        speed_mid_point = (np.nanmax(speed) - np.nanmin(speed)) / 2
+        speed_knots = [1., 2., 3., speed_mid_point]
+
     MODEL_FORMULA = (
         'is_replay ~ 1 + lagged_is_replay + '
-        'cr(lagged_speed, knots=[1, 2, 3, 20], constraints="center")')
+        'cr(lagged_speed, knots=speed_knots, constraints="center")')
     response, design_matrix = dmatrices(MODEL_FORMULA, data)
     family = families.Binomial()
     penalty = np.ones((design_matrix.shape[1],)) * penalty

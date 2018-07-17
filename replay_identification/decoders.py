@@ -39,6 +39,8 @@ class ReplayDetector(object):
         normal movement.
     spike_model_knot_spacing : float, optional
         Determines how far apart to place to the spline knots over position.
+    speed_knots : ndarray, shape (n_knots,), optional
+        Spline knots for lagged speed in replay state transition.
     multiunit_density_model : Class, optional
         Fits the mark space vs. position density. Can be any class with a fit,
         score_samples, and a sample method. For example, density estimators
@@ -68,7 +70,7 @@ class ReplayDetector(object):
     def __init__(self, speed_threshold=4.0, spike_model_penalty=1E1,
                  time_bin_size=1, replay_state_transition_penalty=1E-5,
                  place_bin_size=1, replay_speed=20,
-                 spike_model_knot_spacing=30,
+                 spike_model_knot_spacing=30, speed_knots=None,
                  multiunit_density_model=KernelDensity,
                  multiunit_model_kwargs=dict(bandwidth=10, leaf_size=10000,
                                              rtol=1E-1)):
@@ -81,6 +83,7 @@ class ReplayDetector(object):
         self.spike_model_knot_spacing = spike_model_knot_spacing
         self.multiunit_density_model = multiunit_density_model
         self.multiunit_model_kwargs = multiunit_model_kwargs
+        self.speed_knots = speed_knots
 
     def __dir__(self):
         return self.keys()
@@ -135,7 +138,8 @@ class ReplayDetector(object):
             position, self.place_bin_edges, speed, self.replay_speed)
         logger.info('Fitting replay state transition...')
         self._replay_state_transition = fit_replay_state_transition(
-            speed, is_replay, self.replay_state_transition_penalty)
+            speed, is_replay, self.replay_state_transition_penalty,
+            self.speed_knots)
 
         return self
 
