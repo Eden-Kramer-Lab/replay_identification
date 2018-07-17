@@ -140,47 +140,51 @@ def estimate_joint_mark_intensity(multiunit, position, joint_model, mean_rate,
                                   place_occupancy):
     multiunit = atleast_2d(multiunit)
     position = atleast_2d(position)
-    is_spike = np.all(~np.isnan(multiunit), axis=1)
-    not_nan = ~np.isnan(np.squeeze(position))
+    is_spike = np.any(~np.isnan(multiunit), axis=1)
+    not_nan_marks = np.all(~np.isnan(multiunit), axis=0)
+    not_nan_position = ~np.isnan(np.squeeze(position))
     n_time = position.shape[0]
     joint_mark_intensity = np.ones((n_time,))
 
     joint_data = np.concatenate(
-        (multiunit[is_spike & not_nan], position[is_spike & not_nan]), axis=1)
-    joint_mark_intensity[is_spike & not_nan] = np.exp(
+        (multiunit[is_spike & not_nan_position, not_nan_marks],
+         position[is_spike & not_nan_position]), axis=1)
+    joint_mark_intensity[is_spike & not_nan_position] = np.exp(
         joint_model.score_samples(joint_data))
     joint_mark_intensity /= place_occupancy
     joint_mark_intensity *= mean_rate
-    joint_mark_intensity[~is_spike | ~not_nan] = 1.0
+    joint_mark_intensity[~is_spike | ~not_nan_position] = 1.0
     return joint_mark_intensity
 
 
 def train_marginal_model(multiunit, position, density_model, model_kwargs):
-    is_spike = np.all(~np.isnan(multiunit), axis=1)
-    not_nan = ~np.isnan(position)
+    is_spike = np.any(~np.isnan(multiunit), axis=1)
+    not_nan_position = ~np.isnan(position)
     return (density_model(**model_kwargs)
-            .fit(atleast_2d(position)[is_spike & not_nan]))
+            .fit(atleast_2d(position)[is_spike & not_nan_position]))
 
 
 def train_occupancy_model(position, density_model, model_kwargs):
     position = atleast_2d(position)
-    not_nan = ~np.isnan(np.squeeze(position))
-    return density_model(**model_kwargs).fit(position[not_nan])
+    not_nan_position = ~np.isnan(np.squeeze(position))
+    return density_model(**model_kwargs).fit(position[not_nan_position])
 
 
 def train_joint_model(multiunit, position, density_model, model_kwargs):
     multiunit = atleast_2d(multiunit)
     position = atleast_2d(position)
-    is_spike = np.all(~np.isnan(multiunit), axis=1)
-    not_nan = ~np.isnan(np.squeeze(position))
+    is_spike = np.any(~np.isnan(multiunit), axis=1)
+    not_nan_marks = np.all(~np.isnan(multiunit), axis=0)
+    not_nan_position = ~np.isnan(np.squeeze(position))
 
     joint_data = np.concatenate(
-        (multiunit[is_spike & not_nan], position[is_spike & not_nan]), axis=1)
+        (multiunit[is_spike & not_nan_position, not_nan_marks],
+         position[is_spike & not_nan_position]), axis=1)
     return density_model(**model_kwargs).fit(joint_data)
 
 
 def estimate_mean_rate(multiunit, position):
-    is_spike = np.all(~np.isnan(multiunit), axis=1)
+    is_spike = np.any(~np.isnan(multiunit), axis=1)
     not_nan = ~np.isnan(position)
     return np.mean(is_spike[not_nan])
 
