@@ -17,6 +17,19 @@ from .replay_state_transition import fit_replay_state_transition
 from .speed_likelhood import fit_speed_likelihood_ratio
 from .spiking_likelihood import fit_spiking_likelihood_ratio
 
+try:
+    from IPython import get_ipython
+
+    if get_ipython() is not None:
+        from tqdm import tqdm_notebook as tqdm
+    else:
+        from tqdm import tqdm
+except ImportError:
+    def tqdm(*args, **kwargs):
+        if args:
+            return args[0]
+        return kwargs.get('iterable', None)
+
 logger = getLogger(__name__)
 
 _DEFAULT_LIKELIHOODS = ['spikes', 'lfp_power', 'speed']
