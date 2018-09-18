@@ -85,8 +85,8 @@ class ReplayDetector(object):
                  place_bin_size=1, replay_speed=20,
                  spike_model_knot_spacing=30, speed_knots=None,
                  multiunit_density_model=KernelDensity,
-                 multiunit_model_kwargs=dict(bandwidth=10, leaf_size=10000,
-                                             rtol=1E-1)):
+                 multiunit_model_kwargs=dict(bandwidth=10, leaf_size=1000,
+                                             rtol=1E-3)):
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
         self.time_bin_size = time_bin_size
