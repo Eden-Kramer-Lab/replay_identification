@@ -79,9 +79,6 @@ def empirical_movement_transition_matrix(position, place_bin_edges, speed,
     lagged_place = lagmat(position, 1)[is_movement].squeeze()
     position = position[is_movement]
 
-    movement_variance = estimate_movement_variance(
-        position, lagged_place, speed)
-
     movement_bins, _, _ = np.histogram2d(lagged_place, position,
                                          bins=(place_bin_edges,
                                                place_bin_edges),
@@ -89,7 +86,7 @@ def empirical_movement_transition_matrix(position, place_bin_edges, speed,
 
     smoothed_movement_bins_probability = gaussian_filter(
         _normalize_row_probability(
-            _fix_zero_bins(movement_bins)), sigma=movement_variance)
+            _fix_zero_bins(movement_bins)), sigma=0.5)
     return np.linalg.matrix_power(
         smoothed_movement_bins_probability, replay_speedup)
 
