@@ -15,7 +15,12 @@ from regularized_glm import penalized_IRLS
 from .core import atleast_2d
 
 try:
-    from tqdm import tqdm
+    from IPython import get_ipython
+
+    if get_ipython() is not None:
+        from tqdm import tqdm_notebook as tqdm
+    else:
+        from tqdm import tqdm
 except ImportError:
     def tqdm(*args, **kwargs):
         if args:
