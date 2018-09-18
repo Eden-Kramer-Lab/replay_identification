@@ -127,8 +127,12 @@ def poisson_mark_log_likelihood(joint_mark_intensity,
 
 
 def estimate_occupancy(position, occupancy_model):
-    return np.exp(occupancy_model
-                  .score_samples(atleast_2d(position)))
+    position = atleast_2d(position)
+    not_nan_position = ~np.isnan(np.squeeze(position))
+    occupancy_probability = np.full((position.shape[0],), np.nan)
+    occupancy_probability[not_nan_position] = np.exp(
+        occupancy_model.score_samples(position[not_nan_position]))
+    return occupancy_probability
 
 
 def estimate_ground_process_intensity(position, place_occupancy,
@@ -143,13 +147,13 @@ def estimate_joint_mark_intensity(multiunit, position, joint_model, mean_rate,
     multiunit = atleast_2d(multiunit)
     position = atleast_2d(position)
     is_spike = np.any(~np.isnan(multiunit), axis=1)
-    not_nan_marks = np.all(~np.isnan(multiunit), axis=0)
+    not_nan_marks = np.any(~np.isnan(multiunit), axis=0)
     not_nan_position = ~np.isnan(np.squeeze(position))
     n_time = position.shape[0]
     joint_mark_intensity = np.ones((n_time,))
 
     joint_data = np.concatenate(
-        (multiunit[is_spike & not_nan_position, not_nan_marks],
+        (multiunit[is_spike & not_nan_position][:, not_nan_marks],
          position[is_spike & not_nan_position]), axis=1)
     joint_mark_intensity[is_spike & not_nan_position] = np.exp(
         joint_model.score_samples(joint_data))
@@ -176,11 +180,11 @@ def train_joint_model(multiunit, position, density_model, model_kwargs):
     multiunit = atleast_2d(multiunit)
     position = atleast_2d(position)
     is_spike = np.any(~np.isnan(multiunit), axis=1)
-    not_nan_marks = np.all(~np.isnan(multiunit), axis=0)
+    not_nan_marks = np.any(~np.isnan(multiunit), axis=0)
     not_nan_position = ~np.isnan(np.squeeze(position))
 
     joint_data = np.concatenate(
-        (multiunit[is_spike & not_nan_position, not_nan_marks],
+        (multiunit[is_spike & not_nan_position][:, not_nan_marks],
          position[is_spike & not_nan_position]), axis=1)
     return density_model(**model_kwargs).fit(joint_data)
 
