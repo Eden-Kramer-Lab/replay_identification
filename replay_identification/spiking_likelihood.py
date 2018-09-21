@@ -115,7 +115,7 @@ def spiking_likelihood_ratio(
 
     Returns
     -------
-    spiking_likelihood_ratio : ndarray, shape (n_place_bins,)
+    spiking_likelihood : ndarray, shape (n_time, n_place_bins, 2)
 
     """
     no_replay_design_matrix = create_predict_design_matrix(
@@ -127,7 +127,7 @@ def spiking_likelihood_ratio(
     replay_log_likelihood = combined_likelihood(
         is_spike.T[..., np.newaxis],
         place_conditional_intensity.T[:, np.newaxis, :], time_bin_size)
-    return np.exp(replay_log_likelihood - no_replay_log_likelihood)
+    return np.exp(no_replay_log_likelihood), np.exp(replay_log_likelihood)
 
 
 def combined_likelihood(spikes, conditional_intensity, time_bin_size=1):

@@ -17,20 +17,18 @@ def lfp_likelihood_ratio(ripple_band_power, replay_model, no_replay_model):
 
     Returns
     -------
-    lfp_likelihood_ratio : ndarray, shape (n_time, 1)
+    lfp_likelihood : ndarray, shape (n_time, 2)
 
     """
     not_nan = np.all(~np.isnan(ripple_band_power), axis=1)
     n_time = ripple_band_power.shape[0]
-    likelihood_ratio = np.ones((n_time, 1))
-    no_replay_log_likelihood = no_replay_model.score_samples(
+    no_replay_log_likelihood = np.full((n_time, 1), np.nan)
+    replay_log_likelihood = np.full((n_time, 1), np.nan)
+    no_replay_log_likelihood[not_nan] = np.exp(no_replay_model.score_samples(
+        np.log(ripple_band_power[not_nan])))
+    replay_log_likelihood[not_nan] = replay_model.score_samples(
         np.log(ripple_band_power[not_nan]))
-    replay_log_likelihood = replay_model.score_samples(
-        np.log(ripple_band_power[not_nan]))
-
-    likelihood_ratio[not_nan, 0] = np.exp(
-        replay_log_likelihood - no_replay_log_likelihood)
-    return likelihood_ratio
+    return no_replay_log_likelihood, replay_log_likelihood
 
 
 def fit_lfp_likelihood_ratio(ripple_band_power, is_replay,

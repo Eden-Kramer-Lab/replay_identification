@@ -199,7 +199,9 @@ class ReplayDetector(object):
         replay_state_transition = self._replay_state_transition(lagged_speed)
 
         logger.info('Predicting replay probability and density...')
-        replay_probability, replay_posterior = _predict(
+        (replay_probability, replay_posterior, replay_prior,
+         updated_posterior, replay, non_replay, replay_prior_previous_replay,
+         replay_prior_no_previous_replay) = _predict(
             likelihood, self._movement_state_transition,
             replay_state_transition, n_time, n_place_bins, place_bin_size)
 
@@ -209,7 +211,14 @@ class ReplayDetector(object):
         return xr.Dataset(
             {'replay_probability': (['time'], replay_probability),
              'replay_posterior': (['time', 'position'], replay_posterior),
-             'likelihood': (likelihood_dims, likelihood.squeeze())},
+             'likelihood': (likelihood_dims, likelihood.squeeze()),
+             'replay_prior': (['time', 'position'], replay_prior),
+             'replay_prior_previous_replay': (['time', 'position'], replay_prior_previous_replay),
+             'replay_prior_no_previous_replay': (['time', 'position'], replay_prior_no_previous_replay),
+             'updated_posterior': (['time', 'position'], updated_posterior),
+             'replay': (['time'], replay),
+             'non_replay': (['time'], non_replay),
+             },
             coords={'time': time, 'position': place_bins})
 
     def plot_fitted_place_fields(self, ax=None, sampling_frequency=1):
@@ -361,32 +370,91 @@ class ReplayDetector(object):
         return joblib.load(filename)
 
 
-@jit(nopython=True)
+# @jit(nopython=True, nogil=True, cache=True)
 def _predict(likelihood, movement_state_transition, replay_state_transition,
              n_time, n_place_bins, place_bin_size):
     replay_probability = np.zeros((n_time,))
     replay_posterior = np.zeros((n_time, n_place_bins))
-    uniform = np.ones((n_place_bins,)) / n_place_bins
+    uniform = np.ones((n_place_bins,)) / (n_place_bins * place_bin_size)
+    replay_posterior[0, 0] = 1 / place_bin_size
+    replay_prior_previous_replay = np.zeros((n_time, n_place_bins))
+    replay_prior_no_previous_replay = np.zeros(
+        (n_time, n_place_bins))
+    replay_prior = np.zeros((n_time, n_place_bins))
+    updated_posterior = np.zeros((n_time, n_place_bins))
+    replay = np.zeros((n_time,))
+    non_replay = np.zeros((n_time,))
 
-    for time_ind in np.arange(1, n_time):
-        replay_prior = (
+    for time_ind in tqdm(np.arange(1, n_time)):
+        # P(x) = Pr(I_{k} = 1 | I_{k-1} = 1, v_{k-1}) *
+        # \int p(x_{k} | x_{k-1}, I_{k} = 1, I_{k-1} = 1) *
+        # p(x_{k-1}, I_{k-1} | blah) * dx_{x-1} +
+        # Pr(I_{k} = 1 | I_{k-1} = 0, v_{k-1}) *
+        # U(0, n_place_bins) * P(I_{k-1} = 0)
+        replay_prior_previous_replay[time_ind] = (
             replay_state_transition[time_ind, 1]
-            * np.dot(movement_state_transition, replay_posterior[time_ind - 1])
-            * place_bin_size
-            + replay_state_transition[time_ind, 0]
-            * uniform * (1 - replay_probability[time_ind - 1]))
-        updated_posterior = likelihood[time_ind] * replay_prior
-        non_replay_posterior = (
+            * (movement_state_transition @ replay_posterior[time_ind - 1])
+            * place_bin_size * replay_probability[time_ind - 1])
+        replay_prior_no_previous_replay[time_ind] = (
+            replay_state_transition[time_ind, 0] *
+            (uniform * replay_posterior[time_ind - 1])
+            * place_bin_size * (1 - replay_probability[time_ind - 1]))
+        replay_prior[time_ind] = (replay_prior_previous_replay[time_ind] +
+                                  replay_prior_no_previous_replay[time_ind])
+        # P(x_{k}, I_{k} = 1 | blah)
+        updated_posterior[time_ind] = (likelihood[time_ind] *
+                                       replay_prior[time_ind])
+        # Pr(I = 0) = P(I = 0 | I = 0) * P(I = 0) + P(I = 0 | I = 1) * P(I = 1)
+        non_replay[time_ind] = (
             (1 - replay_state_transition[time_ind, 0]) *
             (1 - replay_probability[time_ind - 1]) +
             (1 - replay_state_transition[time_ind, 1]) *
             replay_probability[time_ind - 1])
-        integrated_posterior = np.sum(updated_posterior) * place_bin_size
-        norm = integrated_posterior + non_replay_posterior
-        replay_probability[time_ind] = integrated_posterior / norm
-        replay_posterior[time_ind] = updated_posterior / norm
+        # replay = P(I_{k} = 1 | blah)
+        replay[time_ind] = np.sum(updated_posterior[time_ind]) * place_bin_size
+        replay_probability[time_ind] = (
+            replay[time_ind] / (replay[time_ind] + non_replay[time_ind]))
+        replay_posterior[time_ind] = (
+            updated_posterior[time_ind] / replay[time_ind])
 
-    return replay_probability, replay_posterior
+    return (replay_probability, replay_posterior, replay_prior, updated_posterior, replay, non_replay,
+            replay_prior_previous_replay, replay_prior_no_previous_replay)
+
+
+def _predict2():
+    movement_bin = np.digitize(linear_distance, place_bin_edges) - 1
+    movement_delta = np.zeros((n_time, n_place_bins))
+    movement_delta[(np.arange(n_time), movement_bin)] = 1
+
+
+    for time_ind in tqdm(np.arange(1, n_time)):
+        no_replay_prior_no_previous_replay[time_ind] = (
+            (1 - replay_state_transition[time_ind, 0]) *
+            movement_delta[time_ind] * replay_posterior[time_ind - 1] *
+            place_bin_size)
+        no_replay_prior_previous_replay[time_ind] = (
+            (1 - replay_state_transition[time_ind, 1]) *
+            movement_delta[time_ind] * replay_posterior[time_ind - 1] *
+            place_bin_size)
+        replay_prior_previous_replay[time_ind] = (
+            replay_state_transition[time_ind, 1] *
+            movement_state_transition @ replay_posterior[time_ind - 1] *
+            place_bin_size)
+        replay_prior_no_previous_replay[time_ind] = (
+            replay_state_transition[time_ind, 0] *
+            uniform * replay_posterior[time_ind - 1] * place_bin_size)
+
+        prior[time_ind] = (no_replay_prior_no_previous_replay[time_ind] +
+                           no_replay_prior_previous_replay[time_ind] +
+                           replay_prior_previous_replay[time_ind] +
+                           replay_prior_no_previous_replay[time_ind])
+        # P(x_{k}, I_{k} = 1 | blah)
+        updated_posterior[time_ind] = (likelihood[time_ind] *
+                                       replay_prior[time_ind])
+
+    return (replay_probability, replay_posterior, replay_prior, updated_posterior, replay, non_replay,
+            replay_prior_previous_replay, replay_prior_no_previous_replay)
+
 
 
 def replace_NaN(x):

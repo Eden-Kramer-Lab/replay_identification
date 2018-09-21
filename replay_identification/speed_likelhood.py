@@ -46,7 +46,7 @@ def speed_likelihood_ratio(speed, lagged_speed, replay_fit,
 
     Returns
     -------
-    speed_likelihood_ratio : ndarray, shape (n_time, 1)
+    speed_likelihood : ndarray, shape (n_time, 2)
 
     """
     no_replay_prediction = no_replay_fit.predict(lagged_speed)
@@ -56,12 +56,8 @@ def speed_likelihood_ratio(speed, lagged_speed, replay_fit,
         speed, replay_prediction, scale=replay_fit.scale)
     no_replay_log_likelihood = speed_log_likelihood(
         speed, no_replay_prediction, scale=no_replay_fit.scale)
-    log_likelihood_ratio = replay_log_likelihood - no_replay_log_likelihood
 
-    likelihood_ratio = np.exp(log_likelihood_ratio)
-    likelihood_ratio[np.isposinf(likelihood_ratio)] = 1
-
-    return likelihood_ratio[:, np.newaxis]
+    return np.exp(no_replay_log_likelihood), np.exp(replay_log_likelihood)
 
 
 def fit_speed_likelihood_ratio(speed, is_replay, speed_threshold=4.0):

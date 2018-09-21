@@ -44,7 +44,7 @@ def multiunit_likelihood_ratio(multiunit, position, place_bin_centers,
         np.moveaxis(multiunit, -1, 0), position, occupancy_model,
         joint_models, marginal_models, mean_rates, time_bin_size)
 
-    return np.exp(replay_log_likelihood - no_replay_log_likelihood)
+    return no_replay_log_likelihood, replay_log_likelihood
 
 
 def estimate_replay_log_likelihood(
