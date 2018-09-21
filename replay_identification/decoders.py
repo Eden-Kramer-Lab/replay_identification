@@ -398,27 +398,28 @@ def _predict(likelihood, movement_state_transition, replay_state_transition,
             Pr(I_{k-1})
         '''
         prior_no_previous_replay = (
-            replay_state_transition[time_ind, 0] *
-            (1 - replay_probability[time_ind - 1]) * uniform)
+            replay_state_transition[time_ind, 0] * uniform
+            (1 - replay_probability[time_ind - 1]))
         '''p(x_{k} | I_{k} = 1) =
                 p(x_{k} | I_{k} = 1, I_{k-1} = 1, H) +
                 p(x_{k} | I_{k} = 1, I_{k-1} = 0, H)
         '''
         prior = prior_previous_replay + prior_no_previous_replay
         updated_posterior = likelihood[time_ind] * prior
-        '''Pr(I = 0) = Pr(I_{k} = 0 | I_{k-1} = 0) * Pr(I_{k-1} = 0) +
-                       Pr(I_{k} = 0 | I_{k-1} = 1) * Pr(I_{k-1} = 1)
-                     = (1 - Pr(I_{k} = 1 | I_{k-1} = 0, v_{k-1})) *
-                       (1 - Pr(I_{k-1} = 1)) +
-                       (1 - Pr(I_{k} = 1 | I_{k-1} = 1), v_{k-1}) *
-                        Pr(I_{k-1} = 1)
+        '''Pr(I_{k} = 0) = Pr(I_{k} = 0 | I_{k-1} = 0) * Pr(I_{k-1} = 0) +
+                           Pr(I_{k} = 0 | I_{k-1} = 1) * Pr(I_{k-1} = 1)
+
+                         = (1 - Pr(I_{k} = 1 | I_{k-1} = 0, v_{k-1})) *
+                           (1 - Pr(I_{k-1} = 1)) +
+                           (1 - Pr(I_{k} = 1 | I_{k-1} = 1), v_{k-1}) *
+                           Pr(I_{k-1} = 1)
         '''
         no_replay = (
             (1 - replay_state_transition[time_ind, 0]) *
             (1 - replay_probability[time_ind - 1]) +
             (1 - replay_state_transition[time_ind, 1]) *
             replay_probability[time_ind - 1])
-        '''Pr(I_{k} = 1) = /int p(x_{k} | I_{k} = 1) * dx_{k-1} / n_bins'''
+        '''Pr(I_{k} = 1) = /int p(x_{k} | I_{k} = 1) * dx_{k-1} / #{x_{k-1}}'''
         replay = np.sum(updated_posterior) * place_bin_size / n_place_bins
 
         replay_probability[time_ind] = replay / (replay + no_replay)
