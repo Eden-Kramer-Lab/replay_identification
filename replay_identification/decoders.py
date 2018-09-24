@@ -80,10 +80,10 @@ class ReplayDetector(object):
 
     """
 
-    def __init__(self, speed_threshold=4.0, spike_model_penalty=1E1,
+    def __init__(self, speed_threshold=4.0, spike_model_penalty=1E-1,
                  time_bin_size=1, replay_state_transition_penalty=1E-5,
                  place_bin_size=1, replay_speed=20,
-                 spike_model_knot_spacing=30, speed_knots=None,
+                 spike_model_knot_spacing=15, speed_knots=None,
                  multiunit_density_model=KernelDensity,
                  multiunit_model_kwargs=dict(bandwidth=10, leaf_size=1000,
                                              rtol=1E-3)):
