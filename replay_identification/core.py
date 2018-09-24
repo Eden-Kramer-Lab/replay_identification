@@ -3,10 +3,11 @@ import numpy as np
 
 def get_place_bins(position, place_bin_size):
     not_nan_position = position[~np.isnan(position)]
-    n_bins = (np.floor(np.ptp(not_nan_position) / place_bin_size) + 2
-              ).astype(np.int)
+        n_bins = (np.round(np.ceil(np.ptp(not_nan_position) / place_bin_size))
+                  ).astype(np.int)
     return np.linspace(
-        np.min(not_nan_position), np.max(not_nan_position) + 1E-3, n_bins)
+        np.min(not_nan_position), np.max(not_nan_position), n_bins + 1,
+        endpoint=True)
 
 
 def get_place_bin_centers(bin_edges):
