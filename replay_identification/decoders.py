@@ -82,7 +82,7 @@ class ReplayDetector(object):
 
     def __init__(self, speed_threshold=4.0, spike_model_penalty=1E-1,
                  time_bin_size=1, replay_state_transition_penalty=1E-5,
-                 place_bin_size=1, replay_speed=20,
+                 place_bin_size=1, n_place_bins=None, replay_speed=20,
                  spike_model_knot_spacing=15, speed_knots=None,
                  multiunit_density_model=KernelDensity,
                  multiunit_model_kwargs=dict(bandwidth=10, leaf_size=1000,
@@ -92,6 +92,7 @@ class ReplayDetector(object):
         self.time_bin_size = time_bin_size
         self.replay_state_transition_penalty = replay_state_transition_penalty
         self.place_bin_size = place_bin_size
+        self.n_place_bins = n_place_bins
         self.replay_speed = replay_speed
         self.spike_model_knot_spacing = spike_model_knot_spacing
         self.multiunit_density_model = multiunit_density_model
@@ -116,7 +117,8 @@ class ReplayDetector(object):
             np.nan represents times with no multiunit activity.
 
         """
-        self.place_bin_edges = get_place_bins(position, self.place_bin_size)
+        self.place_bin_edges = get_place_bins(position, self.n_place_bins,
+                                              self.place_bin_size)
         self.place_bin_centers = get_place_bin_centers(self.place_bin_edges)
 
         logger.info('Fitting speed model...')

@@ -1,8 +1,9 @@
 import numpy as np
 
 
-def get_place_bins(position, place_bin_size):
+def get_place_bins(position, n_bins=None, place_bin_size=None):
     not_nan_position = position[~np.isnan(position)]
+    if place_bin_size is not None:
         n_bins = (np.round(np.ceil(np.ptp(not_nan_position) / place_bin_size))
                   ).astype(np.int)
     return np.linspace(
