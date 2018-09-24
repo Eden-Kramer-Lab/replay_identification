@@ -12,6 +12,7 @@ dependencies:
 - scikit-learn
 - matplotlib
 - xarray
+- holoviews
 - dask
 - tqdm
 - spectral_connectivity
