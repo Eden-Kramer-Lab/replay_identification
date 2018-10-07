@@ -9,7 +9,7 @@ from sklearn.externals import joblib
 from sklearn.neighbors import KernelDensity
 from statsmodels.tsa.tsatools import lagmat
 
-from .core import get_place_bin_centers, get_place_bins
+from .core import get_bin_centers, get_bin_edges
 from .lfp_likelihood import fit_lfp_likelihood_ratio
 from .movement_state_transition import empirical_movement_transition_matrix
 from .multiunit_likelihood import fit_multiunit_likelihood_ratio
@@ -103,7 +103,7 @@ class ReplayDetector(object):
         return self.keys()
 
     def fit(self, is_replay, speed, position, lfp_power=None,
-            spikes=None, multiunit=None):
+            spikes=None, multiunit=None, place_bin_edges=None):
         """Train the model on replay and non-replay periods.
 
         Parameters
@@ -117,9 +117,12 @@ class ReplayDetector(object):
             np.nan represents times with no multiunit activity.
 
         """
-        self.place_bin_edges = get_place_bins(position, self.n_place_bins,
-                                              self.place_bin_size)
-        self.place_bin_centers = get_place_bin_centers(self.place_bin_edges)
+        if place_bin_edges is not None:
+            self.place_bin_edges = place_bin_edges
+        else:
+            self.place_bin_edges = get_bin_edges(
+                position, self.n_place_bins, self.place_bin_size)
+        self.place_bin_centers = get_bin_centers(self.place_bin_edges)
 
         logger.info('Fitting speed model...')
         self._speed_likelihood_ratio = fit_speed_likelihood_ratio(

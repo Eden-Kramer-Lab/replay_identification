@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def get_place_bins(position, n_bins=None, place_bin_size=None):
+def get_bin_edges(position, n_bins=None, place_bin_size=None):
     not_nan_position = position[~np.isnan(position)]
     if place_bin_size is not None:
         n_bins = (np.round(np.ceil(np.ptp(not_nan_position) / place_bin_size))
@@ -11,7 +11,7 @@ def get_place_bins(position, n_bins=None, place_bin_size=None):
         endpoint=True)
 
 
-def get_place_bin_centers(bin_edges):
+def get_bin_centers(bin_edges):
     '''Given the outer-points of bins, find their center
     '''
     return bin_edges[:-1] + np.diff(bin_edges) / 2
