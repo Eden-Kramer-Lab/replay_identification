@@ -142,7 +142,8 @@ def combined_likelihood(spikes, conditional_intensity, time_bin_size=1):
               if conditional_intensity.ndim > 2 else 1)
     log_likelihood = np.zeros((n_time, n_bins))
 
-    for is_spike, ci in zip(tqdm(spikes), conditional_intensity):
+    for is_spike, ci in zip(tqdm(spikes, desc='neurons'),
+                            conditional_intensity):
         log_likelihood += atleast_2d(
             poisson_log_likelihood(is_spike, ci, time_bin_size))
 
