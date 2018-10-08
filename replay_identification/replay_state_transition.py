@@ -48,7 +48,7 @@ def fit_replay_state_transition(speed, is_replay, penalty=1E-5,
     response, design_matrix = dmatrices(MODEL_FORMULA, data)
     penalty = np.ones((design_matrix.shape[1],)) * penalty
     penalty[0] = 0.0
-    fit = penalized_IRLS(design_matrix, response, FAMILY=FAMILY,
+    fit = penalized_IRLS(design_matrix, response, family=FAMILY,
                          penalty=penalty)
     return partial(predict_probability, design_matrix=design_matrix,
                    coefficients=fit.coefficients)
@@ -90,7 +90,7 @@ def predict_probability(lagged_speed, design_matrix, coefficients):
          predict(previous_replay_design_matrix, coefficients)),
         axis=1)
 
-    replay_probability[np.isnan(replay_probability)] = 0
+    replay_probability[np.isnan(replay_probability)] = 0.0
 
     return replay_probability
 
