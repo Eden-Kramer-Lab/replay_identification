@@ -123,14 +123,9 @@ def _smoother(filter_posterior, movement_state_transition,
         # Update p(x_{k}, I_{k} \vert H_{1:k})
         ratio = smoother_posterior[k + 1] / smoother_prior[k]
         integrated_ratio = np.sum(ratio, axis=1) * position_bin_size
-        observed_position_state_transition = np.zeros(
-            (n_position_bins, n_position_bins))
-        observed_position_state_transition[position_ind, :] = (
-            1.0 / position_bin_size)
         # I_{k} = 0, I_{k + 1} = 0
         weights[k, 0] = (
-            (1 - replay_state_transition[k + 1, 0]) * ratio[0] @
-            observed_position_state_transition * position_bin_size)
+            (1 - replay_state_transition[k + 1, 0]) * ratio[0, position_ind])
 
         # I_{k} = 0, I_{k + 1} = 1
         weights[k, 0] += (
@@ -138,8 +133,7 @@ def _smoother(filter_posterior, movement_state_transition,
 
         # I_{k} = 1, I_{k + 1} = 0
         weights[k, 1] = (
-            (1 - replay_state_transition[k + 1, 1]) * ratio[0] @
-            observed_position_state_transition * position_bin_size)
+            (1 - replay_state_transition[k + 1, 1]) * ratio[0, position_ind])
 
         # I_{k} = 1, I_{k + 1} = 1
         weights[k, 1] += (
