@@ -89,3 +89,5 @@ coverage.xml
 *.cover
 .hypothesis/
 .DS_Store
+*.png
+*.mp4

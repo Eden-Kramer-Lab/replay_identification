@@ -52,9 +52,8 @@ def _filter(likelihood, replay_state_transition, movement_state_transition,
             (1 - replay_state_transition[k, 1]) * state_probability[k - 1, 1])
 
         # I_{k - 1} = 0, I_{k} = 1
-        prior[k, 1] = (
-            replay_state_transition[k, 0] * uniform *
-            state_probability[k - 1, 0])
+        prior[k, 1] = (replay_state_transition[k, 0] * uniform *
+                       state_probability[k - 1, 0])
         # I_{k - 1} = 1, I_{k} = 1
         prior[k, 1] += (
             replay_state_transition[k, 1] *
@@ -73,65 +72,79 @@ def _smoother(filter_posterior, movement_state_transition,
               replay_state_transition, position_bin_size,
               observed_position_bin):
     '''
+    Parameters
+    ----------
+    filter_posterior : ndarray, shape (n_time, 2, n_position_bins)
+    movement_state_transition : ndarray, shape (n_position_bins,
+                                                n_position_bins)
+    replay_state_transition : ndarray, shape (n_time, 2)
+        replay_state_transition[k, 0] = Pr(I_{k} = 1 | I_{k-1} = 0, v_{k})
+        replay_state_transition[k, 1] = Pr(I_{k} = 1 | I_{k-1} = 1, v_{k})
+    position_bin_size : float
+    observed_position_bin : ndarray, shape (n_time,)
+
+
     '''
     filter_probability = np.sum(filter_posterior, axis=2) * position_bin_size
 
     smoother_posterior = np.zeros_like(filter_posterior)
-    smoother_posterior[-1] = filter_posterior[-1].copy()
     smoother_prior = np.zeros_like(filter_posterior)
     weights = np.zeros_like(filter_posterior)
     n_time, _, n_position_bins = filter_posterior.shape
     uniform = 1 / (n_position_bins * position_bin_size)
 
+    smoother_posterior[-1] = filter_posterior[-1].copy()
+
     for k in np.arange(n_time - 2, -1, -1):
-        position_ind = observed_position_bin[k]
-        # position_ind = observed_position_bin[k + 1]
+        position_ind = observed_position_bin[k + 1]
 
         # Predict p(x_{k + 1}, I_{k + 1} \vert H_{1:k})
         # I_{k} = 0, I_{k + 1} = 0
         smoother_prior[k, 0, position_ind] = (
-            (1 - replay_state_transition[k, 0]) * filter_probability[k, 0])
+            (1 - replay_state_transition[k + 1, 0]) * filter_probability[k, 0])
 
         # I_{k} = 1, I_{k + 1} = 0
         smoother_prior[k, 0, position_ind] += (
-            (1 - replay_state_transition[k, 1]) * filter_probability[k, 1])
+            (1 - replay_state_transition[k + 1, 1]) * filter_probability[k, 1])
 
-        # I_{k + 1} = 1, I_{k} = 0
+        # I_{k} = 0, I_{k + 1} = 1
         smoother_prior[k, 1] = (
-            replay_state_transition[k, 0] * uniform * filter_probability[k, 0])
+            replay_state_transition[k + 1, 0] * uniform *
+            filter_probability[k, 0])
 
-        # I_{k + 1} = 1, I_{k} = 1
+        # I_{k} = 1, I_{k + 1} = 1
         smoother_prior[k, 1] += (
-            replay_state_transition[k, 1] *
+            replay_state_transition[k + 1, 1] *
             (movement_state_transition @ filter_posterior[k, 1]) *
             position_bin_size)
 
         smoother_prior[k] += np.spacing(1)
 
         # Update p(x_{k}, I_{k} \vert H_{1:k})
+        ratio = smoother_posterior[k + 1] / smoother_prior[k]
+        integrated_ratio = np.sum(ratio, axis=1) * position_bin_size
+        observed_position_state_transition = np.zeros(
+            (n_position_bins, n_position_bins))
+        observed_position_state_transition[position_ind, :] = (
+            1.0 / position_bin_size)
         # I_{k} = 0, I_{k + 1} = 0
-        weights[k, 0, position_ind] = (
-            (1 - replay_state_transition[k, 0]) *
-            np.sum(smoother_posterior[k + 1, 0] / smoother_prior[k, 0]) *
-            position_bin_size)
+        weights[k, 0] = (
+            (1 - replay_state_transition[k + 1, 0]) * ratio[0] @
+            observed_position_state_transition * position_bin_size)
 
         # I_{k} = 0, I_{k + 1} = 1
         weights[k, 0] += (
-            uniform * replay_state_transition[k, 0] *
-            np.sum(smoother_posterior[k + 1, 1] / smoother_prior[k, 1]) *
-            position_bin_size)
+            uniform * replay_state_transition[k + 1, 0] * integrated_ratio[1])
 
-        # I_{k + 1} = 0, I_{k} = 1
-        weights[k, 1, position_ind] = (
-            (1 - replay_state_transition[k, 1]) *
-            np.sum(smoother_posterior[k + 1, 0] / smoother_prior[k, 0]) *
-            position_bin_size)
+        # I_{k} = 1, I_{k + 1} = 0
+        weights[k, 1] = (
+            (1 - replay_state_transition[k + 1, 1]) * ratio[0] @
+            observed_position_state_transition * position_bin_size)
 
-        # I_{k + 1} = 1, I_{k} = 1
+        # I_{k} = 1, I_{k + 1} = 1
         weights[k, 1] += (
-            replay_state_transition[k, 1] *
-            np.sum(movement_state_transition * smoother_posterior[k + 1, 1] /
-                   smoother_prior[k, 1], axis=1) * position_bin_size)
+            replay_state_transition[k + 1, 1] *
+            ratio[1] @ movement_state_transition * position_bin_size)
 
         smoother_posterior[k] = normalize_to_probability(
             weights[k] * filter_posterior[k], position_bin_size)
