@@ -1,7 +1,7 @@
 import numpy as np
 from patsy import dmatrices
-from scipy.stats import norm
 from scipy.ndimage.filters import gaussian_filter
+from scipy.stats import norm
 from statsmodels.api import GLM, families
 from statsmodels.tsa.tsatools import lagmat
 
@@ -83,7 +83,6 @@ def empirical_movement_transition_matrix(position, place_bin_edges, speed,
                                          bins=(place_bin_edges,
                                                place_bin_edges),
                                          normed=False)
-
     smoothed_movement_bins_probability = gaussian_filter(
         _normalize_row_probability(
             _fix_zero_bins(movement_bins)), sigma=0.5)
