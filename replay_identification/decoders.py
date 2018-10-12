@@ -32,7 +32,7 @@ except ImportError:
 
 logger = getLogger(__name__)
 
-_DEFAULT_LIKELIHOODS = ['spikes', 'lfp_power', 'speed']
+_DEFAULT_LIKELIHOODS = ['spikes', 'lfp_power']
 
 
 class ReplayDetector(object):
