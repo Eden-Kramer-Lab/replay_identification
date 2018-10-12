@@ -1,11 +1,12 @@
-import numpy as np
 from functools import partial
+
+import numpy as np
 from sklearn.mixture import GaussianMixture
 
 from spectral_connectivity import Connectivity, Multitaper
 
 
-def lfp_likelihood_ratio(ripple_band_power, replay_model, no_replay_model):
+def lfp_likelihood(ripple_band_power, replay_model, no_replay_model):
     """Estimates the likelihood of being in a replay state over time given the
      spectral power of the local field potentials (LFPs).
 
@@ -17,25 +18,23 @@ def lfp_likelihood_ratio(ripple_band_power, replay_model, no_replay_model):
 
     Returns
     -------
-    lfp_likelihood_ratio : ndarray, shape (n_time, 1)
+    lfp_likelihood : ndarray, shape (n_time, 2, 1)
 
     """
     not_nan = np.all(~np.isnan(ripple_band_power), axis=1)
     n_time = ripple_band_power.shape[0]
-    likelihood_ratio = np.ones((n_time, 1))
-    no_replay_log_likelihood = no_replay_model.score_samples(
-        np.log(ripple_band_power[not_nan]))
-    replay_log_likelihood = replay_model.score_samples(
-        np.log(ripple_band_power[not_nan]))
+    lfp_likelihood = np.ones((n_time, 2))
+    lfp_likelihood[not_nan, 0] = np.exp(no_replay_model.score_samples(
+        np.log(ripple_band_power[not_nan])))
+    lfp_likelihood[not_nan, 1] = np.exp(replay_model.score_samples(
+        np.log(ripple_band_power[not_nan])))
 
-    likelihood_ratio[not_nan, 0] = np.exp(
-        replay_log_likelihood - no_replay_log_likelihood)
-    return likelihood_ratio
+    return lfp_likelihood[..., np.newaxis]
 
 
-def fit_lfp_likelihood_ratio(ripple_band_power, is_replay,
-                             model=GaussianMixture,
-                             model_kwargs=dict(n_components=3)):
+def fit_lfp_likelihood(ripple_band_power, is_replay,
+                       model=GaussianMixture,
+                       model_kwargs=dict(n_components=3)):
     """Fits the likelihood of being in a replay state over time given the
      spectral power of the local field potentials (LFPs).
 
@@ -57,7 +56,7 @@ def fit_lfp_likelihood_ratio(ripple_band_power, is_replay,
     no_replay_model = model(**model_kwargs).fit(
         np.log(ripple_band_power[~is_replay & not_nan]))
 
-    return partial(lfp_likelihood_ratio, replay_model=replay_model,
+    return partial(lfp_likelihood, replay_model=replay_model,
                    no_replay_model=no_replay_model)
 
 

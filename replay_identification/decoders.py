@@ -4,18 +4,18 @@ from logging import getLogger
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-from numba import jit
 from sklearn.externals import joblib
 from sklearn.neighbors import KernelDensity
 from statsmodels.tsa.tsatools import lagmat
 
-from .core import get_bin_centers, get_bin_edges
-from .lfp_likelihood import fit_lfp_likelihood_ratio
+from .core import (_filter, _smoother, get_bin_centers, get_bin_edges,
+                   get_observed_position_bin, replace_NaN, return_None)
+from .lfp_likelihood import fit_lfp_likelihood
 from .movement_state_transition import empirical_movement_transition_matrix
-from .multiunit_likelihood import fit_multiunit_likelihood_ratio
+from .multiunit_likelihood import fit_multiunit_likelihood
 from .replay_state_transition import fit_replay_state_transition
-from .speed_likelhood import fit_speed_likelihood_ratio
-from .spiking_likelihood import fit_spiking_likelihood_ratio
+from .speed_likelhood import fit_speed_likelihood
+from .spiking_likelihood import fit_spiking_likelihood
 
 try:
     from IPython import get_ipython
@@ -125,31 +125,31 @@ class ReplayDetector(object):
         self.place_bin_centers = get_bin_centers(self.place_bin_edges)
 
         logger.info('Fitting speed model...')
-        self._speed_likelihood_ratio = fit_speed_likelihood_ratio(
+        self._speed_likelihood = fit_speed_likelihood(
             speed, is_replay, self.speed_threshold)
         if lfp_power is not None:
             logger.info('Fitting LFP power model...')
-            self._lfp_likelihood_ratio = fit_lfp_likelihood_ratio(
+            self._lfp_likelihood = fit_lfp_likelihood(
                 lfp_power, is_replay)
         else:
-            self._lfp_likelihood_ratio = return_None
+            self._lfp_likelihood = return_None
 
         if spikes is not None:
             logger.info('Fitting spiking model...')
-            self._spiking_likelihood_ratio = fit_spiking_likelihood_ratio(
+            self._spiking_likelihood = fit_spiking_likelihood(
                 position, spikes, is_replay, self.place_bin_centers,
                 self.spike_model_penalty, self.time_bin_size,
                 self.spike_model_knot_spacing)
         else:
-            self._spiking_likelihood_ratio = return_None
+            self._spiking_likelihood = return_None
 
         if multiunit is not None:
             logger.info('Fitting multiunit model...')
-            self._multiunit_likelihood_ratio = fit_multiunit_likelihood_ratio(
+            self._multiunit_likelihood = fit_multiunit_likelihood(
                 position, multiunit, is_replay, self.place_bin_centers,
                 self.multiunit_density_model, self.multiunit_model_kwargs)
         else:
-            self._multiunit_likelihood_ratio = return_None
+            self._multiunit_likelihood = return_None
 
         logger.info('Fitting movement state transition...')
         self._movement_state_transition = empirical_movement_transition_matrix(
@@ -163,7 +163,7 @@ class ReplayDetector(object):
 
     def predict(self, speed, position, lfp_power=None, spikes=None,
                 multiunit=None, use_likelihoods=_DEFAULT_LIKELIHOODS,
-                time=None):
+                time=None, use_smoother=True):
         """Predict the probability of replay and replay position/position.
 
         Parameters
@@ -179,7 +179,7 @@ class ReplayDetector(object):
              (speed | lfp_power | spikes | multiunit)
         time : ndarray or None, shape (n_time,), optional
             Experiment time will be included in the results if specified.
-
+        use_smoother : bool, True
 
         Returns
         -------
@@ -192,20 +192,19 @@ class ReplayDetector(object):
             time = np.arange(n_time)
         lagged_speed = lagmat(speed, maxlag=1).squeeze()
 
-        n_place_bins = self.place_bin_centers.size
         place_bins = self.place_bin_centers
         place_bin_size = np.diff(place_bins)[0]
 
-        likelihood = np.ones((n_time, 1))
+        likelihood = np.ones((n_time, 2, 1))
 
         likelihoods = {
-            'speed': partial(self._speed_likelihood_ratio, speed=speed,
+            'speed': partial(self._speed_likelihood, speed=speed,
                              lagged_speed=lagged_speed),
-            'lfp_power': partial(self._lfp_likelihood_ratio,
+            'lfp_power': partial(self._lfp_likelihood,
                                  ripple_band_power=lfp_power),
-            'spikes': partial(self._spiking_likelihood_ratio,
+            'spikes': partial(self._spiking_likelihood,
                               is_spike=spikes, position=position),
-            'multiunit': partial(self._multiunit_likelihood_ratio,
+            'multiunit': partial(self._multiunit_likelihood,
                                  multiunit=multiunit, position=position)
         }
 
@@ -215,21 +214,32 @@ class ReplayDetector(object):
                 likelihood = likelihood * replace_NaN(likelihood_func())
 
         replay_state_transition = self._replay_state_transition(lagged_speed)
+        observed_position_bin = get_observed_position_bin(
+            position, self.place_bin_edges)
 
         logger.info('Predicting replay probability and density...')
-        replay_probability, replay_posterior, prior = _predict(
+        posterior, state_probability, _ = _filter(
             likelihood, self._movement_state_transition,
-            replay_state_transition, n_time, n_place_bins, place_bin_size)
-
-        likelihood_dims = (['time', 'position'] if likelihood.shape[1] > 1
-                           else ['time'])
+            replay_state_transition, observed_position_bin, place_bin_size)
+        if use_smoother:
+            logger.info('Smoothing...')
+            posterior, state_probability, _, _ = _smoother(
+                posterior, self._movement_state_transition,
+                replay_state_transition, observed_position_bin,
+                place_bin_size)
+        if likelihood.shape[-1] > 1:
+            likelihood_dims = ['time', 'state', 'position']
+        else:
+            likelihood_dims = ['time', 'state']
+        coords = {'time': time,
+                  'position': place_bins,
+                  'state': ['No Replay', 'Replay']}
 
         return xr.Dataset(
-            {'replay_probability': (['time'], replay_probability),
-             'replay_posterior': (['time', 'position'], replay_posterior),
-             'prior': (['time', 'position'], prior),
+            {'replay_probability': (['time'], state_probability[:, 1]),
+             'posterior': (['time', 'state', 'position'], posterior),
              'likelihood': (likelihood_dims, likelihood.squeeze())},
-            coords={'time': time, 'position': place_bins})
+            coords=coords)
 
     def plot_fitted_place_fields(self, ax=None, sampling_frequency=1):
         """Plot the place fields from the fitted spiking data.
@@ -244,7 +254,7 @@ class ReplayDetector(object):
             ax = plt.gca()
 
         place_conditional_intensity = (
-            self._spiking_likelihood_ratio
+            self._spiking_likelihood
             .keywords['place_conditional_intensity']).squeeze()
         ax.plot(self.place_bin_centers,
                 place_conditional_intensity * sampling_frequency)
@@ -275,13 +285,13 @@ class ReplayDetector(object):
         axes : matplotlib.pyplot axes
 
         """
-        joint_models = (self._multiunit_likelihood_ratio
+        joint_models = (self._multiunit_likelihood
                         .keywords['joint_models'])
-        mean_rates = self._multiunit_likelihood_ratio.keywords['mean_rates']
+        mean_rates = self._multiunit_likelihood.keywords['mean_rates']
         bins = (self.place_bin_edges, mark_edges)
         if is_histogram:
             place_occupancy = np.exp(
-                self._multiunit_likelihood_ratio
+                self._multiunit_likelihood
                 .keywords['occupancy_model']
                 .score_samples(self.place_bin_centers[:, np.newaxis]))
         n_signals = len(joint_models)

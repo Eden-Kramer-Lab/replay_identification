@@ -21,9 +21,9 @@ except ImportError:
         return kwargs.get('iterable', None)
 
 
-def multiunit_likelihood_ratio(multiunit, position, place_bin_centers,
-                               occupancy_model, joint_models, marginal_models,
-                               mean_rates, time_bin_size=1):
+def multiunit_likelihood(multiunit, position, place_bin_centers,
+                         occupancy_model, joint_models, marginal_models,
+                         mean_rates, time_bin_size=1):
     """The ratio of being in a replay state vs. not a replay state based on
     whether the multiunits correspond to the current position of the animal.
 
@@ -38,18 +38,21 @@ def multiunit_likelihood_ratio(multiunit, position, place_bin_centers,
 
     Returns
     -------
-    multiunit_likelihood_ratio : ndarray, shape (n_time, n_place_bins)
+    multiunit_likelihood : ndarray, shape (n_time, 2, n_place_bins)
 
     """
-    replay_log_likelihood = estimate_replay_log_likelihood(
+    n_time = multiunit.shape[0]
+    n_place_bins = place_bin_centers.size
+    multiunit_likelihood = np.zeros((n_time, 2, n_place_bins))
+    multiunit_likelihood[:, 1, :] = np.exp(estimate_replay_log_likelihood(
         np.moveaxis(multiunit, -1, 0), place_bin_centers,
         occupancy_model, joint_models, marginal_models, mean_rates,
-        time_bin_size)
-    no_replay_log_likelihood = estimate_no_replay_log_likelihood(
+        time_bin_size))
+    multiunit_likelihood[:, 0, :] = np.exp(estimate_no_replay_log_likelihood(
         np.moveaxis(multiunit, -1, 0), position, occupancy_model,
-        joint_models, marginal_models, mean_rates, time_bin_size)
+        joint_models, marginal_models, mean_rates, time_bin_size))
 
-    return np.exp(replay_log_likelihood - no_replay_log_likelihood)
+    return multiunit_likelihood
 
 
 def estimate_replay_log_likelihood(
@@ -63,7 +66,8 @@ def estimate_replay_log_likelihood(
     occupancy = estimate_occupancy(place_bin_centers, occupancy_model)
 
     for m, joint_model, marginal_model, mean_rate in zip(
-            tqdm(multiunit), joint_models, marginal_models, mean_rates):
+            tqdm(multiunit, desc='electrodes'), joint_models, marginal_models,
+            mean_rates):
         ground_process_intensity = np.atleast_2d(
             estimate_ground_process_intensity(
                 place_bin_centers, occupancy, marginal_model, mean_rate))
@@ -89,7 +93,8 @@ def estimate_no_replay_log_likelihood(
     occupancy = estimate_occupancy(position, occupancy_model)
 
     for m, joint_model, marginal_model, mean_rate in zip(
-            tqdm(multiunit), joint_models, marginal_models, mean_rates):
+            tqdm(multiunit, desc='electrodes'), joint_models, marginal_models,
+            mean_rates):
         ground_process_intensity = estimate_ground_process_intensity(
             position, occupancy, marginal_model, mean_rate)[:, np.newaxis]
         joint_mark_intensity = estimate_joint_mark_intensity(
@@ -200,9 +205,9 @@ def estimate_mean_rate(multiunit, position):
     return np.mean(is_spike[not_nan])
 
 
-def fit_multiunit_likelihood_ratio(position, multiunit, is_replay,
-                                   place_bin_centers,
-                                   density_model, model_kwargs):
+def fit_multiunit_likelihood(position, multiunit, is_replay,
+                             place_bin_centers,
+                             density_model, model_kwargs):
     """Precompute quantities to fit the multiunit likelihood ratio to new data.
 
     Parameters
@@ -216,7 +221,7 @@ def fit_multiunit_likelihood_ratio(position, multiunit, is_replay,
 
     Returns
     -------
-    multiunit_likelihood_ratio : function
+    multiunit_likelihood : function
 
     """
     joint_models = []
@@ -236,7 +241,7 @@ def fit_multiunit_likelihood_ratio(position, multiunit, is_replay,
                                  model_kwargs))
 
     return partial(
-        multiunit_likelihood_ratio,
+        multiunit_likelihood,
         place_bin_centers=place_bin_centers,
         occupancy_model=occupancy_model,
         joint_models=joint_models,

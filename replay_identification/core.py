@@ -1,4 +1,5 @@
 import numpy as np
+from numba import jit
 
 
 def get_bin_edges(x, n_bins=None, bin_size=None):
@@ -6,8 +7,11 @@ def get_bin_edges(x, n_bins=None, bin_size=None):
     if bin_size is not None:
         n_bins = (
             np.round(np.ceil(np.ptp(not_nan_x) / bin_size))).astype(np.int)
-    return np.linspace(np.min(not_nan_x), np.max(not_nan_x), n_bins + 1,
-                       endpoint=True)
+    bin_edges = np.linspace(not_nan_x.min(), not_nan_x.max(),
+                            n_bins + 1, endpoint=True)
+    bin_edges[-1] += 1E-8
+
+    return bin_edges
 
 
 def get_bin_centers(bin_edges):
@@ -21,6 +25,16 @@ def atleast_2d(x):
     return np.atleast_2d(x).T if x.ndim < 2 else x
 
 
+def replace_NaN(x):
+    x[np.isnan(x)] = 1
+    return x
+
+
+def return_None(*args, **kwargs):
+    return None
+
+
+@jit(nopython=True, cache=True, nogil=True)
 def normalize_to_probability(distribution, bin_size):
     '''Ensure the distribution integrates to 1 so that it is a probability
     distribution
@@ -28,8 +42,35 @@ def normalize_to_probability(distribution, bin_size):
     return distribution / (np.nansum(distribution) * bin_size)
 
 
-def _filter(likelihood, replay_state_transition, movement_state_transition,
+def get_observed_position_bin(position, bin_edges):
+    return np.digitize(position, bin_edges) - 1
+
+
+@jit(nopython=True, cache=True, nogil=True)
+def _filter(likelihood, movement_state_transition, replay_state_transition,
             observed_position_bin, position_bin_size):
+    '''
+    Parameters
+    ----------
+    likelihood : ndarray, shape (n_time, ...)
+    movement_state_transition : ndarray, shape (n_position_bins,
+                                                n_position_bins)
+    replay_state_transition : ndarray, shape (n_time, 2)
+        replay_state_transition[k, 0] = Pr(I_{k} = 1 | I_{k-1} = 0, v_{k})
+        replay_state_transition[k, 1] = Pr(I_{k} = 1 | I_{k-1} = 1, v_{k})
+    observed_position_bin : ndarray, shape (n_time,)
+        Which position bin is the animal in.
+    position_bin_size : float
+
+    Returns
+    -------
+    posterior : ndarray, shape (n_time, 2, n_position_bins)
+    state_probability : ndarray, shape (n_time, 2)
+        state_probability[:, 0] = Pr(I_{1:T} = 0)
+        state_probability[:, 1] = Pr(I_{1:T} = 1)
+    prior : ndarray, shape (n_time, 2, n_position_bins)
+
+    '''
     n_position_bins = movement_state_transition.shape[0]
     n_time = likelihood.shape[0]
     n_states = 2
@@ -44,11 +85,12 @@ def _filter(likelihood, replay_state_transition, movement_state_transition,
     state_probability[0] = np.sum(posterior[0], axis=1) * position_bin_size
 
     for k in np.arange(1, n_time):
+        position_ind = observed_position_bin[k]
         # I_{k - 1} = 0, I_{k} = 0
-        prior[k, 0, observed_position_bin[k]] = (
+        prior[k, 0, position_ind] = (
             (1 - replay_state_transition[k, 0]) * state_probability[k - 1, 0])
         # I_{k - 1} = 1, I_{k} = 0
-        prior[k, 0, observed_position_bin[k]] += (
+        prior[k, 0, position_ind] += (
             (1 - replay_state_transition[k, 1]) * state_probability[k - 1, 1])
 
         # I_{k - 1} = 0, I_{k} = 1
@@ -68,9 +110,10 @@ def _filter(likelihood, replay_state_transition, movement_state_transition,
     return posterior, state_probability, prior
 
 
+@jit(nopython=True, cache=True, nogil=True)
 def _smoother(filter_posterior, movement_state_transition,
-              replay_state_transition, position_bin_size,
-              observed_position_bin):
+              replay_state_transition, observed_position_bin,
+              position_bin_size):
     '''
     Parameters
     ----------
@@ -80,10 +123,23 @@ def _smoother(filter_posterior, movement_state_transition,
     replay_state_transition : ndarray, shape (n_time, 2)
         replay_state_transition[k, 0] = Pr(I_{k} = 1 | I_{k-1} = 0, v_{k})
         replay_state_transition[k, 1] = Pr(I_{k} = 1 | I_{k-1} = 1, v_{k})
-    position_bin_size : float
     observed_position_bin : ndarray, shape (n_time,)
+        Which position bin is the animal in.
+    position_bin_size : float
 
-
+    Returns
+    -------
+    smoother_posterior : ndarray, shape (n_time, 2, n_position_bins)
+        p(x_{k + 1}, I_{k + 1} \vert H_{1:T})
+    smoother_probability : ndarray, shape (n_time, 2)
+        smoother_probability[:, 0] = Pr(I_{1:T} = 0)
+        smoother_probability[:, 1] = Pr(I_{1:T} = 1)
+    smoother_prior : ndarray, shape (n_time, 2, n_position_bins)
+        p(x_{k + 1}, I_{k + 1} \vert H_{1:k})
+    weights : ndarray, shape (n_time, 2, n_position_bins)
+        \sum_{I_{k+1}} \int \Big[ \frac{p(x_{k+1} \mid x_{k}, I_{k}, I_{k+1}) *
+        Pr(I_{k + 1} \mid I_{k}, v_{k}) * p(x_{k+1}, I_{k+1} \mid H_{1:T})}
+        {p(x_{k + 1}, I_{k + 1} \mid H_{1:k})} \Big] dx_{k+1}
     '''
     filter_probability = np.sum(filter_posterior, axis=2) * position_bin_size
 
@@ -145,4 +201,7 @@ def _smoother(filter_posterior, movement_state_transition,
         smoother_posterior[k] = normalize_to_probability(
             weights[k] * filter_posterior[k], position_bin_size)
 
-    return smoother_posterior, smoother_prior, weights
+    smoother_probability = (
+        np.sum(smoother_posterior, axis=2) * position_bin_size)
+
+    return smoother_posterior, smoother_probability, smoother_prior, weights

@@ -105,7 +105,7 @@ def poisson_log_likelihood(is_spike, conditional_intensity=None,
             - conditional_intensity * time_bin_size)
 
 
-def spiking_likelihood_ratio(
+def spiking_likelihood(
         is_spike, position, design_matrix, place_field_coefficients,
         place_conditional_intensity, time_bin_size=1, chunks=1E3):
     """Computes the likelihood ratio between replay and not replay events.
@@ -116,24 +116,28 @@ def spiking_likelihood_ratio(
     position : ndarray, shape (n_time,)
     design_matrix : ndarray, shape (n_time, n_coefficients)
     place_field_coefficients : ndarray, shape (n_coefficients, n_neurons)
-    place_conditional_intensity : ndarray, shape (1, n_place_bins, n_neurons)
+    place_conditional_intensity : ndarray, shape (n_place_bins, n_neurons)
     time_bin_size : float, optional
 
     Returns
     -------
-    spiking_likelihood_ratio : ndarray, shape (n_place_bins,)
+    spiking_likelihood : ndarray, shape (n_time, n_place_bins,)
 
     """
     no_replay_design_matrix = create_predict_design_matrix(
         position, design_matrix)
     no_replay_conditional_intensity = get_conditional_intensity(
         place_field_coefficients, no_replay_design_matrix)
-    no_replay_log_likelihood = combined_likelihood(
-        is_spike.T, no_replay_conditional_intensity.T, time_bin_size)
-    replay_log_likelihood = combined_likelihood(
+    n_time = is_spike.shape[0]
+    n_place_bins = place_conditional_intensity.shape[0]
+    spiking_likelihood = np.zeros((n_time, 2, n_place_bins))
+    spiking_likelihood[:, 1, :] = np.exp(combined_likelihood(
         is_spike.T[..., np.newaxis],
-        place_conditional_intensity.T[:, np.newaxis, :], time_bin_size)
-    return np.exp(replay_log_likelihood - no_replay_log_likelihood)
+        place_conditional_intensity.T[:, np.newaxis, :], time_bin_size))
+    spiking_likelihood[:, 0, :] = np.exp(combined_likelihood(
+        is_spike.T, no_replay_conditional_intensity.T, time_bin_size)
+    )
+    return spiking_likelihood
 
 
 def combined_likelihood(spikes, conditional_intensity, time_bin_size=1):
@@ -150,9 +154,9 @@ def combined_likelihood(spikes, conditional_intensity, time_bin_size=1):
     return log_likelihood
 
 
-def fit_spiking_likelihood_ratio(position, spikes, is_replay,
-                                 place_bin_centers, penalty=1E1,
-                                 time_bin_size=1, knot_spacing=30):
+def fit_spiking_likelihood(position, spikes, is_replay,
+                           place_bin_centers, penalty=1E1,
+                           time_bin_size=1, knot_spacing=30):
     """Estimate the place field model.
 
     Parameters
@@ -165,7 +169,7 @@ def fit_spiking_likelihood_ratio(position, spikes, is_replay,
 
     Returns
     -------
-    spiking_likelihood_ratio : function
+    spiking_likelihood : function
 
     """
     min_position, max_position = np.nanmin(position), np.nanmax(position)
@@ -186,7 +190,7 @@ def fit_spiking_likelihood_ratio(position, spikes, is_replay,
     place_conditional_intensity = get_conditional_intensity(
         place_field_coefficients, place_design_matrix)
     return partial(
-        spiking_likelihood_ratio,
+        spiking_likelihood,
         design_matrix=design_matrix,
         place_field_coefficients=place_field_coefficients,
         place_conditional_intensity=place_conditional_intensity,
