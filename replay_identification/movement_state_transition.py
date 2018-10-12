@@ -6,7 +6,7 @@ from statsmodels.api import GLM, families
 from statsmodels.tsa.tsatools import lagmat
 
 
-def estimate_movement_variance(position, lagged_position, speed):
+def estimate_movement_variance(position, lagged_position):
 
     data = {
         'position': position,
