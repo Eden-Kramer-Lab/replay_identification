@@ -76,10 +76,10 @@ def empirical_movement_transition_matrix(position, place_bin_edges, speed,
     '''
 
     is_movement = speed > movement_threshold
-    lagged_place = lagmat(position, 1)[is_movement].squeeze()
+    lagged_position = lagmat(position, 1)[is_movement].squeeze()
     position = position[is_movement]
 
-    movement_bins, _, _ = np.histogram2d(lagged_place, position,
+    movement_bins, _, _ = np.histogram2d(lagged_position, position,
                                          bins=(place_bin_edges,
                                                place_bin_edges),
                                          normed=False)
