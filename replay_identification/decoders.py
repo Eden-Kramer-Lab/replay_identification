@@ -364,10 +364,9 @@ class ReplayDetector(object):
         plt.colorbar(cax, label='probability')
 
     @staticmethod
-    def plot_multiunit(multiunit, linear_distance, axes=None):
+    def plot_multiunit(multiunit, linear_distance, is_replay, axes=None):
         '''Plot the multiunit training data for comparison with the
-        fitted model.
-        '''
+        fitted model.'''
         if axes is None:
             _, n_marks, n_signals = multiunit.shape
             _, axes = plt.subplots(n_signals, n_marks,
@@ -377,8 +376,9 @@ class ReplayDetector(object):
         for row_axes, m in zip(axes, np.moveaxis(multiunit, 2, 0)):
             not_nan = np.any(~np.isnan(m), axis=-1)
             for mark_ind, ax in enumerate(row_axes):
-                ax.scatter(linear_distance[not_nan],
-                           m[not_nan, mark_ind], alpha=0.1, zorder=-1)
+                ax.scatter(linear_distance[not_nan & ~is_replay],
+                           m[not_nan & ~is_replay, mark_ind],
+                           alpha=0.1, zorder=-1)
 
         plt.ylim((0, 400))
         plt.xlim((np.nanmin(linear_distance), np.nanmax(linear_distance)))
