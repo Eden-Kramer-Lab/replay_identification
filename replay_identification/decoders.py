@@ -499,8 +499,12 @@ class ReplayDetector(object):
         self.plot_lfp_power(np.exp(samples), is_replay)
 
     def save_model(self, filename='model.pkl'):
+        raise NotImplementedError
+        # Won't work until patsy designInfo becomes pickleable
         joblib.dump(self, filename)
 
     @staticmethod
     def load_model(filename='model.pkl'):
+        raise NotImplementedError
+        # Won't work until patsy designInfo becomes pickleable
         return joblib.load(filename)
