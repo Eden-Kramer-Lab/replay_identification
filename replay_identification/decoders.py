@@ -118,6 +118,10 @@ class ReplayDetector(object):
             np.nan represents times with no multiunit activity.
 
         """
+        speed = np.asarray(speed.copy()).squeeze()
+        position = np.asarray(position.copy()).squeeze()
+        is_replay = np.asarray(is_replay.copy()).squeeze()
+
         if place_bin_edges is not None:
             self.place_bin_edges = place_bin_edges
         else:
@@ -130,6 +134,7 @@ class ReplayDetector(object):
             speed, is_replay, self.speed_threshold)
         if lfp_power is not None:
             logger.info('Fitting LFP power model...')
+            lfp_power = np.asarray(lfp_power.copy())
             self._lfp_likelihood = fit_lfp_likelihood(
                 lfp_power, is_replay)
         else:
@@ -137,6 +142,7 @@ class ReplayDetector(object):
 
         if spikes is not None:
             logger.info('Fitting spiking model...')
+            spikes = np.asarray(spikes.copy())
             self._spiking_likelihood = fit_spiking_likelihood(
                 position, spikes, is_replay, self.place_bin_centers,
                 self.spike_model_penalty, self.time_bin_size,
@@ -146,6 +152,7 @@ class ReplayDetector(object):
 
         if multiunit is not None:
             logger.info('Fitting multiunit model...')
+            multiunit = np.asarray(multiunit.copy())
             self._multiunit_likelihood = fit_multiunit_likelihood(
                 position, multiunit, is_replay, self.place_bin_centers,
                 self.multiunit_density_model, self.multiunit_model_kwargs)
@@ -189,6 +196,15 @@ class ReplayDetector(object):
 
         """
         n_time = speed.shape[0]
+        speed = np.asarray(speed.copy()).squeeze()
+        position = np.asarray(position.copy()).squeeze()
+        if lfp_power is not None:
+            lfp_power = np.asarray(lfp_power.copy())
+        if spikes is not None:
+            spikes = np.asarray(spikes.copy())
+        if multiunit is not None:
+            multiunit = np.asarray(multiunit.copy())
+
         if time is None:
             time = np.arange(n_time)
         lagged_speed = lagmat(speed, maxlag=1).squeeze()
