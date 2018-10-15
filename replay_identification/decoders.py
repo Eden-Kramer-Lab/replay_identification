@@ -242,7 +242,8 @@ class ReplayDetector(object):
              'likelihood': (likelihood_dims, likelihood.squeeze())},
             coords=coords)
 
-    def plot_fitted_place_fields(self, ax=None, sampling_frequency=1):
+    def plot_fitted_place_fields(self, sampling_frequency=1, col_wrap=5,
+                                 axes=None):
         """Plot the place fields from the fitted spiking data.
 
         Parameters
@@ -251,17 +252,62 @@ class ReplayDetector(object):
         sampling_frequency : float, optional
 
         """
-        if ax is None:
-            ax = plt.gca()
-
         place_conditional_intensity = (
             self._spiking_likelihood
             .keywords['place_conditional_intensity']).squeeze()
-        ax.plot(self.place_bin_centers,
-                place_conditional_intensity * sampling_frequency)
-        ax.set_title('Estimated Place Fields')
-        ax.set_ylabel('Spikes / s')
-        ax.set_xlabel('Position')
+        n_neurons = place_conditional_intensity.shape[1]
+        n_rows = np.ceil(n_neurons / col_wrap).astype(np.int)
+
+        if axes is None:
+            fig, axes = plt.subplots(n_rows, col_wrap, sharex=True,
+                                     figsize=(col_wrap * 2, n_rows * 2))
+
+        for ind, ax in enumerate(axes.flat):
+            if ind < n_neurons:
+                ax.plot(self.place_bin_centers,
+                        place_conditional_intensity[:, ind] *
+                        sampling_frequency, color='red', linewidth=3,
+                        label='fitted model')
+                ax.set_title(f'Neuron #{ind + 1}')
+                ax.set_ylabel('Spikes / s')
+                ax.set_xlabel('Position')
+            else:
+                ax.axis('off')
+        plt.tight_layout()
+
+    @staticmethod
+    def plot_spikes(spikes, position, is_replay, sampling_frequency=1,
+                    col_wrap=5, bins='auto'):
+        is_replay = np.asarray(is_replay.copy()).squeeze()
+        position = np.asarray(position.copy()).squeeze()[~is_replay]
+        spikes = np.asarray(spikes.copy())[~is_replay]
+
+        position_occupancy, bin_edges = np.histogram(position, bins=bins)
+        bin_size = np.diff(bin_edges)[0]
+
+        time_ind, neuron_ind = np.nonzero(spikes)
+        n_neurons = spikes.shape[1]
+
+        n_rows = np.ceil(n_neurons / col_wrap).astype(np.int)
+
+        fig, axes = plt.subplots(n_rows, col_wrap, sharex=True,
+                                 figsize=(col_wrap * 2, n_rows * 2))
+
+        for ind, ax in enumerate(axes.flat):
+            if ind < n_neurons:
+                hist, _ = np.histogram(position[time_ind[neuron_ind == ind]],
+                                       bins=bin_edges)
+                rate = sampling_frequency * hist / position_occupancy
+                ax.bar(bin_edges[:-1], rate, width=bin_size)
+                ax.set_title(f'Neuron #{ind + 1}')
+                ax.set_ylabel('Spikes / s')
+                ax.set_xlabel('Position')
+            else:
+                ax.axis('off')
+
+        plt.tight_layout()
+
+        return axes
 
     def plot_fitted_multiunit_model(self, sampling_frequency=1,
                                     n_samples=10000,
@@ -304,7 +350,8 @@ class ReplayDetector(object):
         fig, axes = plt.subplots(n_signals, n_marks,
                                  figsize=(n_marks * 3, n_signals * 3),
                                  sharex=True, sharey=True)
-        for model, mean_rate, row_axes in zip(joint_models, mean_rates, axes):
+        zipped = zip(joint_models, mean_rates, axes)
+        for electrode_ind, (model, mean_rate, row_axes) in enumerate(zipped):
             try:
                 samples, _ = model.sample(n_samples)
             except ValueError:
@@ -319,6 +366,8 @@ class ReplayDetector(object):
                     ax.pcolormesh(X, Y, H, vmin=0)
                 else:
                     ax.scatter(samples[:, -1], samples[:, mark_ind], alpha=0.1)
+                ax.set_title(
+                    f'Electrode {electrode_ind + 1}, Feature {mark_ind + 1}')
 
         plt.xlim((bins[0].min(), bins[0].max()))
         plt.ylim((bins[1].min(), bins[1].max()))
@@ -364,24 +413,29 @@ class ReplayDetector(object):
         plt.colorbar(cax, label='probability')
 
     @staticmethod
-    def plot_multiunit(multiunit, linear_distance, is_replay, axes=None):
+    def plot_multiunit(multiunit, position, is_replay, axes=None):
         '''Plot the multiunit training data for comparison with the
         fitted model.'''
+        multiunit = np.asarray(multiunit.copy())
+        position = np.asarray(position.copy()).squeeze()
+        is_replay = np.asarray(is_replay.copy()).squeeze()
+
         if axes is None:
             _, n_marks, n_signals = multiunit.shape
             _, axes = plt.subplots(n_signals, n_marks,
                                    figsize=(n_marks * 3, n_signals * 3),
                                    sharex=True, sharey=True)
-
-        for row_axes, m in zip(axes, np.moveaxis(multiunit, 2, 0)):
+        zipped = zip(axes, np.moveaxis(multiunit, 2, 0))
+        for electrode_ind, (row_axes, m) in enumerate(zipped):
             not_nan = np.any(~np.isnan(m), axis=-1)
             for mark_ind, ax in enumerate(row_axes):
-                ax.scatter(linear_distance[not_nan & ~is_replay],
+                ax.scatter(position[not_nan & ~is_replay],
                            m[not_nan & ~is_replay, mark_ind],
                            alpha=0.1, zorder=-1)
+                ax.set_title(
+                    f'Electrode {electrode_ind + 1}, Feature {mark_ind + 1}')
 
-        plt.ylim((0, 400))
-        plt.xlim((np.nanmin(linear_distance), np.nanmax(linear_distance)))
+        plt.xlim((np.nanmin(position), np.nanmax(position)))
 
     @staticmethod
     def plot_lfp_power(lfp_power, is_replay):
@@ -409,6 +463,24 @@ class ReplayDetector(object):
 
         axes[0, 0].legend()
         plt.tight_layout()
+
+    def plot_fitted_lfp_power_model(self, n_samples=1000):
+        replay_model = self._lfp_likelihood.keywords['replay_model']
+        no_replay_model = self._lfp_likelihood.keywords['no_replay_model']
+        try:
+            replay_samples, _ = replay_model.sample(n_samples=n_samples)
+            no_replay_samples, _ = no_replay_model.sample(n_samples=n_samples)
+            samples = np.concatenate((replay_samples, no_replay_samples),
+                                     axis=0)
+        except ValueError:
+            samples = np.concatenate(
+                (replay_model.sample(n_samples=n_samples),
+                 no_replay_model.sample(n_samples=n_samples)), axis=0)
+
+        is_replay = np.zeros((n_samples * 2,), dtype=np.bool)
+        is_replay[:n_samples] = True
+
+        self.plot_lfp_power(np.exp(samples), is_replay)
 
     def save_model(self, filename='model.pkl'):
         joblib.dump(self, filename)
