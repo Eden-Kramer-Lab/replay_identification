@@ -1,4 +1,5 @@
 from functools import partial
+from itertools import combinations_with_replacement
 from logging import getLogger
 
 import matplotlib.pyplot as plt
@@ -381,6 +382,33 @@ class ReplayDetector(object):
 
         plt.ylim((0, 400))
         plt.xlim((np.nanmin(linear_distance), np.nanmax(linear_distance)))
+
+    @staticmethod
+    def plot_lfp_power(lfp_power, is_replay):
+        '''Plot the lfp power training data for comparison with the
+        fitted model.'''
+        lfp_power = np.log(np.asarray(lfp_power.copy()))
+        is_replay = np.asarray(is_replay.copy()).squeeze()
+        n_lfps = lfp_power.shape[1]
+        lfp_ind = np.arange(n_lfps)
+
+        fig, axes = plt.subplots(n_lfps, n_lfps,
+                                 figsize=(2 * n_lfps, 2 * n_lfps),
+                                 sharex=True, sharey=True)
+        combinations_ind = combinations_with_replacement(lfp_ind, 2)
+        for (ind1, ind2) in combinations_ind:
+            axes[ind1, ind2].scatter(lfp_power[~is_replay, ind1],
+                                     lfp_power[~is_replay, ind2],
+                                     label='No Replay', alpha=0.5)
+            axes[ind1, ind2].scatter(lfp_power[is_replay, ind1],
+                                     lfp_power[is_replay, ind2],
+                                     label='Replay', alpha=0.5)
+            axes[ind1, ind2].set_title(f'Electrode {ind1 + 1} vs. {ind2 + 1}')
+            if ind1 != ind2:
+                axes[ind2, ind1].axis('off')
+
+        axes[0, 0].legend()
+        plt.tight_layout()
 
     def save_model(self, filename='model.pkl'):
         joblib.dump(self, filename)
