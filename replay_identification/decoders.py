@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from sklearn.externals import joblib
+from sklearn.mixture import GaussianMixture
 from sklearn.neighbors import KernelDensity
 from statsmodels.tsa.tsatools import lagmat
 
@@ -34,6 +35,9 @@ except ImportError:
 logger = getLogger(__name__)
 
 _DEFAULT_LIKELIHOODS = ['spikes', 'lfp_power']
+_DEFAULT_MULTIUNIT_KWARGS = dict(bandwidth=10, leaf_size=1000,
+                                 rtol=1E-3)
+_DEFAULT_LFP_KWARGS = dict(n_components=3)
 
 
 class ReplayDetector(object):
@@ -86,8 +90,9 @@ class ReplayDetector(object):
                  place_bin_size=1, n_place_bins=None, replay_speed=20,
                  spike_model_knot_spacing=15, speed_knots=None,
                  multiunit_density_model=KernelDensity,
-                 multiunit_model_kwargs=dict(bandwidth=10, leaf_size=1000,
-                                             rtol=1E-3)):
+                 multiunit_model_kwargs=_DEFAULT_MULTIUNIT_KWARGS,
+                 lfp_model=GaussianMixture,
+                 lfp_model_kwargs=_DEFAULT_LFP_KWARGS):
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
         self.time_bin_size = time_bin_size
@@ -96,9 +101,11 @@ class ReplayDetector(object):
         self.n_place_bins = n_place_bins
         self.replay_speed = replay_speed
         self.spike_model_knot_spacing = spike_model_knot_spacing
+        self.speed_knots = speed_knots
         self.multiunit_density_model = multiunit_density_model
         self.multiunit_model_kwargs = multiunit_model_kwargs
-        self.speed_knots = speed_knots
+        self.lfp_model = lfp_model
+        self.lfp_model_kwargs = lfp_model_kwargs
 
     def __dir__(self):
         return self.keys()
@@ -136,7 +143,7 @@ class ReplayDetector(object):
             logger.info('Fitting LFP power model...')
             lfp_power = np.asarray(lfp_power.copy())
             self._lfp_likelihood = fit_lfp_likelihood(
-                lfp_power, is_replay)
+                lfp_power, is_replay, self.lfp_model, self.lfp_model_kwargs)
         else:
             self._lfp_likelihood = return_None
 
