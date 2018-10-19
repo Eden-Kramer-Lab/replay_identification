@@ -51,6 +51,7 @@ def fit_glm_model(spikes, design_matrix, penalty=1E1):
     results = penalized_IRLS(
         np.array(design_matrix), np.array(spikes),
         family=families.Poisson(), penalty=penalty)
+
     return np.squeeze(results.coefficients)
 
 
@@ -78,7 +79,9 @@ def get_conditional_intensity(coefficients, design_matrix):
     conditional_intensity : ndarray, shape (n_coefficients, n_neurons)
 
     """
-    return np.exp(design_matrix @ coefficients)
+    intensity = np.exp(design_matrix @ coefficients)
+    intensity[np.isnan(intensity)] = np.spacing(1)
+    return intensity
 
 
 def poisson_log_likelihood(is_spike, conditional_intensity=None,
