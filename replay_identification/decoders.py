@@ -87,9 +87,9 @@ class ReplayDetector(object):
 
     def __init__(self, speed_threshold=4.0, spike_model_penalty=1E-1,
                  time_bin_size=1, replay_state_transition_penalty=1E-5,
-                 place_bin_size=1, n_place_bins=None, replay_speed=20,
-                 spike_model_knot_spacing=15, speed_knots=None,
-                 multiunit_density_model=KernelDensity,
+                 place_bin_size=2.8, n_place_bins=None, replay_speed=20,
+                 movement_std=0.5, spike_model_knot_spacing=15,
+                 speed_knots=None, multiunit_density_model=KernelDensity,
                  multiunit_model_kwargs=_DEFAULT_MULTIUNIT_KWARGS,
                  lfp_model=GaussianMixture,
                  lfp_model_kwargs=_DEFAULT_LFP_KWARGS):
@@ -103,6 +103,7 @@ class ReplayDetector(object):
         self.place_bin_size = place_bin_size
         self.n_place_bins = n_place_bins
         self.replay_speed = replay_speed
+        self.movement_std = movement_std
         self.spike_model_knot_spacing = spike_model_knot_spacing
         self.speed_knots = speed_knots
         self.multiunit_density_model = multiunit_density_model
@@ -171,7 +172,8 @@ class ReplayDetector(object):
 
         logger.info('Fitting movement state transition...')
         self._movement_state_transition = empirical_movement_transition_matrix(
-            position, self.place_bin_edges, speed, self.replay_speed)
+            position, self.place_bin_edges, speed, self.replay_speed,
+            movement_std=self.movement_std)
         logger.info('Fitting replay state transition...')
         self._replay_state_transition = fit_replay_state_transition(
             speed, is_replay, self.replay_state_transition_penalty,
