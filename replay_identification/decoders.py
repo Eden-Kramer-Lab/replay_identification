@@ -8,6 +8,7 @@ import xarray as xr
 from sklearn.externals import joblib
 from sklearn.mixture import GaussianMixture
 from sklearn.neighbors import KernelDensity
+from sklearn.base import BaseEstimator
 from statsmodels.tsa.tsatools import lagmat
 
 from .core import (_filter, _smoother, get_bin_centers, get_bin_edges,
@@ -40,7 +41,7 @@ _DEFAULT_MULTIUNIT_KWARGS = dict(bandwidth=10, leaf_size=1000,
 _DEFAULT_LFP_KWARGS = dict(n_components=3)
 
 
-class ReplayDetector(object):
+class ReplayDetector(BaseEstimator):
     """Find replay events using information from spikes, lfp ripple band power,
     speed, and/or multiunit.
 
@@ -110,9 +111,6 @@ class ReplayDetector(object):
         self.multiunit_model_kwargs = multiunit_model_kwargs
         self.lfp_model = lfp_model
         self.lfp_model_kwargs = lfp_model_kwargs
-
-    def __dir__(self):
-        return self.keys()
 
     def fit(self, is_replay, speed, position, lfp_power=None,
             spikes=None, multiunit=None, place_bin_edges=None):
