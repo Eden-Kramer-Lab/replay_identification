@@ -1,23 +1,34 @@
 import numpy as np
-from patsy import dmatrices
+import pandas as pd
 from scipy.ndimage.filters import gaussian_filter
 from scipy.stats import norm
 from statsmodels.api import GLM, families
-from statsmodels.tsa.tsatools import lagmat
+
+from .core import atleast_2d
 
 
-def estimate_movement_variance(position, lagged_position):
+def estimate_movement_std(position):
+    '''Estimates the movement standard deviation based on position.
 
-    data = {
-        'position': position,
-        'lagged_position': lagged_position
-    }
+    WARNING: Need to use on original position, not interpolated position.
 
-    MODEL_FORMULA = 'position ~ lagged_position - 1'
-    response, design_matrix = dmatrices(MODEL_FORMULA, data)
-    fit = GLM(response, design_matrix, family=families.Gaussian()).fit()
+    Parameters
+    ----------
+    position : ndarray, shape (n_time, n_position_dim)
 
-    return np.sqrt(fit.scale)
+    Returns
+    -------
+    movement_std : ndarray, shape (n_position_dim,)
+
+    '''
+    position = atleast_2d(position)
+    is_nan = np.any(np.isnan(position), axis=1)
+    position = position[~is_nan]
+    movement_std = []
+    for p in position.T:
+        fit = GLM(p[:-1], p[1:], family=families.Gaussian()).fit()
+        movement_std.append(np.sqrt(fit.scale))
+    return np.array(movement_std)
 
 
 def estimate_movement_state_transition(place_bins, position, variance):
@@ -31,12 +42,14 @@ def estimate_movement_state_transition(place_bins, position, variance):
     return _normalize_row_probability(state_transition_matrix)
 
 
-def fit_movement_state_transition(position, speed, place_bins,
-                                  movement_threshold=4.0, speed_up_factor=20):
-    movement_variance = estimate_movement_variance(
-        position, speed, movement_threshold)
+def fit_movement_state_transition(position, place_bin_centers, speed,
+                                  replay_speedup=16, movement_threshold=4.0,
+                                  movement_std=0.5):
+    is_movement = speed > movement_threshold
+    position = position[is_movement]
+
     return np.linalg.matrix_power(estimate_movement_state_transition(
-        place_bins, position, movement_variance), speed_up_factor)
+        place_bin_centers, position, movement_std), replay_speedup)
 
 
 def _normalize_row_probability(x):
@@ -46,8 +59,9 @@ def _normalize_row_probability(x):
 
 
 def empirical_movement_transition_matrix(position, place_bin_edges, speed,
-                                         replay_speedup=16,
-                                         movement_threshold=4.0):
+                                         replay_speed=20,
+                                         movement_threshold=4.0,
+                                         movement_std=0.5):
     '''Estimate the probablity of the next position based on the movement
      data, given the movment is sped up by the
      `sequence_compression_factor`
@@ -66,6 +80,9 @@ def empirical_movement_transition_matrix(position, place_bin_edges, speed,
         How much the movement is sped-up during a replay event
     is_movement : array_like, shape (n_time,)
         Boolean indicator for an experimental condition.
+    movement_std : None or float, optional
+        If `movement_std` is None, then will estimate the movement standard
+        deviation from the the data.
 
     Returns
     -------
@@ -74,20 +91,20 @@ def empirical_movement_transition_matrix(position, place_bin_edges, speed,
                                            n_bin_edges-1)
 
     '''
-
     is_movement = speed > movement_threshold
-    lagged_position = lagmat(position, 1)[is_movement].squeeze()
-    position = position[is_movement]
+    position_info = pd.DataFrame({'position': position,
+                                  'is_movement': is_movement})
+    position_info['lagged_position'] = position_info.position.shift(1)
+    position_info = position_info.loc[position_info.is_movement].dropna()
 
-    movement_bins, _, _ = np.histogram2d(lagged_position, position,
-                                         bins=(place_bin_edges,
-                                               place_bin_edges),
-                                         normed=False)
-    smoothed_movement_bins_probability = gaussian_filter(
-        _normalize_row_probability(
-            _fix_zero_bins(movement_bins)), sigma=0.5)
-    return np.linalg.matrix_power(
-        smoothed_movement_bins_probability, replay_speedup)
+    movement_bins, _, _ = np.histogram2d(
+        position_info.position, position_info.lagged_position,
+        bins=(place_bin_edges, place_bin_edges))
+
+    movement_bins = _fix_zero_bins(movement_bins)
+    movement_bins = _normalize_row_probability(movement_bins)
+    movement_bins = gaussian_filter(movement_bins, sigma=movement_std)
+    return np.linalg.matrix_power(movement_bins, replay_speed)
 
 
 def _fix_zero_bins(movement_bins):
