@@ -93,6 +93,9 @@ class ReplayDetector(object):
                  multiunit_model_kwargs=_DEFAULT_MULTIUNIT_KWARGS,
                  lfp_model=GaussianMixture,
                  lfp_model_kwargs=_DEFAULT_LFP_KWARGS):
+        if n_place_bins is not None and place_bin_size is not None:
+            logger.warn('Both place_bin_size and n_place_bins are set. Using'
+                        ' place_bin_size.')
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
         self.time_bin_size = time_bin_size
