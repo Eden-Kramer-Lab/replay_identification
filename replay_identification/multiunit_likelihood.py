@@ -4,21 +4,9 @@
 from functools import partial
 
 import numpy as np
+from tqdm.auto import tqdm
 
 from .core import atleast_2d
-
-try:
-    from IPython import get_ipython
-
-    if get_ipython() is not None:
-        from tqdm import tqdm_notebook as tqdm
-    else:
-        from tqdm import tqdm
-except ImportError:
-    def tqdm(*args, **kwargs):
-        if args:
-            return args[0]
-        return kwargs.get('iterable', None)
 
 
 def multiunit_likelihood(multiunit, position, place_bin_centers,
