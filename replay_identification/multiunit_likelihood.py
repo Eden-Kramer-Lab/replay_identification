@@ -167,11 +167,11 @@ def estimate_occupancy(position, occupancy_model):
 
     '''
     position = atleast_2d(position)
-    not_nan_position = ~np.isnan(np.squeeze(position))
-    occupancy_probability = np.full((position.shape[0],), np.nan)
-    occupancy_probability[not_nan_position] = np.exp(
+    not_nan_position = np.all(~np.isnan(position), axis=1)
+    occupancy = np.full((position.shape[0],), np.nan)
+    occupancy[not_nan_position] = np.exp(
         occupancy_model.score_samples(position[not_nan_position]))
-    return occupancy_probability
+    return occupancy
 
 
 def estimate_ground_process_intensity(position, place_occupancy,
@@ -189,11 +189,6 @@ def estimate_ground_process_intensity(position, place_occupancy,
     marginal_model : fitted density model
     mean_rate : float
 
-def estimate_joint_mark_intensity(multiunit, position, joint_model, mean_rate,
-                                  place_occupancy):
-    multiunit = atleast_2d(multiunit)
-    position = atleast_2d(position)
-    is_spike = np.any(~np.isnan(multiunit), axis=1)
     Returns
     -------
     ground_process_intensity : ndarray, shape (n_time,)
@@ -214,6 +209,9 @@ def estimate_joint_mark_intensity(multiunit, position, joint_model, mean_rate,
     log_joint_mark_intensity : ndarray, shape (n_time,)
 
     '''
+    multiunit, position = atleast_2d(multiunit), atleast_2d(position)
+    is_spike = (np.any(~np.isnan(multiunit), axis=1) &
+                np.all(~np.isnan(position), axis=1))
     not_nan_marks = np.any(~np.isnan(multiunit), axis=0)
     not_nan_position = ~np.isnan(np.squeeze(position))
     n_time = position.shape[0]
@@ -246,7 +244,7 @@ def train_marginal_model(multiunit, position, density_model, model_kwargs):
 
     '''
     is_spike = np.any(~np.isnan(multiunit), axis=1)
-    not_nan_position = ~np.isnan(position)
+    not_nan_position = np.all(~np.isnan(atleast_2d(position)), axis=1)
     return (density_model(**model_kwargs)
             .fit(atleast_2d(position)[is_spike & not_nan_position]))
 
@@ -266,14 +264,11 @@ def train_occupancy_model(position, density_model, model_kwargs):
 
     '''
     position = atleast_2d(position)
-    not_nan_position = ~np.isnan(np.squeeze(position))
+    not_nan_position = np.all(~np.isnan(atleast_2d(position)), axis=1)
     return density_model(**model_kwargs).fit(position[not_nan_position])
 
 
 def train_joint_model(multiunit, position, density_model, model_kwargs):
-    multiunit = atleast_2d(multiunit)
-    position = atleast_2d(position)
-    is_spike = np.any(~np.isnan(multiunit), axis=1)
     '''Fits a density model to the joint pdf of position and mark.
 
     Parameters
@@ -288,13 +283,14 @@ def train_joint_model(multiunit, position, density_model, model_kwargs):
     fitted_joint_model : density_model class instance
 
     '''
+    multiunit, position = atleast_2d(multiunit), atleast_2d(position)
+    is_spike = (np.any(~np.isnan(multiunit), axis=1) &
+                np.all(~np.isnan(position), axis=1))
     not_nan_marks = np.any(~np.isnan(multiunit), axis=0)
-    not_nan_position = ~np.isnan(np.squeeze(position))
 
-    joint_data = np.concatenate(
-        (multiunit[is_spike & not_nan_position][:, not_nan_marks],
-         position[is_spike & not_nan_position]), axis=1)
-    return density_model(**model_kwargs).fit(joint_data)
+    return (density_model(**model_kwargs)
+            .fit(np.concatenate((multiunit[is_spike][:, not_nan_marks],
+                                 position[is_spike]), axis=1)))
 
 
 def estimate_mean_rate(multiunit, position):
@@ -311,7 +307,7 @@ def estimate_mean_rate(multiunit, position):
 
     '''
     is_spike = np.any(~np.isnan(multiunit), axis=1)
-    not_nan = ~np.isnan(position)
+    not_nan = np.all(~np.isnan(atleast_2d(position)), axis=1)
     return np.mean(is_spike[not_nan])
 
 
