@@ -174,11 +174,7 @@ def estimate_occupancy(position, occupancy_model):
     return occupancy
 
 
-def estimate_ground_process_intensity(position, place_occupancy,
-                                      place_field_model, mean_rate):
-    place_field = np.exp(place_field_model
-                         .score_samples(atleast_2d(position)))
-    return mean_rate * place_field / place_occupancy
+def estimate_ground_process_intensity(position, occupancy,
                                       marginal_model, mean_rate):
     '''Computes the rate function of position marginalized over mark.
 
@@ -194,6 +190,10 @@ def estimate_ground_process_intensity(position, place_occupancy,
     ground_process_intensity : ndarray, shape (n_time,)
 
     '''
+    place_field = marginal_model.score_samples(atleast_2d(position))
+    return np.exp(np.log(mean_rate) + place_field - np.log(occupancy))
+
+
 def estimate_log_joint_mark_intensity(
         multiunit, position, joint_model, mean_rate, occupancy):
     '''Computes the rate function of position and mark.
