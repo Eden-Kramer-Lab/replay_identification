@@ -83,8 +83,7 @@ def estimate_replay_log_likelihood(
                 mean_rate, occ * np.ones((n_time,)))
             for occ, place_bin in zip(occupancy, place_bin_centers)], axis=1)
         log_likelihood += poisson_mark_log_likelihood(
-            joint_mark_intensity, ground_process_intensity,
-            time_bin_size)
+            log_joint_mark_intensity, ground_process_intensity, time_bin_size)
 
     return log_likelihood
 
@@ -119,11 +118,11 @@ def estimate_no_replay_log_likelihood(
             mean_rates):
         ground_process_intensity = estimate_ground_process_intensity(
             position, occupancy, marginal_model, mean_rate)[:, np.newaxis]
-        joint_mark_intensity = estimate_joint_mark_intensity(
-            m, position, joint_model, mean_rate, occupancy)[:, np.newaxis]
+        log_joint_mark_intensity = estimate_log_joint_mark_intensity(
              multiunit, position, joint_model, mean_rate, occupancy
+             )[:, np.newaxis]
         log_likelihood += poisson_mark_log_likelihood(
-            joint_mark_intensity, ground_process_intensity,
+            log_joint_mark_intensity, ground_process_intensity,
             time_bin_size)
 
     return log_likelihood
@@ -194,6 +193,8 @@ def estimate_ground_process_intensity(position, place_occupancy,
     ground_process_intensity : ndarray, shape (n_time,)
 
     '''
+def estimate_log_joint_mark_intensity(
+        multiunit, position, joint_model, mean_rate, occupancy):
     '''Computes the rate function of position and mark.
 
     Parameters
@@ -213,19 +214,14 @@ def estimate_ground_process_intensity(position, place_occupancy,
     is_spike = (np.any(~np.isnan(multiunit), axis=1) &
                 np.all(~np.isnan(position), axis=1))
     not_nan_marks = np.any(~np.isnan(multiunit), axis=0)
-    not_nan_position = ~np.isnan(np.squeeze(position))
-    n_time = position.shape[0]
-    joint_mark_intensity = np.ones((n_time,))
 
-    joint_data = np.concatenate(
-        (multiunit[is_spike & not_nan_position][:, not_nan_marks],
-         position[is_spike & not_nan_position]), axis=1)
-    joint_mark_intensity[is_spike & not_nan_position] = np.exp(
-        joint_model.score_samples(joint_data))
-    joint_mark_intensity /= place_occupancy
-    joint_mark_intensity *= mean_rate
-    joint_mark_intensity[~is_spike | ~not_nan_position] = 1.0
-    return joint_mark_intensity
+    log_joint_mark_intensity = np.zeros((position.shape[0],))
+    log_joint_mark_intensity[is_spike] = (
+        np.log(mean_rate) +
+        joint_model.score_samples(np.concatenate(
+            (multiunit[is_spike][:, not_nan_marks], position[is_spike]),
+            axis=1)) - np.log(occupancy[is_spike]))
+    return log_joint_mark_intensity
 
 
 def train_marginal_model(multiunit, position, density_model, model_kwargs):
