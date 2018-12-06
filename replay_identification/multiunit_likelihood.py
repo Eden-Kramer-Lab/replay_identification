@@ -46,13 +46,13 @@ def multiunit_likelihood(multiunit, position, place_bin_centers,
 
 
 def estimate_replay_log_likelihood(
-        multiunit, place_bin_centers, occupancy_model,
+        multiunits, place_bin_centers, occupancy_model,
         joint_models, marginal_models, mean_rates, time_bin_size):
     '''Estimate the log likelihood of being at any position.
 
     Parameters
     ----------
-    multiunit : ndarray, shape (n_electrodes, n_time, n_features)
+    multiunits : ndarray, shape (n_electrodes, n_time, n_features)
     place_bin_centers : ndarray, shape (n_place_bins,)
     occupancy_model : fitted density model
     marginal_models : list of fitted density models, len (n_electrodes,)
@@ -66,23 +66,22 @@ def estimate_replay_log_likelihood(
     '''
 
     n_bin = place_bin_centers.size
-    n_time = multiunit.shape[1]
+    n_time = multiunits.shape[1]
     log_likelihood = np.zeros((n_time, n_bin))
 
     occupancy = estimate_occupancy(place_bin_centers, occupancy_model)
 
-    for m, joint_model, marginal_model, mean_rate in zip(
-            tqdm(multiunit, desc='electrodes'), joint_models, marginal_models,
+    for multiunit, joint_model, marginal_model, mean_rate in zip(
+            tqdm(multiunits, desc='electrodes'), joint_models, marginal_models,
             mean_rates):
         ground_process_intensity = np.atleast_2d(
             estimate_ground_process_intensity(
                 place_bin_centers, occupancy, marginal_model, mean_rate))
-        joint_mark_intensity = []
-        for occ, place_bin in zip(occupancy, place_bin_centers):
-            position = place_bin * np.ones((n_time, 1))
-            joint_mark_intensity.append(estimate_joint_mark_intensity(
-                m, position, joint_model, mean_rate, occ))
-        joint_mark_intensity = np.stack(joint_mark_intensity, axis=1)
+        log_joint_mark_intensity = np.stack([
+            estimate_log_joint_mark_intensity(
+                multiunit, place_bin * np.ones((n_time, 1)), joint_model,
+                mean_rate, occ * np.ones((n_time,)))
+            for occ, place_bin in zip(occupancy, place_bin_centers)], axis=1)
         log_likelihood += poisson_mark_log_likelihood(
             joint_mark_intensity, ground_process_intensity,
             time_bin_size)
@@ -91,13 +90,13 @@ def estimate_replay_log_likelihood(
 
 
 def estimate_no_replay_log_likelihood(
-        multiunit, position, occupancy_model,
+        multiunits, position, occupancy_model,
         joint_models, marginal_models, mean_rates, time_bin_size):
     '''Estimate the log likelihood of being at the current position.
 
     Parameters
     ----------
-    multiunit : ndarray, shape (n_electrodes, n_time, n_features)
+    multiunits : ndarray, shape (n_electrodes, n_time, n_features)
     position : ndarray, shape (n_time, n_position_dims)
     occupancy_model : fitted density model
     joint_models : list of fitted density models, len (n_electrodes,)
@@ -110,18 +109,19 @@ def estimate_no_replay_log_likelihood(
     no_replay_log_likelihood : ndarray, shape (n_time,)
 
     '''
-    n_time = multiunit.shape[1]
+    n_time = multiunits.shape[1]
     log_likelihood = np.zeros((n_time, 1))
 
     occupancy = estimate_occupancy(position, occupancy_model)
 
-    for m, joint_model, marginal_model, mean_rate in zip(
-            tqdm(multiunit, desc='electrodes'), joint_models, marginal_models,
+    for multiunit, joint_model, marginal_model, mean_rate in zip(
+            tqdm(multiunits, desc='electrodes'), joint_models, marginal_models,
             mean_rates):
         ground_process_intensity = estimate_ground_process_intensity(
             position, occupancy, marginal_model, mean_rate)[:, np.newaxis]
         joint_mark_intensity = estimate_joint_mark_intensity(
             m, position, joint_model, mean_rate, occupancy)[:, np.newaxis]
+             multiunit, position, joint_model, mean_rate, occupancy
         log_likelihood += poisson_mark_log_likelihood(
             joint_mark_intensity, ground_process_intensity,
             time_bin_size)
