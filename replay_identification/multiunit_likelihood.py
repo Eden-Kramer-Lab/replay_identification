@@ -144,10 +144,6 @@ def poisson_mark_log_likelihood(log_joint_mark_intensity,
     -------
     poisson_mark_log_likelihood : ndarray, shape (n_time, n_position)
 
-    """
-    joint_mark_intensity += np.spacing(1)
-    ground_process_intensity += np.spacing(1)
-    return np.log(joint_mark_intensity) - (
     '''
     return np.log(time_bin_size) + log_joint_mark_intensity - (
         ground_process_intensity * time_bin_size)
