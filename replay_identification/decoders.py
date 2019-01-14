@@ -101,7 +101,6 @@ class ReplayDetector(BaseEstimator):
                         ' place_bin_size.')
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
-        self.time_bin_size = time_bin_size
         self.replay_state_transition_penalty = replay_state_transition_penalty
         self.place_bin_size = place_bin_size
         self.n_place_bins = n_place_bins
