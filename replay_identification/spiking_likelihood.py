@@ -180,7 +180,7 @@ def fit_spiking_likelihood(position, spikes, is_replay,
     position_knots = min_position + np.arange(1, n_steps) * knot_spacing  # noqa: F841, E501
     FORMULA = ('1 + cr(position, knots=position_knots, constraints="center")')
     training_data = pd.DataFrame(
-        dict(position=position[~is_replay])).dropna()
+        dict(position=position[~is_replay].squeeze())).dropna()
     design_matrix = dmatrix(
         FORMULA, training_data, return_type='dataframe')
     place_field_coefficients = np.stack(
