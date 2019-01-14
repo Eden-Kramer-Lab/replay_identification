@@ -36,9 +36,9 @@ except ImportError:
 logger = getLogger(__name__)
 
 _DEFAULT_LIKELIHOODS = ['spikes', 'lfp_power']
-_DEFAULT_MULTIUNIT_KWARGS = dict(bandwidth=10, leaf_size=1000,
-                                 rtol=1E-3)
-_DEFAULT_LFP_KWARGS = dict(n_components=3)
+_DEFAULT_MULTIUNIT_KWARGS = dict(n_components=30, max_iter=200, tol=1E-6)
+_DEFAULT_LFP_KWARGS = dict(n_components=10, max_iter=200, tol=1E-6)
+_DEFAULT_OCCUPANCY_KWARGS = dict(bandwidth=2)
 
 
 class ReplayDetector(BaseEstimator):
