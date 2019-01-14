@@ -50,7 +50,6 @@ class ReplayDetector(BaseEstimator):
     speed_threshold : float, optional
         Speed cutoff that denotes when the animal is moving vs. not moving.
     spike_model_penalty : float, optional
-    time_bin_size : float, optional
     replay_state_transition_penalty : float, optional
     place_bin_size : float, optional
     replay_speed : int, optional
@@ -87,7 +86,7 @@ class ReplayDetector(BaseEstimator):
     """
 
     def __init__(self, speed_threshold=4.0, spike_model_penalty=1E-1,
-                 time_bin_size=1, replay_state_transition_penalty=1E-5,
+                 replay_state_transition_penalty=1E-5,
                  place_bin_size=2.8, n_place_bins=None, replay_speed=20,
                  movement_std=0.5, spike_model_knot_spacing=15,
                  speed_knots=None, multiunit_density_model=KernelDensity,
@@ -150,9 +149,8 @@ class ReplayDetector(BaseEstimator):
             logger.info('Fitting spiking model...')
             spikes = np.asarray(spikes.copy())
             self._spiking_likelihood = fit_spiking_likelihood(
-                position, spikes, is_replay, self.place_bin_centers,
-                self.spike_model_penalty, self.time_bin_size,
-                self.spike_model_knot_spacing)
+                position, spikes, is_replay, self.place_bin_centers_,
+                self.spike_model_penalty, self.spike_model_knot_spacing)
         else:
             self._spiking_likelihood = return_None
 

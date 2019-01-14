@@ -159,7 +159,7 @@ def combined_likelihood(spikes, conditional_intensity, time_bin_size=1):
 
 def fit_spiking_likelihood(position, spikes, is_replay,
                            place_bin_centers, penalty=1E1,
-                           time_bin_size=1, knot_spacing=30):
+                           knot_spacing=30):
     """Estimate the place field model.
 
     Parameters
@@ -196,5 +196,4 @@ def fit_spiking_likelihood(position, spikes, is_replay,
         spiking_likelihood,
         design_matrix=design_matrix,
         place_field_coefficients=place_field_coefficients,
-        place_conditional_intensity=place_conditional_intensity,
-        time_bin_size=time_bin_size)
+        place_conditional_intensity=place_conditional_intensity)
