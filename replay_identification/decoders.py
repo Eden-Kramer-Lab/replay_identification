@@ -11,7 +11,7 @@ from sklearn.neighbors import KernelDensity
 from sklearn.base import BaseEstimator
 from statsmodels.tsa.tsatools import lagmat
 
-from .core import (_filter, _smoother, get_bin_centers, get_bin_edges,
+from .core import (_filter, _smoother, atleast_2d, get_grid,
                    get_observed_position_bin, replace_NaN, return_None)
 from .lfp_likelihood import fit_lfp_likelihood
 from .movement_state_transition import empirical_movement_transition_matrix
