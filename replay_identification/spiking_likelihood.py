@@ -56,7 +56,8 @@ def fit_glm_model(spikes, design_matrix, penalty=1E1):
 
 
 def create_predict_design_matrix(position, design_matrix):
-    is_nan = np.isnan(position)
+    position = atleast_2d(position)
+    is_nan = np.any(np.isnan(position), axis=1)
     position[is_nan] = 0
     predictors = {'position': position}
     design_matrix = build_design_matrices(
