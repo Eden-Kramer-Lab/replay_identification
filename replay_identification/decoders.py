@@ -126,9 +126,9 @@ class ReplayDetector(BaseEstimator):
             np.nan represents times with no multiunit activity.
 
         """
-        speed = np.asarray(speed.copy()).squeeze()
-        position = np.asarray(position.copy()).squeeze()
-        is_replay = np.asarray(is_replay.copy()).squeeze()
+        speed = np.asarray(speed).squeeze()
+        position = atleast_2d(np.asarray(position))
+        is_replay = np.asarray(is_replay).squeeze()
 
         (self.edges_, self.place_bin_edges_, self.place_bin_centers_,
          self.centers_shape_) = get_grid(
@@ -139,7 +139,7 @@ class ReplayDetector(BaseEstimator):
             speed, is_replay, self.speed_threshold)
         if lfp_power is not None:
             logger.info('Fitting LFP power model...')
-            lfp_power = np.asarray(lfp_power.copy())
+            lfp_power = np.asarray(lfp_power)
             self._lfp_likelihood = fit_lfp_likelihood(
                 lfp_power, is_replay, self.lfp_model, self.lfp_model_kwargs)
         else:
@@ -147,7 +147,7 @@ class ReplayDetector(BaseEstimator):
 
         if spikes is not None:
             logger.info('Fitting spiking model...')
-            spikes = np.asarray(spikes.copy())
+            spikes = np.asarray(spikes)
             self._spiking_likelihood = fit_spiking_likelihood(
                 position, spikes, is_replay, self.place_bin_centers_,
                 self.spike_model_penalty, self.spike_model_knot_spacing)
@@ -200,14 +200,14 @@ class ReplayDetector(BaseEstimator):
 
         """
         n_time = speed.shape[0]
-        speed = np.asarray(speed.copy()).squeeze()
-        position = np.asarray(position.copy()).squeeze()
+        speed = np.asarray(speed).squeeze()
+        position = atleast_2d(np.asarray(position))
         if lfp_power is not None:
-            lfp_power = np.asarray(lfp_power.copy())
+            lfp_power = np.asarray(lfp_power)
         if spikes is not None:
-            spikes = np.asarray(spikes.copy())
+            spikes = np.asarray(spikes)
         if multiunit is not None:
-            multiunit = np.asarray(multiunit.copy())
+            multiunit = np.asarray(multiunit)
 
         if time is None:
             time = np.arange(n_time)
@@ -435,7 +435,7 @@ class ReplayDetector(BaseEstimator):
         '''Plot the multiunit training data for comparison with the
         fitted model.'''
         multiunit = np.asarray(multiunit.copy())
-        position = np.asarray(position.copy()).squeeze()
+        position = atleast_2d(np.asarray(position.copy()))
         is_replay = np.asarray(is_replay.copy()).squeeze()
 
         if axes is None:
