@@ -306,7 +306,8 @@ def estimate_mean_rate(multiunit, position):
 
 def fit_multiunit_likelihood(position, multiunit, is_replay,
                              place_bin_centers,
-                             density_model, model_kwargs):
+                             density_model, model_kwargs,
+                             occupancy_marginal_model, occupancy_kwargs):
     '''Precompute quantities to fit the multiunit likelihood to new data.
 
     Parameters
@@ -327,7 +328,7 @@ def fit_multiunit_likelihood(position, multiunit, is_replay,
     marginal_models = []
     mean_rates = []
     occupancy_model = train_occupancy_model(
-        position[~is_replay], density_model, model_kwargs)
+        position[~is_replay], occupancy_marginal_model, occupancy_kwargs)
 
     for m in tqdm(np.moveaxis(multiunit[~is_replay], -1, 0),
                   desc='electrodes'):
@@ -336,8 +337,8 @@ def fit_multiunit_likelihood(position, multiunit, is_replay,
             train_joint_model(m, position[~is_replay], density_model,
                               model_kwargs))
         marginal_models.append(
-            train_marginal_model(m, position[~is_replay], density_model,
-                                 model_kwargs))
+            train_marginal_model(m, position[~is_replay],
+                                 occupancy_marginal_model, occupancy_kwargs))
 
     return partial(
         multiunit_likelihood,

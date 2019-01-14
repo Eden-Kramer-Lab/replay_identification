@@ -5,10 +5,10 @@ from logging import getLogger
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-from sklearn.externals import joblib
-from sklearn.mixture import GaussianMixture
-from sklearn.neighbors import KernelDensity
 from sklearn.base import BaseEstimator
+from sklearn.externals import joblib
+from sklearn.mixture import BayesianGaussianMixture
+from sklearn.neighbors import KernelDensity
 from statsmodels.tsa.tsatools import lagmat
 
 from .core import (_filter, _smoother, atleast_2d, get_grid,
@@ -89,9 +89,12 @@ class ReplayDetector(BaseEstimator):
                  replay_state_transition_penalty=1E-5,
                  place_bin_size=2.8, n_place_bins=None, replay_speed=20,
                  movement_std=0.5, spike_model_knot_spacing=15,
-                 speed_knots=None, multiunit_density_model=KernelDensity,
+                 speed_knots=None,
+                 multiunit_density_model=BayesianGaussianMixture,
                  multiunit_model_kwargs=_DEFAULT_MULTIUNIT_KWARGS,
-                 lfp_model=GaussianMixture,
+                 multiunit_occupancy_model=KernelDensity,
+                 multiunit_occupancy_kwargs=_DEFAULT_OCCUPANCY_KWARGS,
+                 lfp_model=BayesianGaussianMixture,
                  lfp_model_kwargs=_DEFAULT_LFP_KWARGS):
         if n_place_bins is not None and place_bin_size is not None:
             logger.warn('Both place_bin_size and n_place_bins are set. Using'
@@ -108,6 +111,8 @@ class ReplayDetector(BaseEstimator):
         self.speed_knots = speed_knots
         self.multiunit_density_model = multiunit_density_model
         self.multiunit_model_kwargs = multiunit_model_kwargs
+        self.multiunit_occupancy_model = multiunit_occupancy_model
+        self.multiunit_occupancy_kwargs = multiunit_occupancy_kwargs
         self.lfp_model = lfp_model
         self.lfp_model_kwargs = lfp_model_kwargs
 
@@ -156,10 +161,12 @@ class ReplayDetector(BaseEstimator):
 
         if multiunit is not None:
             logger.info('Fitting multiunit model...')
-            multiunit = np.asarray(multiunit.copy())
+            multiunit = np.asarray(multiunit)
             self._multiunit_likelihood = fit_multiunit_likelihood(
-                position, multiunit, is_replay, self.place_bin_centers,
-                self.multiunit_density_model, self.multiunit_model_kwargs)
+                position, multiunit, is_replay, self.place_bin_centers_,
+                self.multiunit_density_model, self.multiunit_model_kwargs,
+                self.multiunit_occupancy_model, self.multiunit_occupancy_kwargs
+            )
         else:
             self._multiunit_likelihood = return_None
 
