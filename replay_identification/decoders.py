@@ -131,12 +131,9 @@ class ReplayDetector(BaseEstimator):
         position = np.asarray(position.copy()).squeeze()
         is_replay = np.asarray(is_replay.copy()).squeeze()
 
-        if place_bin_edges is not None:
-            self.place_bin_edges = place_bin_edges
-        else:
-            self.place_bin_edges = get_bin_edges(
-                position, self.n_place_bins, self.place_bin_size)
-        self.place_bin_centers = get_bin_centers(self.place_bin_edges)
+        (self.edges_, self.place_bin_edges_, self.place_bin_centers_,
+         self.centers_shape_) = get_grid(
+            position, bin_size=self.place_bin_size)
 
         logger.info('Fitting speed model...')
         self._speed_likelihood = fit_speed_likelihood(
@@ -169,11 +166,10 @@ class ReplayDetector(BaseEstimator):
             self._multiunit_likelihood = return_None
 
         logger.info('Fitting movement state transition...')
-        self._movement_state_transition = empirical_movement_transition_matrix(
-            position, self.place_bin_edges, speed, self.replay_speed,
-            movement_std=self.movement_std)
+        self.movement_state_transition_ = empirical_movement_transition_matrix(
+            position, self.edges_, ~is_replay, self.replay_speed)
         logger.info('Fitting replay state transition...')
-        self._replay_state_transition = fit_replay_state_transition(
+        self.replay_state_transition_ = fit_replay_state_transition(
             speed, is_replay, self.replay_state_transition_penalty,
             self.speed_knots)
 
@@ -219,8 +215,7 @@ class ReplayDetector(BaseEstimator):
             time = np.arange(n_time)
         lagged_speed = lagmat(speed, maxlag=1).squeeze()
 
-        place_bins = self.place_bin_centers
-        place_bin_size = np.diff(place_bins)[0]
+        place_bins = self.place_bin_centers_
 
         likelihood = np.ones((n_time, 2, 1))
 
@@ -240,26 +235,25 @@ class ReplayDetector(BaseEstimator):
                 logger.info('Predicting {0} likelihood...'.format(name))
                 likelihood = likelihood * replace_NaN(likelihood_func())
 
-        replay_state_transition = self._replay_state_transition(lagged_speed)
+        replay_state_transition = self.replay_state_transition_(lagged_speed)
         observed_position_bin = get_observed_position_bin(
-            position, self.place_bin_edges)
+            position, self.place_bin_edges_)
 
         logger.info('Predicting replay probability and density...')
         posterior, state_probability, _ = _filter(
-            likelihood, self._movement_state_transition,
-            replay_state_transition, observed_position_bin, place_bin_size)
+            likelihood, self.movement_state_transition_,
+            replay_state_transition, observed_position_bin)
         if use_smoother:
             logger.info('Smoothing...')
             posterior, state_probability, _, _ = _smoother(
-                posterior, self._movement_state_transition,
-                replay_state_transition, observed_position_bin,
-                place_bin_size)
+                posterior, self.movement_state_transition_,
+                replay_state_transition, observed_position_bin)
         if likelihood.shape[-1] > 1:
             likelihood_dims = ['time', 'state', 'position']
         else:
             likelihood_dims = ['time', 'state']
         coords = {'time': time,
-                  'position': place_bins,
+                  'position': place_bins.squeeze(),
                   'state': ['No Replay', 'Replay']}
 
         return xr.Dataset(
@@ -290,7 +284,7 @@ class ReplayDetector(BaseEstimator):
 
         for ind, ax in enumerate(axes.flat):
             if ind < n_neurons:
-                ax.plot(self.place_bin_centers,
+                ax.plot(self.place_bin_centers_,
                         place_conditional_intensity[:, ind] *
                         sampling_frequency, color='red', linewidth=3,
                         label='fitted model')
@@ -361,12 +355,12 @@ class ReplayDetector(BaseEstimator):
         joint_models = (self._multiunit_likelihood
                         .keywords['joint_models'])
         mean_rates = self._multiunit_likelihood.keywords['mean_rates']
-        bins = (self.place_bin_edges, mark_edges)
+        bins = (self.place_bin_edges_.squeeze(), mark_edges)
         if is_histogram:
             place_occupancy = np.exp(
                 self._multiunit_likelihood
                 .keywords['occupancy_model']
-                .score_samples(self.place_bin_centers[:, np.newaxis]))
+                .score_samples(self.place_bin_centers_))
         n_signals = len(joint_models)
         try:
             n_marks = joint_models[0].sample().shape[1] - 1
@@ -404,7 +398,7 @@ class ReplayDetector(BaseEstimator):
     def plot_replay_state_transition(self):
         """Plot the replay state transition model over speed lags."""
         lagged_speeds = np.arange(0, 30, .1)
-        probablity_replay = self._replay_state_transition(lagged_speeds)
+        probablity_replay = self.replay_state_transition_(lagged_speeds)
 
         fig, axes = plt.subplots(2, 1, figsize=(5, 5), sharex=True)
         axes[0].plot(lagged_speeds, probablity_replay[:, 1])
@@ -428,11 +422,11 @@ class ReplayDetector(BaseEstimator):
         """
         if ax is None:
             ax = plt.gca()
-        place_t, place_t_1 = np.meshgrid(self.place_bin_edges,
-                                         self.place_bin_edges)
-        vmax = np.percentile(self._movement_state_transition, 97.5)
+        place_t, place_t_1 = np.meshgrid(self.place_bin_edges_,
+                                         self.place_bin_edges_)
+        vmax = np.percentile(self.movement_state_transition_, 97.5)
         cax = ax.pcolormesh(place_t, place_t_1,
-                            self._movement_state_transition, vmin=0, vmax=vmax)
+                            self.movement_state_transition_, vmin=0, vmax=vmax)
         ax.set_xlabel('position t')
         ax.set_ylabel('position t - 1')
         ax.set_title('Movement State Transition')

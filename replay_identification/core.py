@@ -2,27 +2,42 @@ import numpy as np
 from numba import jit
 
 
-def get_bin_edges(x, n_bins=None, bin_size=None):
-    not_nan_x = x[~np.isnan(x)]
-    if bin_size is not None:
-        n_bins = (
-            np.round(np.ceil(np.ptp(not_nan_x) / bin_size))).astype(np.int)
-    bin_edges = np.linspace(not_nan_x.min(), not_nan_x.max(),
-                            n_bins + 1, endpoint=True)
-    bin_edges[-1] += 1E-8
+def get_n_bins(position, bin_size=2.5):
+    '''Get number of bins need to span a range given a bin size.
 
-    return bin_edges
+    Parameters
+    ----------
+    position : ndarray, shape (n_time,)
+    bin_size : float, optional
 
+    Returns
+    -------
+    n_bins : int
 
-def get_bin_centers(bin_edges):
-    '''Given the outer-points of bins, find their center
     '''
-    return bin_edges[:-1] + np.diff(bin_edges) / 2
+    return int(np.ceil(np.ptp(position) / bin_size))
 
 
 def atleast_2d(x):
-    """Adds a dimension to the last axis if the array is 1D."""
     return np.atleast_2d(x).T if x.ndim < 2 else x
+
+
+def get_grid(position, bin_size=2.5):
+    position = atleast_2d(position)
+    is_nan = np.any(np.isnan(position), axis=1)
+    position = position[~is_nan]
+    n_bins = [get_n_bins(p, bin_size=bin_size) for p in position.T]
+    _, edges = np.histogramdd(position, bins=n_bins)
+    mesh_edges = np.meshgrid(*edges)
+    place_bin_edges = np.stack([edge.ravel() for edge in mesh_edges], axis=1)
+
+    mesh_centers = np.meshgrid(
+        *[edge[:-1] + np.diff(edge) / 2 for edge in edges])
+    place_bin_centers = np.stack(
+        [center.ravel() for center in mesh_centers], axis=1)
+    centers_shape = mesh_centers[0].shape
+
+    return edges, place_bin_edges, place_bin_centers, centers_shape
 
 
 def replace_NaN(x):
@@ -35,20 +50,24 @@ def return_None(*args, **kwargs):
 
 
 @jit(nopython=True, cache=True, nogil=True)
-def normalize_to_probability(distribution, bin_size):
+def normalize_to_probability(distribution):
     '''Ensure the distribution integrates to 1 so that it is a probability
     distribution
     '''
-    return distribution / (np.nansum(distribution) * bin_size)
+    return distribution / np.nansum(distribution)
 
 
 def get_observed_position_bin(position, bin_edges):
-    return np.digitize(position, bin_edges) - 1
+    position = position.squeeze()
+    is_too_big = position >= bin_edges[-1]
+    bin_size = np.diff(bin_edges, axis=0)[0][0]
+    position[is_too_big] = position[is_too_big] - (bin_size / 2)
+    return np.digitize(position.squeeze(), bin_edges.squeeze()) - 1
 
 
 @jit(nopython=True, cache=True, nogil=True)
 def _filter(likelihood, movement_state_transition, replay_state_transition,
-            observed_position_bin, position_bin_size):
+            observed_position_bin):
     '''
     Parameters
     ----------
@@ -77,12 +96,12 @@ def _filter(likelihood, movement_state_transition, replay_state_transition,
 
     posterior = np.zeros((n_time, n_states, n_position_bins))
     prior = np.zeros_like(posterior)
-    uniform = 1 / (n_position_bins * position_bin_size)
+    uniform = 1 / (n_position_bins)
     state_probability = np.zeros((n_time, n_states))
 
     # Initial Conditions
-    posterior[0, 0, observed_position_bin[0]] = 1.0 / position_bin_size
-    state_probability[0] = np.sum(posterior[0], axis=1) * position_bin_size
+    posterior[0, 0, observed_position_bin[0]] = 1.0
+    state_probability[0] = np.sum(posterior[0], axis=1)
 
     for k in np.arange(1, n_time):
         position_ind = observed_position_bin[k]
@@ -99,21 +118,19 @@ def _filter(likelihood, movement_state_transition, replay_state_transition,
         # I_{k - 1} = 1, I_{k} = 1
         prior[k, 1] += (
             replay_state_transition[k, 1] *
-            (movement_state_transition @ posterior[k - 1, 1]) *
-            position_bin_size)
+            (movement_state_transition @ posterior[k - 1, 1]))
 
         posterior[k] = normalize_to_probability(
-            prior[k] * likelihood[k], position_bin_size)
+            prior[k] * likelihood[k])
 
-        state_probability[k] = np.sum(posterior[k], axis=1) * position_bin_size
+        state_probability[k] = np.sum(posterior[k], axis=1)
 
     return posterior, state_probability, prior
 
 
 @jit(nopython=True, cache=True, nogil=True)
 def _smoother(filter_posterior, movement_state_transition,
-              replay_state_transition, observed_position_bin,
-              position_bin_size):
+              replay_state_transition, observed_position_bin):
     '''
     Parameters
     ----------
@@ -141,13 +158,13 @@ def _smoother(filter_posterior, movement_state_transition,
         Pr(I_{k + 1} \mid I_{k}, v_{k}) * p(x_{k+1}, I_{k+1} \mid H_{1:T})}
         {p(x_{k + 1}, I_{k + 1} \mid H_{1:k})} \Big] dx_{k+1}
     '''
-    filter_probability = np.sum(filter_posterior, axis=2) * position_bin_size
+    filter_probability = np.sum(filter_posterior, axis=2)
 
     smoother_posterior = np.zeros_like(filter_posterior)
     smoother_prior = np.zeros_like(filter_posterior)
     weights = np.zeros_like(filter_posterior)
     n_time, _, n_position_bins = filter_posterior.shape
-    uniform = 1 / (n_position_bins * position_bin_size)
+    uniform = 1 / n_position_bins
 
     smoother_posterior[-1] = filter_posterior[-1].copy()
 
@@ -171,8 +188,7 @@ def _smoother(filter_posterior, movement_state_transition,
         # I_{k} = 1, I_{k + 1} = 1
         smoother_prior[k, 1] += (
             replay_state_transition[k + 1, 1] *
-            (movement_state_transition @ filter_posterior[k, 1]) *
-            position_bin_size)
+            (movement_state_transition @ filter_posterior[k, 1]))
 
         smoother_prior[k] += np.spacing(1)
 
@@ -180,7 +196,7 @@ def _smoother(filter_posterior, movement_state_transition,
         ratio = np.exp(
             np.log(smoother_posterior[k + 1] + np.spacing(1)) -
             np.log(smoother_prior[k]))
-        integrated_ratio = np.sum(ratio, axis=1) * position_bin_size
+        integrated_ratio = np.sum(ratio, axis=1)
         # I_{k} = 0, I_{k + 1} = 0
         weights[k, 0] = (
             (1 - replay_state_transition[k + 1, 0]) * ratio[0, position_ind])
@@ -196,12 +212,12 @@ def _smoother(filter_posterior, movement_state_transition,
         # I_{k} = 1, I_{k + 1} = 1
         weights[k, 1] += (
             replay_state_transition[k + 1, 1] *
-            ratio[1] @ movement_state_transition * position_bin_size)
+            ratio[1] @ movement_state_transition)
 
         smoother_posterior[k] = normalize_to_probability(
-            weights[k] * filter_posterior[k], position_bin_size)
+            weights[k] * filter_posterior[k])
 
     smoother_probability = (
-        np.sum(smoother_posterior, axis=2) * position_bin_size)
+        np.sum(smoother_posterior, axis=2))
 
     return smoother_posterior, smoother_probability, smoother_prior, weights
