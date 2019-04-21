@@ -4,7 +4,7 @@
 from functools import partial
 
 import numpy as np
-from tqdm.auto import tqdm
+from tqdm.autonotebook import tqdm
 
 from .core import atleast_2d
 
