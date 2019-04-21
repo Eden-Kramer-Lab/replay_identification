@@ -14,24 +14,11 @@ from statsmodels.tsa.tsatools import lagmat
 from .core import (_filter, _smoother, atleast_2d, get_grid,
                    get_observed_position_bin, replace_NaN, return_None)
 from .lfp_likelihood import fit_lfp_likelihood
-from .movement_state_transition import empirical_movement_transition_matrix
+from .movement_state_transition import empirical_movement, random_walk
 from .multiunit_likelihood import fit_multiunit_likelihood
 from .replay_state_transition import fit_replay_state_transition
 from .speed_likelhood import fit_speed_likelihood
 from .spiking_likelihood import fit_spiking_likelihood
-
-try:
-    from IPython import get_ipython
-
-    if get_ipython() is not None:
-        from tqdm import tqdm_notebook as tqdm
-    else:
-        from tqdm import tqdm
-except ImportError:
-    def tqdm(*args, **kwargs):
-        if args:
-            return args[0]
-        return kwargs.get('iterable', None)
 
 logger = getLogger(__name__)
 
@@ -88,14 +75,15 @@ class ReplayDetector(BaseEstimator):
     def __init__(self, speed_threshold=4.0, spike_model_penalty=1E-1,
                  replay_state_transition_penalty=1E-5,
                  place_bin_size=2.8, n_place_bins=None, replay_speed=20,
-                 movement_std=0.5, spike_model_knot_spacing=15,
-                 speed_knots=None,
+                 movement_std=1.0, spike_model_knot_spacing=15,
+                 speed_knots=None, is_track_interior=None,
                  multiunit_density_model=BayesianGaussianMixture,
                  multiunit_model_kwargs=_DEFAULT_MULTIUNIT_KWARGS,
                  multiunit_occupancy_model=KernelDensity,
                  multiunit_occupancy_kwargs=_DEFAULT_OCCUPANCY_KWARGS,
                  lfp_model=BayesianGaussianMixture,
-                 lfp_model_kwargs=_DEFAULT_LFP_KWARGS):
+                 lfp_model_kwargs=_DEFAULT_LFP_KWARGS,
+                 movement_state_transition_type='empirical'):
         if n_place_bins is not None and place_bin_size is not None:
             logger.warn('Both place_bin_size and n_place_bins are set. Using'
                         ' place_bin_size.')
@@ -114,9 +102,10 @@ class ReplayDetector(BaseEstimator):
         self.multiunit_occupancy_kwargs = multiunit_occupancy_kwargs
         self.lfp_model = lfp_model
         self.lfp_model_kwargs = lfp_model_kwargs
+        self.movement_state_transition_type = movement_state_transition_type
 
     def fit(self, is_replay, speed, position, lfp_power=None,
-            spikes=None, multiunit=None, place_bin_edges=None):
+            spikes=None, multiunit=None, is_track_interior=None):
         """Train the model on replay and non-replay periods.
 
         Parameters
@@ -128,6 +117,7 @@ class ReplayDetector(BaseEstimator):
         spikes : ndarray or None, shape (n_time, n_neurons), optional
         multiunit : ndarray or None, shape (n_time, n_marks, n_signals), optional
             np.nan represents times with no multiunit activity.
+        is_track_interior : ndarray, shape (n_place_bins, n_position_dims)
 
         """
         speed = np.asarray(speed).squeeze()
@@ -137,6 +127,10 @@ class ReplayDetector(BaseEstimator):
         (self.edges_, self.place_bin_edges_, self.place_bin_centers_,
          self.centers_shape_) = get_grid(
             position, bin_size=self.place_bin_size)
+
+        if is_track_interior is None:
+            self.is_track_interior_ = np.ones_like(self.place_bin_centers_,
+                                                   dtype=np.bool)
 
         logger.info('Fitting speed model...')
         self._speed_likelihood = fit_speed_likelihood(
@@ -170,8 +164,15 @@ class ReplayDetector(BaseEstimator):
             self._multiunit_likelihood = return_None
 
         logger.info('Fitting movement state transition...')
-        self.movement_state_transition_ = empirical_movement_transition_matrix(
-            position, self.edges_, ~is_replay, self.replay_speed)
+        if self.movement_state_transition_type == 'empirical':
+            self.movement_state_transition_ = empirical_movement(
+                position, self.edges_, is_training=~is_replay,
+                replay_speed=self.replay_speed)
+        elif self.movement_state_transition_type == 'random_walk':
+            self.movement_state_transition_ = random_walk(
+                self.place_bin_centers_, self.movement_std**2,
+                is_track_interior=self.is_track_interior_,
+                replay_speed=self.replay_speed)
         logger.info('Fitting replay state transition...')
         self.replay_state_transition_ = fit_replay_state_transition(
             speed, is_replay, self.replay_state_transition_penalty,
