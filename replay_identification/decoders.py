@@ -74,8 +74,8 @@ class ReplayDetector(BaseEstimator):
 
     def __init__(self, speed_threshold=4.0, spike_model_penalty=1E-1,
                  replay_state_transition_penalty=1E-5,
-                 place_bin_size=2.8, n_place_bins=None, replay_speed=20,
-                 movement_std=1.0, spike_model_knot_spacing=15,
+                 place_bin_size=2.0, n_place_bins=None, replay_speed=20,
+                 movement_std=0.050, spike_model_knot_spacing=15,
                  speed_knots=None, is_track_interior=None,
                  multiunit_density_model=BayesianGaussianMixture,
                  multiunit_model_kwargs=_DEFAULT_MULTIUNIT_KWARGS,
