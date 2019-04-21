@@ -96,7 +96,7 @@ def _filter(likelihood, movement_state_transition, replay_state_transition,
 
     posterior = np.zeros((n_time, n_states, n_position_bins))
     prior = np.zeros_like(posterior)
-    uniform = 1 / (n_position_bins)
+    uniform = 1 / n_position_bins
     state_probability = np.zeros((n_time, n_states))
 
     # Initial Conditions
@@ -190,12 +190,10 @@ def _smoother(filter_posterior, movement_state_transition,
             replay_state_transition[k + 1, 1] *
             (movement_state_transition @ filter_posterior[k, 1]))
 
-        smoother_prior[k] += np.spacing(1)
-
         # Update p(x_{k}, I_{k} \vert H_{1:k})
         ratio = np.exp(
             np.log(smoother_posterior[k + 1] + np.spacing(1)) -
-            np.log(smoother_prior[k]))
+            np.log(smoother_prior[k]) + np.spacing(1))
         integrated_ratio = np.sum(ratio, axis=1)
         # I_{k} = 0, I_{k + 1} = 0
         weights[k, 0] = (
