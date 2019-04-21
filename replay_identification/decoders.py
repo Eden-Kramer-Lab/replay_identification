@@ -166,7 +166,7 @@ class ReplayDetector(BaseEstimator):
         logger.info('Fitting movement state transition...')
         if self.movement_state_transition_type == 'empirical':
             self.movement_state_transition_ = empirical_movement(
-                position, self.edges_, is_training=~is_replay,
+                position, self.edges_, is_training=speed > 4,
                 replay_speed=self.replay_speed)
         elif self.movement_state_transition_type == 'random_walk':
             self.movement_state_transition_ = random_walk(
