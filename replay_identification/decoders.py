@@ -76,7 +76,7 @@ class ReplayDetector(BaseEstimator):
                  replay_state_transition_penalty=1E-5,
                  place_bin_size=2.0, n_place_bins=None, replay_speed=20,
                  movement_std=0.050, spike_model_knot_spacing=15,
-                 speed_knots=None, is_track_interior=None,
+                 speed_knots=None,
                  multiunit_density_model=BayesianGaussianMixture,
                  multiunit_model_kwargs=_DEFAULT_MULTIUNIT_KWARGS,
                  multiunit_occupancy_model=KernelDensity,
