@@ -120,7 +120,7 @@ class ReplayDetector(BaseEstimator):
         multiunit : ndarray or None, shape (n_time, n_marks, n_signals), optional
             np.nan represents times with no multiunit activity.
         is_track_interior : ndarray, shape (n_place_bins, n_position_dims)
-        track_labels : ndarray, shape (n_time,)
+        track_labels : ndarray or None, shape (n_time,)
         """
         speed = np.asarray(speed).squeeze()
         position = atleast_2d(np.asarray(position))
