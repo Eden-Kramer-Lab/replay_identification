@@ -14,7 +14,8 @@ from statsmodels.tsa.tsatools import lagmat
 from .core import (_filter, _smoother, atleast_2d, get_grid,
                    get_observed_position_bin, replace_NaN, return_None)
 from .lfp_likelihood import fit_lfp_likelihood
-from .movement_state_transition import empirical_movement, random_walk
+from .movement_state_transition import (empirical_movement, random_walk,
+                                        w_track_1D_random_walk)
 from .multiunit_likelihood import fit_multiunit_likelihood
 from .replay_state_transition import fit_replay_state_transition
 from .speed_likelhood import fit_speed_likelihood
@@ -105,7 +106,8 @@ class ReplayDetector(BaseEstimator):
         self.movement_state_transition_type = movement_state_transition_type
 
     def fit(self, is_replay, speed, position, lfp_power=None,
-            spikes=None, multiunit=None, is_track_interior=None):
+            spikes=None, multiunit=None, is_track_interior=None,
+            track_labels=None):
         """Train the model on replay and non-replay periods.
 
         Parameters
@@ -118,7 +120,7 @@ class ReplayDetector(BaseEstimator):
         multiunit : ndarray or None, shape (n_time, n_marks, n_signals), optional
             np.nan represents times with no multiunit activity.
         is_track_interior : ndarray, shape (n_place_bins, n_position_dims)
-
+        track_labels : ndarray, shape (n_time,)
         """
         speed = np.asarray(speed).squeeze()
         position = atleast_2d(np.asarray(position))
@@ -173,6 +175,11 @@ class ReplayDetector(BaseEstimator):
                 self.place_bin_centers_, self.movement_std**2,
                 is_track_interior=self.is_track_interior_,
                 replay_speed=self.replay_speed)
+        elif self.movement_state_transition_type == 'w_track_1D_random_walk':
+            self.movement_state_transition_ = w_track_1D_random_walk(
+                position.squeeze(), self.place_bin_edges_,
+                self.place_bin_centers_, self.track_labels,
+                self.movement_std**2, self.replay_speed)
         logger.info('Fitting replay state transition...')
         self.replay_state_transition_ = fit_replay_state_transition(
             speed, is_replay, self.replay_state_transition_penalty,
