@@ -178,7 +178,7 @@ class ReplayDetector(BaseEstimator):
         elif self.movement_state_transition_type == 'w_track_1D_random_walk':
             self.movement_state_transition_ = w_track_1D_random_walk(
                 position.squeeze(), self.place_bin_edges_,
-                self.place_bin_centers_, self.track_labels,
+                self.place_bin_centers_, track_labels,
                 self.movement_std**2, self.replay_speed)
         logger.info('Fitting replay state transition...')
         self.replay_state_transition_ = fit_replay_state_transition(
