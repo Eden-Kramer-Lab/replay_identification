@@ -246,7 +246,8 @@ class ReplayDetector(BaseEstimator):
             if name.lower() in use_likelihoods:
                 logger.info('Predicting {0} likelihood...'.format(name))
                 likelihood = likelihood * replace_NaN(likelihood_func())
-
+                if (name == 'spikes') or (name == 'multiunit'):
+                    likelihood[:, :, ~self.is_track_interior_] = 0.0
         replay_state_transition = self.replay_state_transition_(lagged_speed)
         observed_position_bin = get_observed_position_bin(
             position, self.place_bin_edges_)
