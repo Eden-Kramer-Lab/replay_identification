@@ -171,9 +171,11 @@ def w_track_1D_random_walk(position, place_bin_edges, place_bin_centers,
     place_bin_edges = place_bin_edges.squeeze()
     place_bin_centers = place_bin_centers.squeeze()
     bin_inds = np.digitize(position, bins=place_bin_edges) - 1
+    n_bins = place_bin_edges.size - 1
+    bin_inds[bin_inds >= n_bins] = n_bins - 1
     bin_labels = pd.Series(labels).groupby(
         bin_inds).unique().apply(lambda s: s[0])
-    n_bins = place_bin_edges.size - 1
+
     transition_matrix = []
 
     for bin_ind in np.arange(n_bins):
