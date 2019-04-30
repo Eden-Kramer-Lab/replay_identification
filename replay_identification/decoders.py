@@ -177,7 +177,7 @@ class ReplayDetector(BaseEstimator):
                 replay_speed=self.replay_speed)
         elif self.movement_state_transition_type == 'w_track_1D_random_walk':
             self.movement_state_transition_ = w_track_1D_random_walk(
-                position.squeeze(), self.place_bin_edges_,
+                position, self.place_bin_edges_,
                 self.place_bin_centers_, track_labels,
                 self.movement_std**2, self.replay_speed)
         logger.info('Fitting replay state transition...')
@@ -247,7 +247,7 @@ class ReplayDetector(BaseEstimator):
                 logger.info('Predicting {0} likelihood...'.format(name))
                 likelihood = likelihood * replace_NaN(likelihood_func())
                 if (name == 'spikes') or (name == 'multiunit'):
-                    likelihood[:, :, ~self.is_track_interior_] = 0.0
+                    likelihood[:, :, ~self.is_track_interior_.squeeze()] = 0.0
         replay_state_transition = self.replay_state_transition_(lagged_speed)
         observed_position_bin = get_observed_position_bin(
             position, self.place_bin_edges_)
