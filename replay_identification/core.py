@@ -5,6 +5,29 @@ from scipy import ndimage
 from sklearn.neighbors import NearestNeighbors
 
 
+def get_track_interior(position, bins):
+    '''
+
+    position : ndarray, shape (n_time, n_position_dims)
+    bins : sequence or int, optional
+        The bin specification:
+
+        * A sequence of arrays describing the bin edges along each dimension.
+        * The number of bins for each dimension (nx, ny, ... =bins)
+        * The number of bins for all dimensions (nx=ny=...=bins).
+
+    '''
+    bin_counts, edges = np.histogramdd(position, bins=bins)
+    is_maze = (bin_counts > 0).astype(int)
+    n_position_dims = position.shape[1]
+    if n_position_dims > 1:
+        structure = np.ones([1] * n_position_dims)
+        is_maze = ndimage.binary_closing(is_maze, structure=structure)
+        is_maze = ndimage.binary_fill_holes(is_maze)
+        is_maze = ndimage.binary_dilation(is_maze, structure=structure)
+    return is_maze.astype(np.bool)
+
+
 def get_n_bins(position, bin_size=2.5, position_range=None):
     '''Get number of bins need to span a range given a bin size.
 
