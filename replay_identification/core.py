@@ -1,8 +1,11 @@
+import networkx as nx
 import numpy as np
-from numba import jit
+from numba import njit
+from scipy import ndimage
+from sklearn.neighbors import NearestNeighbors
 
 
-def get_n_bins(position, bin_size=2.5):
+def get_n_bins(position, bin_size=2.5, position_range=None):
     '''Get number of bins need to span a range given a bin size.
 
     Parameters
@@ -15,29 +18,102 @@ def get_n_bins(position, bin_size=2.5):
     n_bins : int
 
     '''
-    return int(np.ceil(np.ptp(position) / bin_size))
+    if position_range is not None:
+        extent = np.diff(position_range, axis=1).squeeze()
+    else:
+        extent = np.ptp(position, axis=0)
+    return np.ceil(extent / bin_size).astype(np.int)
 
 
 def atleast_2d(x):
     return np.atleast_2d(x).T if x.ndim < 2 else x
 
 
-def get_grid(position, bin_size=2.5):
+def get_centers(edge):
+    return edge[:-1] + np.diff(edge) / 2
+
+
+def add_zero_end_bins(hist, edges):
+    new_edges = []
+
+    for edge_ind, edge in enumerate(edges):
+        bin_size = np.diff(edge)[0]
+        try:
+            if hist.sum(axis=edge_ind)[0] != 0:
+                edge = np.insert(edge, 0, edge[0] - bin_size)
+            if hist.sum(axis=edge_ind)[-1] != 0:
+                edge = np.append(edge, edge[-1] + bin_size)
+        except IndexError:
+            if hist[0] != 0:
+                edge = np.insert(edge, 0, edge[0] - bin_size)
+            if hist[-1] != 0:
+                edge = np.append(edge, edge[-1] + bin_size)
+        new_edges.append(edge)
+
+    return new_edges
+
+
+def get_grid(position, bin_size=2.5, position_range=None,
+             infer_track_interior=True):
     position = atleast_2d(position)
     is_nan = np.any(np.isnan(position), axis=1)
     position = position[~is_nan]
-    n_bins = [get_n_bins(p, bin_size=bin_size) for p in position.T]
-    _, edges = np.histogramdd(position, bins=n_bins)
+    n_bins = get_n_bins(position, bin_size, position_range)
+    hist, edges = np.histogramdd(position, bins=n_bins, range=position_range)
+    if infer_track_interior:
+        edges = add_zero_end_bins(hist, edges)
     mesh_edges = np.meshgrid(*edges)
     place_bin_edges = np.stack([edge.ravel() for edge in mesh_edges], axis=1)
 
     mesh_centers = np.meshgrid(
-        *[edge[:-1] + np.diff(edge) / 2 for edge in edges])
+        *[get_centers(edge) for edge in edges])
     place_bin_centers = np.stack(
         [center.ravel() for center in mesh_centers], axis=1)
     centers_shape = mesh_centers[0].shape
 
     return edges, place_bin_edges, place_bin_centers, centers_shape
+
+
+def order_border(border):
+    '''
+    https://stackoverflow.com/questions/37742358/sorting-points-to-form-a-continuous-line
+    '''
+    n_points = border.shape[0]
+    clf = NearestNeighbors(2).fit(border)
+    G = clf.kneighbors_graph()
+    T = nx.from_scipy_sparse_matrix(G)
+
+    paths = [list(nx.dfs_preorder_nodes(T, i))
+             for i in range(n_points)]
+    min_idx, min_dist = 0, np.inf
+
+    for idx, path in enumerate(paths):
+        ordered = border[path]    # ordered nodes
+        cost = np.sum(np.diff(ordered) ** 2)
+        if cost < min_dist:
+            min_idx, min_dist = idx, cost
+
+    opt_order = paths[min_idx]
+    return border[opt_order][:-1]
+
+
+def get_track_border(is_maze, edges):
+    '''
+
+    Parameters
+    ----------
+    is_maze : ndarray, shape (n_x_bins, n_y_bins)
+    edges : list of ndarray
+
+    '''
+    structure = ndimage.generate_binary_structure(2, 2)
+    border = ndimage.binary_dilation(is_maze, structure=structure) ^ is_maze
+
+    inds = np.nonzero(border)
+    centers = [get_centers(x) for x in edges]
+    border = np.stack([center[ind] for center, ind in zip(centers, inds)],
+                      axis=1)
+    return order_border(border)
 
 
 def replace_NaN(x):
@@ -49,7 +125,7 @@ def return_None(*args, **kwargs):
     return None
 
 
-@jit(nopython=True, cache=True, nogil=True)
+@njit(cache=True, nogil=True)
 def normalize_to_probability(distribution):
     '''Ensure the distribution integrates to 1 so that it is a probability
     distribution
@@ -65,7 +141,7 @@ def get_observed_position_bin(position, bin_edges):
     return np.digitize(position.squeeze(), bin_edges.squeeze()) - 1
 
 
-@jit(nopython=True, cache=True, nogil=True)
+@njit(cache=True, nogil=True)
 def _filter(likelihood, movement_state_transition, replay_state_transition,
             observed_position_bin):
     '''
@@ -128,7 +204,7 @@ def _filter(likelihood, movement_state_transition, replay_state_transition,
     return posterior, state_probability, prior
 
 
-@jit(nopython=True, cache=True, nogil=True)
+@njit(cache=True, nogil=True)
 def _smoother(filter_posterior, movement_state_transition,
               replay_state_transition, observed_position_bin):
     '''
