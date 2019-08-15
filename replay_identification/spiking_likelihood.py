@@ -99,7 +99,8 @@ def poisson_log_likelihood(is_spike, conditional_intensity=None,
 
 def spiking_likelihood(
         is_spike, position, design_matrix, place_field_coefficients,
-        place_conditional_intensity, time_bin_size=1, chunks=1E3):
+        place_conditional_intensity, time_bin_size=1,
+        no_spike_intensity=1E-4):
     """Computes the likelihood ratio between replay and not replay events.
 
     Parameters
@@ -122,13 +123,25 @@ def spiking_likelihood(
         place_field_coefficients, no_replay_design_matrix)
     n_time = is_spike.shape[0]
     n_place_bins = place_conditional_intensity.shape[0]
-    spiking_likelihood = np.zeros((n_time, 2, n_place_bins))
-    spiking_likelihood[:, 1, :] = np.exp(combined_likelihood(
-        is_spike.T[..., np.newaxis],
-        place_conditional_intensity.T[:, np.newaxis, :], time_bin_size))
+    spiking_likelihood = np.zeros((n_time, 3, n_place_bins))
+
+    # local
     spiking_likelihood[:, 0, :] = np.exp(combined_likelihood(
         is_spike.T, no_replay_conditional_intensity.T, time_bin_size)
     )
+
+    # no-spike
+    no_spike_conditional_intensity = np.ones_like(
+        no_replay_conditional_intensity) * no_spike_intensity
+    spiking_likelihood[:, 1, :] = np.exp(combined_likelihood(
+        is_spike.T, no_spike_conditional_intensity.T, time_bin_size)
+    )
+
+    # non-local
+    spiking_likelihood[:, 2, :] = np.exp(combined_likelihood(
+        is_spike.T[..., np.newaxis],
+        place_conditional_intensity.T[:, np.newaxis, :], time_bin_size))
+
     return spiking_likelihood
 
 

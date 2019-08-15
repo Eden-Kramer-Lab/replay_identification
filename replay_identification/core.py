@@ -1,8 +1,9 @@
 import numpy as np
 from numba import jit
+from scipy import ndimage
 
 
-def get_n_bins(position, bin_size=2.5):
+def get_n_bins(position, bin_size=2.5, position_range=None):
     '''Get number of bins need to span a range given a bin size.
 
     Parameters
@@ -15,24 +16,55 @@ def get_n_bins(position, bin_size=2.5):
     n_bins : int
 
     '''
-    return int(np.ceil(np.ptp(position) / bin_size))
+    if position_range is not None:
+        extent = np.diff(position_range, axis=1).squeeze()
+    else:
+        extent = np.ptp(position, axis=0)
+    return np.ceil(extent / bin_size).astype(np.int)
 
 
 def atleast_2d(x):
     return np.atleast_2d(x).T if x.ndim < 2 else x
 
 
-def get_grid(position, bin_size=2.5):
+def get_centers(edge):
+    return edge[:-1] + np.diff(edge) / 2
+
+
+def add_zero_end_bins(hist, edges):
+    new_edges = []
+
+    for edge_ind, edge in enumerate(edges):
+        bin_size = np.diff(edge)[0]
+        try:
+            if hist.sum(axis=edge_ind)[0] != 0:
+                edge = np.insert(edge, 0, edge[0] - bin_size)
+            if hist.sum(axis=edge_ind)[-1] != 0:
+                edge = np.append(edge, edge[-1] + bin_size)
+        except IndexError:
+            if hist[0] != 0:
+                edge = np.insert(edge, 0, edge[0] - bin_size)
+            if hist[-1] != 0:
+                edge = np.append(edge, edge[-1] + bin_size)
+        new_edges.append(edge)
+
+    return new_edges
+
+
+def get_grid(position, bin_size=2.5, position_range=None,
+             infer_track_interior=True):
     position = atleast_2d(position)
     is_nan = np.any(np.isnan(position), axis=1)
     position = position[~is_nan]
-    n_bins = [get_n_bins(p, bin_size=bin_size) for p in position.T]
-    _, edges = np.histogramdd(position, bins=n_bins)
+    n_bins = get_n_bins(position, bin_size, position_range)
+    hist, edges = np.histogramdd(position, bins=n_bins, range=position_range)
+    if infer_track_interior:
+        edges = add_zero_end_bins(hist, edges)
     mesh_edges = np.meshgrid(*edges)
     place_bin_edges = np.stack([edge.ravel() for edge in mesh_edges], axis=1)
 
     mesh_centers = np.meshgrid(
-        *[edge[:-1] + np.diff(edge) / 2 for edge in edges])
+        *[get_centers(edge) for edge in edges])
     place_bin_centers = np.stack(
         [center.ravel() for center in mesh_centers], axis=1)
     centers_shape = mesh_centers[0].shape
@@ -83,20 +115,18 @@ def _filter(likelihood, movement_state_transition, replay_state_transition,
 
     Returns
     -------
-    posterior : ndarray, shape (n_time, 2, n_position_bins)
+    posterior : ndarray, shape (n_time, 3, n_position_bins)
     state_probability : ndarray, shape (n_time, 2)
         state_probability[:, 0] = Pr(I_{1:T} = 0)
         state_probability[:, 1] = Pr(I_{1:T} = 1)
     prior : ndarray, shape (n_time, 2, n_position_bins)
 
     '''
-    n_position_bins = movement_state_transition.shape[0]
-    n_time = likelihood.shape[0]
-    n_states = 2
+    n_time, n_states, n_bins = likelihood.shape
 
-    posterior = np.zeros((n_time, n_states, n_position_bins))
+    posterior = np.zeros((n_time, n_states, n_bins))
     prior = np.zeros_like(posterior)
-    uniform = 1 / n_position_bins
+    uniform = 1 / n_bins  # exclude places where there is no position
     state_probability = np.zeros((n_time, n_states))
 
     # Initial Conditions
@@ -219,3 +249,313 @@ def _smoother(filter_posterior, movement_state_transition,
         np.sum(smoother_posterior, axis=2))
 
     return smoother_posterior, smoother_probability, smoother_prior, weights
+
+
+@jit(nopython=True, nogil=True)
+def _causal_classify(initial_conditions, continuous_state_transition,
+                     discrete_state_transition, likelihood,
+                     observed_position_bin):
+    '''Adaptive filter to iteratively calculate the posterior probability
+    of a state variable using past information.
+
+    Parameters
+    ----------
+    initial_conditions : ndarray, shape (n_states, n_bins, 1)
+    continuous_state_transition : ndarray, shape (n_states, n_states,
+                                                  n_bins, n_bins)
+    discrete_state_transition : ndarray, shape (n_states, n_states)
+    likelihood : ndarray, shape (n_time, n_states, n_bins, 1)
+
+    Returns
+    -------
+    causal_posterior : ndarray, shape (n_time, n_states, n_bins, 1)
+
+    '''
+    n_time, n_states, n_bins, _ = likelihood.shape
+    posterior = np.zeros_like(likelihood)
+
+    posterior[0] = normalize_to_probability(
+        initial_conditions.copy() * likelihood[0])
+
+    for k in np.arange(1, n_time):
+        prior = np.zeros((n_states, n_bins, 1))
+        position_ind = observed_position_bin[k]
+        continuous_state_transition[:, 0] = 0.0
+        continuous_state_transition[:, 0, :, position_ind] = 1.0
+
+        for state_k in np.arange(n_states):
+            for state_k_1 in np.arange(n_states):
+                prior[state_k, :] += (
+                    discrete_state_transition[k, state_k_1, state_k] *
+                    continuous_state_transition[state_k_1, state_k] @
+                    posterior[k - 1, state_k_1])
+        posterior[k] = normalize_to_probability(prior * likelihood[k])
+
+    return posterior
+
+
+@jit(nopython=True, nogil=True)
+def _acausal_classify(causal_posterior, continuous_state_transition,
+                      discrete_state_transition, observed_position_bin):
+    '''Uses past and future information to estimate the state.
+
+    Parameters
+    ----------
+    causal_posterior : ndarray, shape (n_time, n_states, n_bins, 1)
+    continuous_state_transition : ndarray, shape (n_states, n_states,
+                                                  n_bins, n_bins)
+    discrete_state_transition : ndarray, shape (n_states, n_states)
+
+    Return
+    ------
+    acausal_posterior : ndarray, shape (n_time, n_states, n_bins, 1)
+
+    '''
+    acausal_posterior = np.zeros_like(causal_posterior)
+    acausal_posterior[-1] = causal_posterior[-1].copy()
+    n_time, n_states, n_bins, _ = causal_posterior.shape
+
+    for k in np.arange(n_time - 2, -1, -1):
+        # Prediction Step -- p(x_{k+1}, I_{k+1} | y_{1:k})
+        prior = np.zeros((n_states, n_bins, 1))
+        position_ind = observed_position_bin[k]
+        continuous_state_transition[0, 0] = 0.0
+        continuous_state_transition[1, 0] = 0.0
+        continuous_state_transition[0, 0, :, position_ind] = 1.0
+        continuous_state_transition[1, 0, :, position_ind] = 1.0
+        for state_k_1 in np.arange(n_states):
+            for state_k in np.arange(n_states):
+                prior[state_k_1, :] += (
+                    discrete_state_transition[k, state_k, state_k_1] *
+                    continuous_state_transition[state_k, state_k_1] @
+                    causal_posterior[k, state_k])
+
+        # Backwards Update
+        weights = np.zeros((n_states, n_bins, 1))
+        ratio = np.exp(
+            np.log(acausal_posterior[k + 1] + np.spacing(1)) -
+            np.log(prior + np.spacing(1)))
+        for state_k in np.arange(n_states):
+            for state_k_1 in np.arange(n_states):
+                weights[state_k] += (
+                    discrete_state_transition[k, state_k, state_k_1] *
+                    continuous_state_transition[state_k, state_k_1] @
+                    ratio[state_k_1])
+
+        acausal_posterior[k] = normalize_to_probability(
+            weights * causal_posterior[k])
+
+    return acausal_posterior
+
+
+def get_track_interior(position, bins):
+    '''
+
+    position : ndarray, shape (n_time, n_position_dims)
+    bins : sequence or int, optional
+        The bin specification:
+
+        * A sequence of arrays describing the bin edges along each dimension.
+        * The number of bins for each dimension (nx, ny, ... =bins)
+        * The number of bins for all dimensions (nx=ny=...=bins).
+
+    '''
+    bin_counts, edges = np.histogramdd(position, bins=bins)
+    is_maze = (bin_counts > 0).astype(int)
+    n_position_dims = position.shape[1]
+    structure = np.ones([1] * n_position_dims)
+    is_maze = ndimage.binary_closing(is_maze, structure=structure)
+    is_maze = ndimage.binary_fill_holes(is_maze)
+    return ndimage.binary_dilation(is_maze, structure=structure)
+
+
+@jit(nopython=True, nogil=True, parallel=True)
+def _causal_classify2(continuous_likelihood, discrete_likelihood,
+                      continuous_state_transition,
+                      discrete_state_transition):
+    '''
+
+    Parameters
+    ----------
+    continuous_likelihood : ndarray, shape (n_time, n_continuous_states,
+                                            n_bins)
+    discrete_likelihood : ndarray, shape (n_time, n_discrete_states)
+    continuous_state_transition : ndarray, shape (n_continuous_states,
+                                                  n_continuous_states, n_bins,
+                                                  n_bins)
+    discrete_state_transition : ndarray, shape (n_time,
+                                                n_discrete_states +
+                                                n_continuous_states,
+                                                n_discrete_states +
+                                                n_continuous_states)
+
+    Returns
+    -------
+    continuous_posterior : ndarray, shape (n_time, n_continuous_states, n_bins)
+    state_probability : ndarray, shape (n_time, n_discrete_states +
+                                        n_continuous_states)
+
+    '''
+    n_time, n_continuous_states, n_bins = continuous_likelihood.shape
+    n_discrete_states = discrete_likelihood.shape[1]
+
+    continuous_posterior = np.zeros((n_time, n_continuous_states, n_bins))
+    uniform = 1.0 / n_bins
+
+    state_probability = np.zeros(
+        (n_time, n_discrete_states + n_continuous_states))
+    # 0 = Local, 1 = No Spike, 2 = Non-Local
+
+    # Initial Conditions
+    state_probability[0, 0] = 1.0
+
+    for k in np.arange(1, n_time):
+        # discrete -> discrete or continuous -> discrete
+        for to_state_ind in range(n_discrete_states):
+            for from_state_ind in range(
+                    n_discrete_states + n_continuous_states):
+                # I_{k - 1} = from_state_ind, I_{k} = to_state_ind
+                state_probability[k, to_state_ind] += (
+                    discrete_state_transition[k, from_state_ind, to_state_ind]
+                    * state_probability[k - 1, from_state_ind])
+
+        # discrete -> continuous
+        for to_state_ind in range(n_continuous_states):
+            for from_state_ind in range(n_discrete_states):
+                continuous_posterior[k, to_state_ind] += (
+                    uniform * discrete_state_transition[
+                        k, from_state_ind, n_discrete_states + to_state_ind] *
+                    state_probability[k - 1, from_state_ind])
+
+        # continuous -> continuous
+        for to_state_ind in range(n_continuous_states):
+            for from_state_ind in range(n_continuous_states):
+                continuous_posterior[k, to_state_ind, :] += (
+                    discrete_state_transition[
+                        k, n_discrete_states + from_state_ind,
+                        n_discrete_states + to_state_ind]
+                    * continuous_state_transition[from_state_ind, to_state_ind]
+                    @ continuous_posterior[k - 1, from_state_ind])
+
+        continuous_posterior[k] *= continuous_likelihood[k]
+        state_probability[k, :n_discrete_states] *= discrete_likelihood[k]
+
+        # Normalize
+        denominator = (np.sum(state_probability[k, :n_discrete_states]) +
+                       np.sum(continuous_posterior[k]))
+
+        continuous_posterior[k] /= denominator
+        state_probability[k, :n_discrete_states] /= denominator
+        state_probability[k, n_discrete_states:] = np.sum(
+            continuous_posterior[k], axis=1)
+
+    return continuous_posterior, state_probability
+
+
+def _acausal_classify2(causal_continuous_posterior, causal_state_probability,
+                       continuous_state_transition, discrete_state_transition):
+    '''
+
+    Parameters
+    ----------
+    causal_continuous_posterior : ndarray, shape (n_time, n_continuous_states,
+                                                  n_bins)
+    causal_state_probability : ndarray, shape (n_time, n_discrete_states +
+                                               n_continuous_states)
+    continuous_state_transition : ndarray, shape (n_continuous_states,
+                                                  n_continuous_states, n_bins,
+                                                  n_bins)
+    discrete_state_transition : ndarray, shape (n_time,
+                                                n_discrete_states +
+                                                n_continuous_states,
+                                                n_discrete_states +
+                                                n_continuous_states)
+
+    Returns
+    -------
+    acausal_posterior : ndarray, shape (n_time, n_continuous_states, n_bins)
+    acausal_state_probability : ndarray, shape (n_time, n_discrete_states +
+                                                n_continuous_states)
+
+    '''
+    acausal_continuous_posterior = np.zeros_like(causal_continuous_posterior)
+    acausal_continuous_posterior[-1] = causal_continuous_posterior[-1].copy()
+    n_time, n_continuous_states, n_bins = causal_continuous_posterior.shape
+
+    acausal_state_probability = np.zeros_like(causal_state_probability)
+    acausal_state_probability[-1] = causal_state_probability[-1].copy()
+    n_discrete_states = causal_state_probability.shape[1] - n_continuous_states
+
+    continuous_prior = np.zeros((n_continuous_states, n_bins))
+    uniform = 1.0 / n_bins
+
+    for k in np.arange(n_time - 2, -1, -1):
+        # Discrete/Continuous -> Discrete (n_discrete_states,)
+        state_probability_prior = (
+            causal_state_probability[k] @
+            discrete_state_transition[k, :, n_discrete_states])
+        # Discrete -> Continuous
+        continuous_prior = (
+            uniform * causal_state_probability[k, :n_discrete_states] @
+            discrete_state_transition[k, :n_discrete_states,
+                                      n_discrete_states:])
+        # Continuous -> Continuous
+        for from_state_ind in range(n_continuous_states):
+            for to_state_ind in range(n_continuous_states):
+                continuous_prior[to_state_ind, :] += (
+                    discrete_state_transition[
+                        k, n_discrete_states + from_state_ind,
+                        n_discrete_states + to_state_ind]
+                    * continuous_state_transition[from_state_ind, to_state_ind]
+                    @ causal_continuous_posterior[k, from_state_ind])
+
+        # Backwards Update
+        # I_{k} = 0, I_{k+1} = 0 (discrete -> discrete)
+        acausal_state_probability[k, 0] += (
+            discrete_state_transition[k, 0, 0] *
+            acausal_state_probability[k + 1, 0] / state_probability_prior[0])
+        # I_{k} = 0, I_{k+1} = 1 (discrete -> discrete)
+        acausal_state_probability[k, 0] += (
+            discrete_state_transition[k, 0, 1] *
+            acausal_state_probability[k + 1, 1] / state_probability_prior[1]
+        )
+        # I_{k} = 0, I_{k+1} = 2 (discrete -> continuous)
+        acausal_state_probability[k, 0] += (
+            uniform * discrete_state_transition[k, 0, 2] *
+            acausal_state_probability[k + 1, 2] / state_probability_prior[2]
+        )
+
+        # I_{k} = 1, I_{k+1} = 0
+        acausal_state_probability[k, 1] += (
+            discrete_state_transition[k, 1, 0] *
+            acausal_state_probability[k + 1, 0] / state_probability_prior[0]
+        )
+        # I_{k} = 1, I_{k+1} = 1
+        acausal_state_probability[k, 1] += (
+            discrete_state_transition[k, 1, 1] *
+            acausal_state_probability[k + 1, 1] / state_probability_prior[1]
+        )
+        # I_{k} = 1, I_{k+1} = 2
+        acausal_state_probability[k, 1] += (
+            uniform * discrete_state_transition[k, 1, 2] *
+            acausal_state_probability[k + 1, 2] / state_probability_prior[2]
+        )
+
+        # I_{k} = 2, I_{k+1} = 0
+        acausal_state_probability[k, 2] += (
+            discrete_state_transition[k, 2, 0] *
+            acausal_state_probability[k + 1, 0] / state_probability_prior[0]
+        )
+
+        # I_{k} = 2, I_{k+1} = 1
+        acausal_state_probability[k, 2] += (
+            discrete_state_transition[k, 2, 1] *
+            acausal_state_probability[k + 1, 1] / state_probability_prior[1]
+        )
+
+        # I_{k} = 2, I_{k+1} = 2
+        acausal_state_probability[k, 2] += (
+            discrete_state_transition[k, 2, 1] *
+            continuous_state_transition[0, 0] @
+            acausal_continuous_posterior[k + 1, 2] / continuous_prior[0]
+        )

@@ -1,14 +1,11 @@
 import numpy as np
 from scipy.stats import multivariate_normal
-from statsmodels.api import GLM, families
 
 from .core import atleast_2d
 
 
-def estimate_movement_std(position):
-    '''Estimates the movement standard deviation based on position.
-
-    WARNING: Need to use on original position, not interpolated position.
+def estimate_movement_var(position, sampling_frequency):
+    '''Estimates the movement variance based on position.
 
     Parameters
     ----------
@@ -16,17 +13,14 @@ def estimate_movement_std(position):
 
     Returns
     -------
-    movement_std : ndarray, shape (n_position_dim,)
+    movement_var : ndarray, shape (n_position_dim,)
 
     '''
     position = atleast_2d(position)
     is_nan = np.any(np.isnan(position), axis=1)
     position = position[~is_nan]
-    movement_std = []
-    for p in position.T:
-        fit = GLM(p[:-1], p[1:], family=families.Gaussian()).fit()
-        movement_std.append(np.sqrt(fit.scale))
-    return np.array(movement_std)
+    movement_var = np.cov(np.diff(position, axis=0), rowvar=False)
+    return movement_var * sampling_frequency
 
 
 def _normalize_row_probability(x):

@@ -11,8 +11,9 @@ from sklearn.mixture import BayesianGaussianMixture
 from sklearn.neighbors import KernelDensity
 from statsmodels.tsa.tsatools import lagmat
 
-from .core import (_filter, _smoother, atleast_2d, get_grid,
-                   get_observed_position_bin, replace_NaN, return_None)
+from .core import (_causal_classify, _acausal_classify, atleast_2d, get_grid,
+                   get_observed_position_bin, replace_NaN, return_None,
+                   get_track_interior)
 from .lfp_likelihood import fit_lfp_likelihood
 from .movement_state_transition import empirical_movement, random_walk
 from .multiunit_likelihood import fit_multiunit_likelihood
@@ -83,7 +84,9 @@ class ReplayDetector(BaseEstimator):
                  multiunit_occupancy_kwargs=_DEFAULT_OCCUPANCY_KWARGS,
                  lfp_model=BayesianGaussianMixture,
                  lfp_model_kwargs=_DEFAULT_LFP_KWARGS,
-                 movement_state_transition_type='empirical'):
+                 movement_state_transition_type='empirical',
+                 infer_track_interior=True,
+                 position_range=None):
         if n_place_bins is not None and place_bin_size is not None:
             logger.warn('Both place_bin_size and n_place_bins are set. Using'
                         ' place_bin_size.')
@@ -103,6 +106,8 @@ class ReplayDetector(BaseEstimator):
         self.lfp_model = lfp_model
         self.lfp_model_kwargs = lfp_model_kwargs
         self.movement_state_transition_type = movement_state_transition_type
+        self.infer_track_interior = infer_track_interior
+        self.position_range = position_range
 
     def fit(self, is_replay, speed, position, lfp_power=None,
             spikes=None, multiunit=None, is_track_interior=None):
@@ -126,11 +131,14 @@ class ReplayDetector(BaseEstimator):
 
         (self.edges_, self.place_bin_edges_, self.place_bin_centers_,
          self.centers_shape_) = get_grid(
-            position, bin_size=self.place_bin_size)
+            position, self.place_bin_size, self.position_range,
+            self.infer_track_interior)
 
-        if is_track_interior is None:
-            self.is_track_interior_ = np.ones_like(self.place_bin_centers_,
-                                                   dtype=np.bool)
+        if is_track_interior is None and self.infer_track_interior:
+            self.is_track_interior_ = get_track_interior(position, self.edges_)
+        elif is_track_interior is None and not self.infer_track_interior:
+            self.is_track_interior_ = np.ones(
+                self.centers_shape_, dtype=np.bool)
 
         logger.info('Fitting speed model...')
         self._speed_likelihood = fit_speed_likelihood(
@@ -222,7 +230,7 @@ class ReplayDetector(BaseEstimator):
 
         place_bins = self.place_bin_centers_
 
-        likelihood = np.ones((n_time, 2, 1))
+        likelihood = np.ones((n_time, 3, 1))
 
         likelihoods = {
             'speed': partial(self._speed_likelihood, speed=speed,
@@ -244,26 +252,52 @@ class ReplayDetector(BaseEstimator):
         observed_position_bin = get_observed_position_bin(
             position, self.place_bin_edges_)
 
+        discrete_state_transition = np.stack(
+            [[1-replay_state_transition[:, 0], replay_state_transition[:, 0],
+              replay_state_transition[:, 0]],
+             [1-replay_state_transition[:, 1], replay_state_transition[:, 1],
+              replay_state_transition[:, 1]],
+             [1-replay_state_transition[:, 1], replay_state_transition[:, 1],
+             replay_state_transition[:, 1]]], axis=0)
+        discrete_state_transition = np.moveaxis(
+            discrete_state_transition, -1, 0)
+        discrete_state_transition /= discrete_state_transition.sum(
+            axis=-1, keepdims=True)
+
+        true_position = np.zeros_like(self.movement_state_transition_)
+        uniform = np.ones_like(self.movement_state_transition_)
+        uniform /= uniform.sum(axis=-1, keepdims=True)
+
+        continuous_state_transition = np.stack([
+            [true_position, uniform, uniform],
+            [true_position, self.movement_state_transition_, uniform],
+            [true_position, uniform, uniform]
+        ])
+
+        initial_conditions = np.zeros((3, len(place_bins), 1))
+        initial_conditions[0, observed_position_bin[0]] = 1.0
+
         logger.info('Predicting replay probability and density...')
-        posterior, state_probability, _ = _filter(
-            likelihood, self.movement_state_transition_,
-            replay_state_transition, observed_position_bin)
+        posterior = _causal_classify(
+            initial_conditions, continuous_state_transition,
+            discrete_state_transition, likelihood[..., np.newaxis],
+            observed_position_bin)
         if use_smoother:
             logger.info('Smoothing...')
-            posterior, state_probability, _, _ = _smoother(
-                posterior, self.movement_state_transition_,
-                replay_state_transition, observed_position_bin)
+            posterior = _acausal_classify(
+                posterior, continuous_state_transition,
+                discrete_state_transition, observed_position_bin)
         if likelihood.shape[-1] > 1:
             likelihood_dims = ['time', 'state', 'position']
         else:
             likelihood_dims = ['time', 'state']
         coords = {'time': time,
                   'position': place_bins.squeeze(),
-                  'state': ['No Replay', 'Replay']}
+                  'state': ['No Replay', 'Replay', 'No Spike']}
 
         return xr.Dataset(
-            {'replay_probability': (['time'], state_probability[:, 1]),
-             'posterior': (['time', 'state', 'position'], posterior),
+            {'replay_probability': (['time'], posterior[:, 1].sum(axis=(1, 2))),
+             'posterior': (['time', 'state', 'position'], posterior.squeeze(axis=-1)),
              'likelihood': (likelihood_dims, likelihood.squeeze())},
             coords=coords)
 
