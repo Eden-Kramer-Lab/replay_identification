@@ -105,14 +105,14 @@ class ReplayDetector(BaseEstimator):
         self.lfp_model_kwargs = lfp_model_kwargs
         self.movement_state_transition_type = movement_state_transition_type
 
-    def fit(self, is_replay, speed, position, lfp_power=None,
+    def fit(self, is_ripple, speed, position, lfp_power=None,
             spikes=None, multiunit=None, is_track_interior=None,
             track_labels=None):
         """Train the model on replay and non-replay periods.
 
         Parameters
         ----------
-        is_replay : bool ndarray, shape (n_time,)
+        is_ripple : bool ndarray, shape (n_time,)
         speed : ndarray, shape (n_time,)
         position : ndarray, shape (n_time,)
         lfp_power : ndarray or None, shape (n_time, n_signals), optional
@@ -124,7 +124,8 @@ class ReplayDetector(BaseEstimator):
         """
         speed = np.asarray(speed).squeeze()
         position = atleast_2d(np.asarray(position))
-        is_replay = np.asarray(is_replay).squeeze()
+        is_ripple = np.asarray(is_ripple).squeeze()
+        is_training = speed > self.speed_threshold
 
         (self.edges_, self.place_bin_edges_, self.place_bin_centers_,
          self.centers_shape_) = get_grid(
@@ -133,12 +134,12 @@ class ReplayDetector(BaseEstimator):
 
         logger.info('Fitting speed model...')
         self._speed_likelihood = fit_speed_likelihood(
-            speed, is_replay, self.speed_threshold)
+            speed, is_ripple, self.speed_threshold)
         if lfp_power is not None:
             logger.info('Fitting LFP power model...')
             lfp_power = np.asarray(lfp_power)
             self._lfp_likelihood = fit_lfp_likelihood(
-                lfp_power, is_replay, self.lfp_model, self.lfp_model_kwargs)
+                lfp_power, is_ripple, self.lfp_model, self.lfp_model_kwargs)
         else:
             self._lfp_likelihood = return_None
 
@@ -146,8 +147,9 @@ class ReplayDetector(BaseEstimator):
             logger.info('Fitting spiking model...')
             spikes = np.asarray(spikes)
             self._spiking_likelihood = fit_spiking_likelihood(
-                position, spikes, is_replay, self.place_bin_centers_,
-                self.spike_model_penalty, self.spike_model_knot_spacing)
+                position, spikes, is_training,
+                self.place_bin_centers_, self.spike_model_penalty,
+                self.spike_model_knot_spacing)
         else:
             self._spiking_likelihood = return_None
 
@@ -155,7 +157,7 @@ class ReplayDetector(BaseEstimator):
             logger.info('Fitting multiunit model...')
             multiunit = np.asarray(multiunit)
             self._multiunit_likelihood = fit_multiunit_likelihood(
-                position, multiunit, is_replay, self.place_bin_centers_,
+                position, multiunit, is_training, self.place_bin_centers_,
                 self.multiunit_density_model, self.multiunit_model_kwargs,
                 self.multiunit_occupancy_model, self.multiunit_occupancy_kwargs
             )
@@ -171,8 +173,7 @@ class ReplayDetector(BaseEstimator):
 
         if self.movement_state_transition_type == 'empirical':
             self.movement_state_transition_ = empirical_movement(
-                position, self.edges_, is_training=speed > 4,
-                replay_speed=self.replay_speed)
+                position, self.edges_, is_training, self.replay_speed)
         elif self.movement_state_transition_type == 'random_walk':
             self.movement_state_transition_ = random_walk(
                 self.place_bin_centers_, self.movement_var,
@@ -185,7 +186,7 @@ class ReplayDetector(BaseEstimator):
 
         logger.info('Fitting replay state transition...')
         self.replay_state_transition_ = fit_replay_state_transition(
-            speed, is_replay, self.replay_state_transition_penalty,
+            speed, is_ripple, self.replay_state_transition_penalty,
             self.speed_knots)
 
         return self
