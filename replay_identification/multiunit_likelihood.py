@@ -304,7 +304,7 @@ def estimate_mean_rate(multiunit, position):
     return np.mean(is_spike[not_nan])
 
 
-def fit_multiunit_likelihood(position, multiunit, is_replay,
+def fit_multiunit_likelihood(position, multiunit, is_training,
                              place_bin_centers,
                              density_model, model_kwargs,
                              occupancy_marginal_model, occupancy_kwargs):
@@ -328,16 +328,16 @@ def fit_multiunit_likelihood(position, multiunit, is_replay,
     marginal_models = []
     mean_rates = []
     occupancy_model = train_occupancy_model(
-        position[~is_replay], occupancy_marginal_model, occupancy_kwargs)
+        position[is_training], occupancy_marginal_model, occupancy_kwargs)
 
-    for m in tqdm(np.moveaxis(multiunit[~is_replay], -1, 0),
+    for m in tqdm(np.moveaxis(multiunit[is_training], -1, 0),
                   desc='electrodes'):
-        mean_rates.append(estimate_mean_rate(m, position[~is_replay]))
+        mean_rates.append(estimate_mean_rate(m, position[is_training]))
         joint_models.append(
-            train_joint_model(m, position[~is_replay], density_model,
+            train_joint_model(m, position[is_training], density_model,
                               model_kwargs))
         marginal_models.append(
-            train_marginal_model(m, position[~is_replay],
+            train_marginal_model(m, position[is_training],
                                  occupancy_marginal_model, occupancy_kwargs))
 
     return partial(

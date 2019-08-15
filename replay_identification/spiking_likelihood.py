@@ -146,7 +146,7 @@ def combined_likelihood(spikes, conditional_intensity, time_bin_size=1):
     return log_likelihood
 
 
-def fit_spiking_likelihood(position, spikes, is_replay,
+def fit_spiking_likelihood(position, spikes, is_training,
                            place_bin_centers, penalty=1E1,
                            knot_spacing=30):
     """Estimate the place field model.
@@ -169,14 +169,14 @@ def fit_spiking_likelihood(position, spikes, is_replay,
     position_knots = min_position + np.arange(1, n_steps) * knot_spacing  # noqa: F841, E501
     FORMULA = ('1 + cr(position, knots=position_knots, constraints="center")')
     training_data = pd.DataFrame(
-        dict(position=position[~is_replay].squeeze())).dropna()
+        dict(position=position[is_training].squeeze())).dropna()
     design_matrix = dmatrix(
         FORMULA, training_data, return_type='dataframe')
     place_field_coefficients = np.stack(
         [fit_glm_model(
             pd.DataFrame(s).loc[design_matrix.index],
             design_matrix, penalty=penalty)
-         for s in tqdm(spikes[~is_replay].T, desc='neurons')], axis=1)
+         for s in tqdm(spikes[is_training].T, desc='neurons')], axis=1)
     place_design_matrix = create_predict_design_matrix(
         place_bin_centers, design_matrix)
     place_conditional_intensity = get_conditional_intensity(
