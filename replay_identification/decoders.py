@@ -6,9 +6,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from sklearn.base import BaseEstimator
-from sklearn.externals import joblib
 from sklearn.mixture import BayesianGaussianMixture
 from statsmodels.tsa.tsatools import lagmat
+
+import joblib
 
 from .core import (_filter, _smoother, atleast_2d, get_grid,
                    get_observed_position_bin, get_track_interior, replace_NaN,
