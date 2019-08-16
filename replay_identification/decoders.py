@@ -257,14 +257,9 @@ class ReplayDetector(BaseEstimator):
             position, self.place_bin_edges_)
 
         logger.info('Predicting replay probability and density...')
-        posterior, state_probability, _ = _filter(
+        causal_posterior, state_probability, _ = _filter(
             likelihood, self.movement_state_transition_,
             replay_state_transition, observed_position_bin)
-        if use_smoother:
-            logger.info('Smoothing...')
-            posterior, state_probability, _, _ = _smoother(
-                posterior, self.movement_state_transition_,
-                replay_state_transition, observed_position_bin)
         if likelihood.shape[-1] > 1:
             likelihood_dims = ['time', 'state', 'position']
         else:
@@ -272,12 +267,22 @@ class ReplayDetector(BaseEstimator):
         coords = {'time': time,
                   'position': place_bins.squeeze(),
                   'state': ['No Replay', 'Replay']}
+        posterior_dims = ['time', 'state', 'position']
 
-        return xr.Dataset(
-            {'replay_probability': (['time'], state_probability[:, 1]),
-             'posterior': (['time', 'state', 'position'], posterior),
+        results = xr.Dataset(
+            {'causal_posterior': (posterior_dims, causal_posterior),
              'likelihood': (likelihood_dims, likelihood.squeeze())},
             coords=coords)
+        if use_smoother:
+            logger.info('Smoothing...')
+            acausal_posterior, state_probability, _, _ = _smoother(
+                causal_posterior, self.movement_state_transition_,
+                replay_state_transition, observed_position_bin)
+            results['acausal_posterior'] = (posterior_dims, acausal_posterior)
+
+        results['replay_probability'] = (['time'], state_probability[:, 1])
+
+        return results
 
     def plot_fitted_place_fields(self, sampling_frequency=1, col_wrap=5,
                                  axes=None):
