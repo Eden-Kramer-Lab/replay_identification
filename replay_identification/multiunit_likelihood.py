@@ -123,8 +123,8 @@ def estimate_no_replay_log_likelihood(
         ground_process_intensity = estimate_ground_process_intensity(
             position, occupancy, marginal_model, mean_rate)[:, np.newaxis]
         log_joint_mark_intensity = estimate_log_joint_mark_intensity(
-             multiunit, position, joint_model, mean_rate, occupancy
-             )[:, np.newaxis]
+            multiunit, position, joint_model, mean_rate, occupancy
+        )[:, np.newaxis]
         log_likelihood += poisson_mark_log_likelihood(
             log_joint_mark_intensity, ground_process_intensity,
             time_bin_size)
