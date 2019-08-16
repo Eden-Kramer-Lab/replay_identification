@@ -11,6 +11,7 @@ dependencies:
 - statsmodels
 - scikit-learn
 - matplotlib
+- networkx
 - xarray
 - holoviews
 - dask
