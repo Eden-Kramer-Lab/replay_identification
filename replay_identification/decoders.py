@@ -8,7 +8,6 @@ import xarray as xr
 from sklearn.base import BaseEstimator
 from sklearn.externals import joblib
 from sklearn.mixture import BayesianGaussianMixture
-from sklearn.neighbors import KernelDensity
 from statsmodels.tsa.tsatools import lagmat
 
 from .core import (_filter, _smoother, atleast_2d, get_grid,
@@ -17,7 +16,7 @@ from .core import (_filter, _smoother, atleast_2d, get_grid,
 from .lfp_likelihood import fit_lfp_likelihood
 from .movement_state_transition import (empirical_movement, random_walk,
                                         w_track_1D_random_walk)
-from .multiunit_likelihood import fit_multiunit_likelihood
+from .multiunit_likelihood import NumbaKDE, fit_multiunit_likelihood
 from .replay_state_transition import fit_replay_state_transition
 from .speed_likelhood import fit_speed_likelihood
 from .spiking_likelihood import fit_spiking_likelihood
@@ -25,9 +24,10 @@ from .spiking_likelihood import fit_spiking_likelihood
 logger = getLogger(__name__)
 
 _DEFAULT_LIKELIHOODS = ['spikes', 'lfp_power']
-_DEFAULT_MULTIUNIT_KWARGS = dict(n_components=30, max_iter=200, tol=1E-6)
+_DEFAULT_MULTIUNIT_KWARGS = dict(
+    bandwidth=np.array([24.0, 24.0, 24.0, 24.0, 6.0]))
 _DEFAULT_LFP_KWARGS = dict(n_components=1, max_iter=200, tol=1E-6)
-_DEFAULT_OCCUPANCY_KWARGS = dict(bandwidth=2)
+_DEFAULT_OCCUPANCY_KWARGS = dict(bandwidth=np.array([6.0]))
 
 
 class ReplayDetector(BaseEstimator):
@@ -77,12 +77,12 @@ class ReplayDetector(BaseEstimator):
     def __init__(self, speed_threshold=4.0, spike_model_penalty=0.5,
                  replay_state_transition_penalty=1E-5,
                  place_bin_size=2.0, position_range=None,
-                 infer_track_interior=True, replay_speed=20,
+                 infer_track_interior=True, replay_speed=40,
                  movement_var=0.050**2, spike_model_knot_spacing=10,
                  speed_knots=None,
-                 multiunit_density_model=BayesianGaussianMixture,
+                 multiunit_density_model=NumbaKDE,
                  multiunit_model_kwargs=_DEFAULT_MULTIUNIT_KWARGS,
-                 multiunit_occupancy_model=KernelDensity,
+                 multiunit_occupancy_model=NumbaKDE,
                  multiunit_occupancy_kwargs=_DEFAULT_OCCUPANCY_KWARGS,
                  lfp_model=BayesianGaussianMixture,
                  lfp_model_kwargs=_DEFAULT_LFP_KWARGS,
