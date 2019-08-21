@@ -15,7 +15,7 @@ SQRT_2PI = np.float64(np.sqrt(2.0 * np.pi))
 
 def multiunit_likelihood(multiunit, position, place_bin_centers,
                          occupancy_model, joint_models, marginal_models,
-                         mean_rates, time_bin_size=1):
+                         mean_rates, is_track_interior, time_bin_size=1):
     '''The likelihood of being in a replay state vs. not a replay state based
     on whether the multiunits correspond to the current position of the animal.
 
@@ -28,6 +28,7 @@ def multiunit_likelihood(multiunit, position, place_bin_centers,
     joint_models : list of fitted density models, len (n_electrodes)
     marginal_models : list of fitted density models, len (n_electrodes)
     mean_rates : list of floats, len (n_electrodes)
+    is_track_interior : ndarray, shape (n_bins, n_position_dim)
     time_bin_size : float, optional
 
     Returns
@@ -41,7 +42,7 @@ def multiunit_likelihood(multiunit, position, place_bin_centers,
     multiunit_likelihood[:, 1, :] = np.exp(estimate_replay_log_likelihood(
         np.moveaxis(multiunit, -1, 0), place_bin_centers,
         occupancy_model, joint_models, marginal_models, mean_rates,
-        time_bin_size))
+        is_track_interior, time_bin_size))
     multiunit_likelihood[:, 0, :] = np.exp(estimate_no_replay_log_likelihood(
         np.moveaxis(multiunit, -1, 0), position, occupancy_model,
         joint_models, marginal_models, mean_rates, time_bin_size))
@@ -51,7 +52,8 @@ def multiunit_likelihood(multiunit, position, place_bin_centers,
 
 def estimate_replay_log_likelihood(
         multiunits, place_bin_centers, occupancy_model,
-        joint_models, marginal_models, mean_rates, time_bin_size):
+        joint_models, marginal_models, mean_rates, is_track_interior,
+        time_bin_size):
     '''Estimate the log likelihood of being at any position.
 
     Parameters
@@ -61,6 +63,7 @@ def estimate_replay_log_likelihood(
     occupancy_model : fitted density model
     marginal_models : list of fitted density models, len (n_electrodes,)
     mean_rates : list of floats, shape (n_electrodes,)
+    is_track_interior : ndarray, shape (n_bins, n_position_dim)
     time_bin_size : float
 
     Returns
@@ -81,11 +84,14 @@ def estimate_replay_log_likelihood(
         ground_process_intensity = np.atleast_2d(
             estimate_ground_process_intensity(
                 place_bin_centers, occupancy, marginal_model, mean_rate))
-        log_joint_mark_intensity = np.stack([
+        log_joint_mark_intensity = np.ones((n_time, n_bin))
+        log_joint_mark_intensity[:, is_track_interior] = np.stack([
             estimate_log_joint_mark_intensity(
                 multiunit, place_bin * np.ones((n_time, 1)), joint_model,
                 mean_rate, occ * np.ones((n_time,)))
-            for occ, place_bin in zip(occupancy, place_bin_centers)], axis=1)
+            for occ, place_bin in zip(occupancy[is_track_interior],
+                                      place_bin_centers[is_track_interior])],
+                                      axis=1)
         log_likelihood += poisson_mark_log_likelihood(
             log_joint_mark_intensity, ground_process_intensity, time_bin_size)
 
@@ -311,7 +317,8 @@ def estimate_mean_rate(multiunit, position):
 def fit_multiunit_likelihood(position, multiunit, is_training,
                              place_bin_centers,
                              density_model, model_kwargs,
-                             occupancy_marginal_model, occupancy_kwargs):
+                             occupancy_marginal_model, occupancy_kwargs,
+                             is_track_interior):
     '''Precompute quantities to fit the multiunit likelihood to new data.
 
     Parameters
@@ -322,6 +329,7 @@ def fit_multiunit_likelihood(position, multiunit, is_training,
     place_bin_centers : ndarray, shape (n_place_bins,)
     model : Class
     model_kwargs : dict
+    is_track_interior : ndarray, shape (n_bins, n_position_dim)
 
     Returns
     -------
@@ -350,7 +358,8 @@ def fit_multiunit_likelihood(position, multiunit, is_training,
         occupancy_model=occupancy_model,
         joint_models=joint_models,
         marginal_models=marginal_models,
-        mean_rates=mean_rates
+        mean_rates=mean_rates,
+        is_track_interior=is_track_interior,
     )
 
 

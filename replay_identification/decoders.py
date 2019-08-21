@@ -78,8 +78,8 @@ class ReplayDetector(BaseEstimator):
     def __init__(self, speed_threshold=4.0, spike_model_penalty=0.5,
                  replay_state_transition_penalty=1E-5,
                  place_bin_size=2.0, position_range=None,
-                 infer_track_interior=True, replay_speed=40,
-                 movement_var=0.050**2, spike_model_knot_spacing=10,
+                 infer_track_interior=True, replay_speed=1,
+                 movement_var=4.0, spike_model_knot_spacing=5,
                  speed_knots=None,
                  multiunit_density_model=NumbaKDE,
                  multiunit_model_kwargs=_DEFAULT_MULTIUNIT_KWARGS,
@@ -133,6 +133,12 @@ class ReplayDetector(BaseEstimator):
             position, self.place_bin_size, self.position_range,
             self.infer_track_interior)
 
+        if is_track_interior is None and self.infer_track_interior:
+            self.is_track_interior_ = get_track_interior(position, self.edges_)
+        elif is_track_interior is None and not self.infer_track_interior:
+            self.is_track_interior_ = np.ones(
+                self.centers_shape_, dtype=np.bool)
+
         logger.info('Fitting speed model...')
         self._speed_likelihood = fit_speed_likelihood(
             speed, is_ripple, self.speed_threshold)
@@ -160,18 +166,13 @@ class ReplayDetector(BaseEstimator):
             self._multiunit_likelihood = fit_multiunit_likelihood(
                 position, multiunit, is_training, self.place_bin_centers_,
                 self.multiunit_density_model, self.multiunit_model_kwargs,
-                self.multiunit_occupancy_model, self.multiunit_occupancy_kwargs
+                self.multiunit_occupancy_model,
+                self.multiunit_occupancy_kwargs, self.is_track_interior_
             )
         else:
             self._multiunit_likelihood = return_None
 
         logger.info('Fitting replay movement state transition...')
-        if is_track_interior is None and self.infer_track_interior:
-            self.is_track_interior_ = get_track_interior(position, self.edges_)
-        elif is_track_interior is None and not self.infer_track_interior:
-            self.is_track_interior_ = np.ones(
-                self.centers_shape_, dtype=np.bool)
-
         if self.movement_state_transition_type == 'empirical':
             self.movement_state_transition_ = empirical_movement(
                 position, self.edges_, is_training, self.replay_speed)
