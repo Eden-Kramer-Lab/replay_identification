@@ -256,7 +256,7 @@ def _smoother(filter_posterior, movement_state_transition,
         \sum_{I_{k+1}} \int \Big[ \frac{p(x_{k+1} \mid x_{k}, I_{k}, I_{k+1}) *
         Pr(I_{k + 1} \mid I_{k}, v_{k}) * p(x_{k+1}, I_{k+1} \mid H_{1:T})}
         {p(x_{k + 1}, I_{k + 1} \mid H_{1:k})} \Big] dx_{k+1}
-    '''
+    '''  # noqa
     filter_probability = np.sum(filter_posterior, axis=2)
 
     smoother_posterior = np.zeros_like(filter_posterior)
@@ -318,3 +318,19 @@ def _smoother(filter_posterior, movement_state_transition,
         np.sum(smoother_posterior, axis=2))
 
     return smoother_posterior, smoother_probability, smoother_prior, weights
+
+
+def scale_likelihood(log_likelihood):
+    '''Scales the likelihood to its max value to prevent overflow and underflow.
+
+    Parameters
+    ----------
+    log_likelihood : ndarray, shape (n_time, n_states, n_position_bins)
+
+    Returns
+    -------
+    scaled_likelihood : ndarray, shape (n_time, n_states, n_position_bins)
+
+    '''
+    return np.exp(log_likelihood -
+                  np.max(log_likelihood, axis=(1, 2), keepdims=True))

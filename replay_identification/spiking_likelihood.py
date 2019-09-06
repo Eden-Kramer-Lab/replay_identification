@@ -8,14 +8,11 @@ from logging import getLogger
 import numpy as np
 import pandas as pd
 from patsy import build_design_matrices, dmatrix
-from statsmodels.api import families
-
 from regularized_glm import penalized_IRLS
-
-from .core import atleast_2d
-
+from statsmodels.api import families
 from tqdm.autonotebook import tqdm
 
+from .core import atleast_2d, scale_likelihood
 
 logger = getLogger(__name__)
 
@@ -123,13 +120,13 @@ def spiking_likelihood(
     n_time = is_spike.shape[0]
     n_place_bins = place_conditional_intensity.shape[0]
     spiking_likelihood = np.zeros((n_time, 2, n_place_bins))
-    spiking_likelihood[:, 1, :] = np.exp(combined_likelihood(
+    spiking_likelihood[:, 1, :] = (combined_likelihood(
         is_spike.T[..., np.newaxis],
         place_conditional_intensity.T[:, np.newaxis, :], time_bin_size))
-    spiking_likelihood[:, 0, :] = np.exp(combined_likelihood(
+    spiking_likelihood[:, 0, :] = (combined_likelihood(
         is_spike.T, no_replay_conditional_intensity.T, time_bin_size)
     )
-    return spiking_likelihood
+    return scale_likelihood(spiking_likelihood)
 
 
 def combined_likelihood(spikes, conditional_intensity, time_bin_size=1):
