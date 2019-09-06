@@ -9,6 +9,8 @@ from patsy import dmatrices
 from statsmodels.api import GLM, families
 from statsmodels.tsa.tsatools import lagmat
 
+from .core import scale_likelihood
+
 FAMILY = families.Gaussian(link=families.links.log)
 FORMULA = 'speed ~ lagged_speed - 1'
 
@@ -36,12 +38,12 @@ def speed_likelihood(speed, lagged_speed, replay_coefficients,
     replay_prediction = _predict(replay_coefficients, lagged_speed)
     n_time = speed.shape[0]
     speed_likelihood = np.zeros((n_time, 2, 1))
-    speed_likelihood[:, 0, :] = np.exp(FAMILY.loglike_obs(
+    speed_likelihood[:, 0, :] = (FAMILY.loglike_obs(
         speed, no_replay_prediction, scale=no_replay_scale))[:, np.newaxis]
-    speed_likelihood[:, 1, :] = np.exp(FAMILY.loglike_obs(
+    speed_likelihood[:, 1, :] = (FAMILY.loglike_obs(
         speed, replay_prediction, scale=replay_scale))[:, np.newaxis]
 
-    return speed_likelihood
+    return scale_likelihood(speed_likelihood)
 
 
 def fit_speed_likelihood(speed, is_replay, speed_threshold=4.0):

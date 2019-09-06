@@ -2,8 +2,9 @@ from functools import partial
 
 import numpy as np
 from sklearn.mixture import GaussianMixture
-
 from spectral_connectivity import Connectivity, Multitaper
+
+from .core import scale_likelihood
 
 
 def lfp_likelihood(ripple_band_power, replay_model, no_replay_model):
@@ -24,12 +25,12 @@ def lfp_likelihood(ripple_band_power, replay_model, no_replay_model):
     not_nan = np.all(~np.isnan(ripple_band_power), axis=1)
     n_time = ripple_band_power.shape[0]
     lfp_likelihood = np.ones((n_time, 2))
-    lfp_likelihood[not_nan, 0] = np.exp(no_replay_model.score_samples(
+    lfp_likelihood[not_nan, 0] = (no_replay_model.score_samples(
         np.log(ripple_band_power[not_nan])))
-    lfp_likelihood[not_nan, 1] = np.exp(replay_model.score_samples(
+    lfp_likelihood[not_nan, 1] = (replay_model.score_samples(
         np.log(ripple_band_power[not_nan])))
 
-    return lfp_likelihood[..., np.newaxis]
+    return scale_likelihood(lfp_likelihood[..., np.newaxis])
 
 
 def fit_lfp_likelihood(ripple_band_power, is_replay,

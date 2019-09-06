@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.base import BaseEstimator, DensityMixin
 from tqdm.autonotebook import tqdm
 
-from .core import atleast_2d
+from .core import atleast_2d, scale_likelihood
 
 SQRT_2PI = np.float64(np.sqrt(2.0 * np.pi))
 
@@ -39,15 +39,15 @@ def multiunit_likelihood(multiunit, position, place_bin_centers,
     n_time = multiunit.shape[0]
     n_place_bins = place_bin_centers.size
     multiunit_likelihood = np.zeros((n_time, 2, n_place_bins))
-    multiunit_likelihood[:, 1, :] = np.exp(estimate_replay_log_likelihood(
+    multiunit_likelihood[:, 1, :] = (estimate_replay_log_likelihood(
         np.moveaxis(multiunit, -1, 0), place_bin_centers,
         occupancy_model, joint_models, marginal_models, mean_rates,
         is_track_interior, time_bin_size))
-    multiunit_likelihood[:, 0, :] = np.exp(estimate_no_replay_log_likelihood(
+    multiunit_likelihood[:, 0, :] = (estimate_no_replay_log_likelihood(
         np.moveaxis(multiunit, -1, 0), position, occupancy_model,
         joint_models, marginal_models, mean_rates, time_bin_size))
 
-    return multiunit_likelihood
+    return scale_likelihood(multiunit_likelihood)
 
 
 def estimate_replay_log_likelihood(
@@ -91,7 +91,7 @@ def estimate_replay_log_likelihood(
                 mean_rate, occ * np.ones((n_time,)))
             for occ, place_bin in zip(occupancy[is_track_interior],
                                       place_bin_centers[is_track_interior])],
-                                      axis=1)
+            axis=1)
         log_likelihood += poisson_mark_log_likelihood(
             log_joint_mark_intensity, ground_process_intensity, time_bin_size)
 
