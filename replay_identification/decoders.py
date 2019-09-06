@@ -258,7 +258,7 @@ class ReplayDetector(BaseEstimator):
         observed_position_bin = get_observed_position_bin(
             position, self.place_bin_edges_)
 
-        logger.info('Predicting replay probability and density...')
+        logger.info('Finding causal replay probability and position...')
         causal_posterior, state_probability, _ = _filter(
             likelihood, self.movement_state_transition_,
             replay_state_transition, observed_position_bin)
@@ -276,7 +276,7 @@ class ReplayDetector(BaseEstimator):
              'likelihood': (likelihood_dims, likelihood.squeeze())},
             coords=coords)
         if use_smoother:
-            logger.info('Smoothing...')
+            logger.info('Finding acausal replay probability and position...')
             acausal_posterior, state_probability, _, _ = _smoother(
                 causal_posterior, self.movement_state_transition_,
                 replay_state_transition, observed_position_bin)
