@@ -96,7 +96,7 @@ def poisson_log_likelihood(is_spike, conditional_intensity=None,
 
 def spiking_likelihood(
         is_spike, position, design_matrix, place_field_coefficients,
-        place_conditional_intensity, time_bin_size=1, chunks=1E3):
+        place_conditional_intensity, is_track_interior, time_bin_size=1):
     """Computes the likelihood ratio between replay and not replay events.
 
     Parameters
@@ -126,6 +126,8 @@ def spiking_likelihood(
     spiking_likelihood[:, 0, :] = (combined_likelihood(
         is_spike.T, no_replay_conditional_intensity.T, time_bin_size)
     )
+    spiking_likelihood[:, :, ~is_track_interior] = np.nan
+
     return scale_likelihood(spiking_likelihood)
 
 
@@ -144,7 +146,7 @@ def combined_likelihood(spikes, conditional_intensity, time_bin_size=1):
 
 
 def fit_spiking_likelihood(position, spikes, is_training,
-                           place_bin_centers, penalty=1E1,
+                           place_bin_centers, is_track_interior, penalty=1E1,
                            knot_spacing=30):
     """Estimate the place field model.
 
@@ -182,4 +184,5 @@ def fit_spiking_likelihood(position, spikes, is_training,
         spiking_likelihood,
         design_matrix=design_matrix,
         place_field_coefficients=place_field_coefficients,
-        place_conditional_intensity=place_conditional_intensity)
+        place_conditional_intensity=place_conditional_intensity,
+        is_track_interior=is_track_interior)

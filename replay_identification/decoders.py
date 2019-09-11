@@ -2,14 +2,13 @@ from functools import partial
 from itertools import combinations_with_replacement
 from logging import getLogger
 
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from sklearn.base import BaseEstimator
 from sklearn.mixture import BayesianGaussianMixture
 from statsmodels.tsa.tsatools import lagmat
-
-import joblib
 
 from .core import (_filter, _smoother, atleast_2d, get_grid,
                    get_observed_position_bin, get_track_interior, replace_NaN,
@@ -155,8 +154,8 @@ class ReplayDetector(BaseEstimator):
             spikes = np.asarray(spikes)
             self._spiking_likelihood = fit_spiking_likelihood(
                 position, spikes, is_training,
-                self.place_bin_centers_, self.spike_model_penalty,
-                self.spike_model_knot_spacing)
+                self.place_bin_centers_,  self.is_track_interior_,
+                self.spike_model_penalty, self.spike_model_knot_spacing)
         else:
             self._spiking_likelihood = return_None
 
