@@ -17,7 +17,7 @@ from .lfp_likelihood import fit_lfp_likelihood
 from .movement_state_transition import (empirical_movement, random_walk,
                                         w_track_1D_random_walk)
 from .multiunit_likelihood import NumbaKDE, fit_multiunit_likelihood
-from .replay_state_transition import fit_replay_state_transition
+from .replay_state_transition import _DISCRETE_STATE_TRANSITIONS
 from .speed_likelhood import fit_speed_likelihood
 from .spiking_likelihood import fit_spiking_likelihood
 
@@ -86,7 +86,9 @@ class ReplayDetector(BaseEstimator):
                  multiunit_occupancy_kwargs=_DEFAULT_OCCUPANCY_KWARGS,
                  lfp_model=BayesianGaussianMixture,
                  lfp_model_kwargs=_DEFAULT_LFP_KWARGS,
-                 movement_state_transition_type='empirical'):
+                 movement_state_transition_type='empirical',
+                 discrete_state_transition_type='ripples_with_speed_threshold'
+                 ):
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
         self.replay_state_transition_penalty = replay_state_transition_penalty
@@ -104,6 +106,7 @@ class ReplayDetector(BaseEstimator):
         self.lfp_model = lfp_model
         self.lfp_model_kwargs = lfp_model_kwargs
         self.movement_state_transition_type = movement_state_transition_type
+        self.discrete_state_transition_type = discrete_state_transition_type
 
     def fit(self, is_ripple, speed, position, lfp_power=None,
             spikes=None, multiunit=None, is_track_interior=None,
@@ -186,7 +189,8 @@ class ReplayDetector(BaseEstimator):
                 self.is_track_interior_, self.replay_speed)
 
         logger.info('Fitting replay state transition...')
-        self.replay_state_transition_ = fit_replay_state_transition(
+        self.replay_state_transition_ = _DISCRETE_STATE_TRANSITIONS[
+                self.discrete_state_transition_type](
             speed, is_ripple, self.replay_state_transition_penalty,
             self.speed_knots)
 
