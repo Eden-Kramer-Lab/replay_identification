@@ -441,7 +441,7 @@ class ReplayDetector(BaseEstimator):
 
         plt.tight_layout()
 
-    def plot_movement_state_transition(self, ax=None):
+    def plot_movement_state_transition(self, ax=None, vmax_percent=95):
         """Plot the sped up empirical movement state transition.
 
         Parameters
@@ -453,7 +453,7 @@ class ReplayDetector(BaseEstimator):
             ax = plt.gca()
         place_t, place_t_1 = np.meshgrid(self.place_bin_edges_,
                                          self.place_bin_edges_)
-        vmax = np.percentile(self.movement_state_transition_, 97.5)
+        vmax = np.percentile(self.movement_state_transition_, vmax_percent)
         cax = ax.pcolormesh(place_t, place_t_1,
                             self.movement_state_transition_, vmin=0, vmax=vmax)
         ax.set_xlabel('position t')
