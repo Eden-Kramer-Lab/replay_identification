@@ -325,11 +325,11 @@ class ReplayDetector(BaseEstimator):
         plt.tight_layout()
 
     @staticmethod
-    def plot_spikes(spikes, position, is_replay, sampling_frequency=1,
+    def plot_spikes(spikes, position, is_ripple, sampling_frequency=1,
                     col_wrap=5, bins='auto'):
-        is_replay = np.asarray(is_replay.copy()).squeeze()
-        position = np.asarray(position.copy()).squeeze()[~is_replay]
-        spikes = np.asarray(spikes.copy())[~is_replay]
+        is_ripple = np.asarray(is_ripple.copy()).squeeze()
+        position = np.asarray(position.copy()).squeeze()[~is_ripple]
+        spikes = np.asarray(spikes.copy())[~is_ripple]
 
         position_occupancy, bin_edges = np.histogram(position, bins=bins)
         bin_size = np.diff(bin_edges)[0]
@@ -462,12 +462,12 @@ class ReplayDetector(BaseEstimator):
         plt.colorbar(cax, label='probability')
 
     @staticmethod
-    def plot_multiunit(multiunit, position, is_replay, axes=None):
+    def plot_multiunit(multiunit, position, is_ripple, axes=None):
         '''Plot the multiunit training data for comparison with the
         fitted model.'''
         multiunit = np.asarray(multiunit.copy())
         position = atleast_2d(np.asarray(position.copy()))
-        is_replay = np.asarray(is_replay.copy()).squeeze()
+        is_ripple = np.asarray(is_ripple.copy()).squeeze()
 
         if axes is None:
             _, n_marks, n_signals = multiunit.shape
@@ -478,8 +478,8 @@ class ReplayDetector(BaseEstimator):
         for electrode_ind, (row_axes, m) in enumerate(zipped):
             not_nan = np.any(~np.isnan(m), axis=-1)
             for mark_ind, ax in enumerate(row_axes):
-                ax.scatter(position[not_nan & ~is_replay],
-                           m[not_nan & ~is_replay, mark_ind],
+                ax.scatter(position[not_nan & ~is_ripple],
+                           m[not_nan & ~is_ripple, mark_ind],
                            alpha=0.1, zorder=-1)
                 ax.set_title(
                     f'Electrode {electrode_ind + 1}, Feature {mark_ind + 1}')
@@ -487,11 +487,11 @@ class ReplayDetector(BaseEstimator):
         plt.xlim((np.nanmin(position), np.nanmax(position)))
 
     @staticmethod
-    def plot_lfp_power(lfp_power, is_replay):
+    def plot_lfp_power(lfp_power, is_ripple):
         '''Plot the lfp power training data for comparison with the
         fitted model.'''
         lfp_power = np.log(np.asarray(lfp_power.copy()))
-        is_replay = np.asarray(is_replay.copy()).squeeze()
+        is_ripple = np.asarray(is_ripple.copy()).squeeze()
         n_lfps = lfp_power.shape[1]
         lfp_ind = np.arange(n_lfps)
 
@@ -500,11 +500,11 @@ class ReplayDetector(BaseEstimator):
                                  sharex=True, sharey=True)
         combinations_ind = combinations_with_replacement(lfp_ind, 2)
         for (ind1, ind2) in combinations_ind:
-            axes[ind1, ind2].scatter(lfp_power[~is_replay, ind1],
-                                     lfp_power[~is_replay, ind2],
-                                     label='No Replay', alpha=0.5)
-            axes[ind1, ind2].scatter(lfp_power[is_replay, ind1],
-                                     lfp_power[is_replay, ind2],
+            axes[ind1, ind2].scatter(lfp_power[~is_ripple, ind1],
+                                     lfp_power[~is_ripple, ind2],
+                                     label='Local', alpha=0.5)
+            axes[ind1, ind2].scatter(lfp_power[is_ripple, ind1],
+                                     lfp_power[is_ripple, ind2],
                                      label='Replay', alpha=0.5)
             axes[ind1, ind2].set_title(f'Electrode {ind1 + 1} vs. {ind2 + 1}')
             if ind1 != ind2:
@@ -526,10 +526,10 @@ class ReplayDetector(BaseEstimator):
                 (replay_model.sample(n_samples=n_samples),
                  no_replay_model.sample(n_samples=n_samples)), axis=0)
 
-        is_replay = np.zeros((n_samples * 2,), dtype=np.bool)
-        is_replay[:n_samples] = True
+        is_ripple = np.zeros((n_samples * 2,), dtype=np.bool)
+        is_ripple[:n_samples] = True
 
-        self.plot_lfp_power(np.exp(samples), is_replay)
+        self.plot_lfp_power(np.exp(samples), is_ripple)
 
     def save_model(self, filename='model.pkl'):
         raise NotImplementedError
