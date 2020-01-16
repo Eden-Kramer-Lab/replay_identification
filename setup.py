@@ -5,7 +5,7 @@ from setuptools import find_packages, setup
 INSTALL_REQUIRES = ['numpy >= 1.11', 'statsmodels', 'numba', 'matplotlib',
                     'xarray', 'scipy', 'scikit-learn', 'regularized_glm',
                     'spectral_connectivity', 'tqdm', 'joblib', 'networkx',
-                     'ipywidgets']
+                    'ipywidgets', 'nodejs']
 TESTS_REQUIRE = ['pytest >= 2.7.1']
 
 setup(

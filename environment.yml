@@ -17,6 +17,7 @@ dependencies:
 - dask
 - tqdm
 - ipywidgets
+- nodejs
 - spectral_connectivity
 - regularized_glm
 - patsy
