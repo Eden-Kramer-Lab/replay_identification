@@ -87,7 +87,8 @@ class ReplayDetector(BaseEstimator):
                  lfp_model=BayesianGaussianMixture,
                  lfp_model_kwargs=_DEFAULT_LFP_KWARGS,
                  movement_state_transition_type='empirical',
-                 discrete_state_transition_type='ripples_with_speed_threshold'
+                 discrete_state_transition_type='ripples_with_speed_threshold',
+                 discrete_diagonal=None,
                  ):
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
@@ -107,6 +108,7 @@ class ReplayDetector(BaseEstimator):
         self.lfp_model_kwargs = lfp_model_kwargs
         self.movement_state_transition_type = movement_state_transition_type
         self.discrete_state_transition_type = discrete_state_transition_type
+        self.discrete_diagonal = discrete_diagonal
 
     def fit(self, is_ripple, speed, position, lfp_power=None,
             spikes=None, multiunit=None, is_track_interior=None,
@@ -192,7 +194,7 @@ class ReplayDetector(BaseEstimator):
         self.replay_state_transition_ = _DISCRETE_STATE_TRANSITIONS[
                 self.discrete_state_transition_type](
             speed, is_ripple, self.replay_state_transition_penalty,
-            self.speed_knots)
+            self.speed_knots, self.discrete_diagonal)
 
         return self
 

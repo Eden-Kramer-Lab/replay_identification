@@ -12,7 +12,7 @@ FAMILY = families.Binomial()
 
 
 def fit_replay_state_transition(speed, is_replay, penalty=1E-5,
-                                speed_knots=None):
+                                speed_knots=None, diagonal=None):
     """Estimate the predicted probablity of replay given speed and whether
     it was a replay in the previous time step.
 
@@ -55,7 +55,7 @@ def fit_replay_state_transition(speed, is_replay, penalty=1E-5,
 
 
 def fit_replay_state_transition_no_speed(
-        speed, is_replay, penalty=1E-5, speed_knots=None):
+        speed, is_replay, penalty=1E-5, speed_knots=None, diagonal=None):
     """Estimate the predicted probablity of replay and whether
     it was a replay in the previous time step.
 
@@ -91,6 +91,13 @@ def fit_replay_state_transition_no_speed(
                    coefficients=fit.coefficients)
 
 
+def constant_transition(
+        speed, is_replay, penalty=1E-5, speed_knots=None, diagonal=None):
+    if diagonal is None:
+        diagonal = np.array([0.00003, 0.98])
+    return partial(_constant_probability, diagonal=diagonal)
+
+
 def make_design_matrix(lagged_is_replay, lagged_speed, design_matrix):
     predict_data = {
         'lagged_is_replay': lagged_is_replay * np.ones_like(lagged_speed),
@@ -122,7 +129,7 @@ def predict_probability(lagged_speed, design_matrix, coefficients):
 
     Returns
     -------
-    replay_probability : ndarray, shape (n_time,)
+    replay_probability : ndarray, shape (n_time, 2)
 
     """
     no_previous_replay_design_matrix = make_design_matrix(
@@ -153,7 +160,7 @@ def predict_probability_no_speed(lagged_speed, design_matrix, coefficients):
 
     Returns
     -------
-    replay_probability : ndarray, shape (n_time,)
+    replay_probability : ndarray, shape (n_time, 2)
 
     """
     no_previous_replay_design_matrix = make_design_matrix_no_speed(
@@ -172,11 +179,23 @@ def predict_probability_no_speed(lagged_speed, design_matrix, coefficients):
     return replay_probability
 
 
+def _constant_probability(lagged_speed, diagonal=None):
+    if diagonal is None:
+        diagonal = np.array([0.00003, 0.98])
+    n_time = lagged_speed.shape[0]
+    replay_probability = np.zeros((n_time, 2))
+    replay_probability[:, 0] = diagonal[0]
+    replay_probability[:, 1] = diagonal[1]
+
+    return replay_probability
+
+
 def predict(design_matrix, coefficients):
     return FAMILY.link.inverse(design_matrix @ np.squeeze(coefficients))
 
 
 _DISCRETE_STATE_TRANSITIONS = {
     'ripples_with_speed_threshold': fit_replay_state_transition,
-    'ripples_no_speed_threshold': fit_replay_state_transition_no_speed
+    'ripples_no_speed_threshold': fit_replay_state_transition_no_speed,
+    'constant': constant_transition,
 }
