@@ -273,7 +273,7 @@ class ReplayDetector(BaseEstimator):
             likelihood_dims = ['time', 'state']
         coords = {'time': time,
                   'position': place_bins.squeeze(),
-                  'state': ['No Replay', 'Replay']}
+                  'state': ['Local', 'Non-Local']}
         posterior_dims = ['time', 'state', 'position']
 
         results = xr.Dataset(
