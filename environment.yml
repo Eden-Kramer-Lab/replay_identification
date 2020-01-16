@@ -16,6 +16,7 @@ dependencies:
 - holoviews
 - dask
 - tqdm
+- ipywidgets
 - spectral_connectivity
 - regularized_glm
 - patsy
