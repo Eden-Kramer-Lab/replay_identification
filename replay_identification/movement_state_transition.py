@@ -207,3 +207,48 @@ def w_track_1D_random_walk(position, place_bin_edges, place_bin_centers,
     transition_matrix[~is_track_interior] = 0.0
     transition_matrix[:, ~is_track_interior] = 0.0
     return _normalize_row_probability(transition_matrix)
+
+
+def random_walk_on_track_graph(
+    place_bin_centers,
+    place_bin_edges,
+    is_track_interior,
+    distance_between_nodes,
+    place_bin_center_ind_to_node,
+    movement_var=1,
+    replay_speed=6,
+):
+    """
+
+    Parameters
+    ----------
+    node_linear_position : np.ndarray, shape (n_nodes,)
+    place_bin_centers : np.ndarray, shape (n_bins)
+    is_track_interior : np.ndarray, shape (n_bins)
+    distance_between_nodes : dict of dicts, shape (n_nodes, n_nodes)
+    bin_to_node : tuple, shape (n_nodes,)
+    movement_var : float, optional
+    replay_speed : float, optional
+
+    Returns
+    -------
+    state_transition : np.ndarray, shape (n_bins, n_bins)
+    bin_to_node : np.array, shape (n_bins)
+
+    """
+    state_transition = np.zeros(
+        (place_bin_centers.size, place_bin_centers.size))
+    gaussian = multivariate_normal(mean=0, cov=movement_var * replay_speed)
+
+    for bin_ind1, node1 in enumerate(place_bin_center_ind_to_node):
+        for bin_ind2, node2 in enumerate(place_bin_center_ind_to_node):
+            state_transition[bin_ind1, bin_ind2] = gaussian.pdf(
+                distance_between_nodes[node1][node2]
+            )
+
+    state_transition[~is_track_interior] = 0
+    state_transition[:, ~is_track_interior] = 0
+
+    state_transition = _normalize_row_probability(state_transition)
+
+    return state_transition

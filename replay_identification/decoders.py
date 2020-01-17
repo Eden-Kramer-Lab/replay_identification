@@ -11,11 +11,11 @@ from sklearn.mixture import BayesianGaussianMixture
 from statsmodels.tsa.tsatools import lagmat
 
 from .core import (_filter, _smoother, atleast_2d, get_grid,
-                   get_observed_position_bin, get_track_interior, replace_NaN,
-                   return_None)
+                   get_observed_position_bin, get_track_grid,
+                   get_track_interior, replace_NaN, return_None)
 from .lfp_likelihood import fit_lfp_likelihood
 from .movement_state_transition import (empirical_movement, random_walk,
-                                        w_track_1D_random_walk)
+                                        random_walk_on_track_graph)
 from .multiunit_likelihood import NumbaKDE, fit_multiunit_likelihood
 from .replay_state_transition import _DISCRETE_STATE_TRANSITIONS
 from .speed_likelhood import fit_speed_likelihood
@@ -112,7 +112,8 @@ class ReplayDetector(BaseEstimator):
 
     def fit(self, is_ripple, speed, position, lfp_power=None,
             spikes=None, multiunit=None, is_track_interior=None,
-            track_labels=None):
+            track_graph=None, center_well_id=None, edge_order=None,
+            edge_spacing=None):
         """Train the model on replay and non-replay periods.
 
         Parameters
@@ -132,16 +133,30 @@ class ReplayDetector(BaseEstimator):
         is_ripple = np.asarray(is_ripple).squeeze()
         is_training = speed > self.speed_threshold
 
-        (self.edges_, self.place_bin_edges_, self.place_bin_centers_,
-         self.centers_shape_) = get_grid(
-            position, self.place_bin_size, self.position_range,
-            self.infer_track_interior)
-
-        if is_track_interior is None and self.infer_track_interior:
-            self.is_track_interior_ = get_track_interior(position, self.edges_)
-        elif is_track_interior is None and not self.infer_track_interior:
-            self.is_track_interior_ = np.ones(
-                self.centers_shape_, dtype=np.bool)
+        if track_graph is None:
+            (self.edges_, self.place_bin_edges_, self.place_bin_centers_,
+             self.centers_shape_) = get_grid(
+                position, self.place_bin_size, self.position_range,
+                self.infer_track_interior)
+            if is_track_interior is None and self.infer_track_interior:
+                self.is_track_interior_ = get_track_interior(
+                    position, self.edges_)
+            elif is_track_interior is None and not self.infer_track_interior:
+                self.is_track_interior_ = np.ones(
+                    self.centers_shape_, dtype=np.bool)
+        else:
+            (
+                self.place_bin_centers_,
+                self.place_bin_edges_,
+                self.is_track_interior_,
+                self.distance_between_nodes_,
+                self.place_bin_center_ind_to_node_,
+                self.place_bin_center_2D_position_,
+                self.place_bin_edges_2D_position_,
+                self.centers_shape_,
+                self.edges_,
+            ) = get_track_grid(track_graph, center_well_id, edge_order,
+                               edge_spacing, self.place_bin_size)
 
         logger.info('Fitting speed model...')
         self._speed_likelihood = fit_speed_likelihood(
@@ -180,19 +195,25 @@ class ReplayDetector(BaseEstimator):
         if self.movement_state_transition_type == 'empirical':
             self.movement_state_transition_ = empirical_movement(
                 position, self.edges_, is_training, self.replay_speed)
+        elif ((self.movement_state_transition_type == 'random_walk') &
+              (track_graph is not None)):
+            self.movement_state_transition_ = random_walk_on_track_graph(
+                self.place_bin_centers_,
+                self.place_bin_edges_,
+                self.is_track_interior_,
+                self.distance_between_nodes_,
+                self.place_bin_center_ind_to_node_,
+                movement_var=self.movement_var,
+                replay_speed=self.replay_speed,
+            )
         elif self.movement_state_transition_type == 'random_walk':
             self.movement_state_transition_ = random_walk(
                 self.place_bin_centers_, self.movement_var,
                 self.is_track_interior_, self.replay_speed)
-        elif self.movement_state_transition_type == 'w_track_1D_random_walk':
-            self.movement_state_transition_ = w_track_1D_random_walk(
-                position, self.place_bin_edges_,
-                self.place_bin_centers_, track_labels, self.movement_var,
-                self.is_track_interior_, self.replay_speed)
 
         logger.info('Fitting replay state transition...')
         self.replay_state_transition_ = _DISCRETE_STATE_TRANSITIONS[
-                self.discrete_state_transition_type](
+            self.discrete_state_transition_type](
             speed, is_ripple, self.replay_state_transition_penalty,
             self.speed_knots, self.discrete_diagonal)
 
