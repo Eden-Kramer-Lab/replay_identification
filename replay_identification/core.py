@@ -339,7 +339,7 @@ def get_observed_position_bin(position, bin_edges):
 
 @njit(cache=True, nogil=True)
 def _filter(likelihood, movement_state_transition, replay_state_transition,
-            observed_position_bin):
+            observed_position_bin, uniform):
     '''
     Parameters
     ----------
@@ -368,7 +368,6 @@ def _filter(likelihood, movement_state_transition, replay_state_transition,
 
     posterior = np.zeros((n_time, n_states, n_position_bins))
     prior = np.zeros_like(posterior)
-    uniform = 1 / n_position_bins
     state_probability = np.zeros((n_time, n_states))
 
     # Initial Conditions
@@ -402,7 +401,7 @@ def _filter(likelihood, movement_state_transition, replay_state_transition,
 
 @njit(cache=True, nogil=True)
 def _smoother(filter_posterior, movement_state_transition,
-              replay_state_transition, observed_position_bin):
+              replay_state_transition, observed_position_bin, uniform):
     '''
     Parameters
     ----------
@@ -436,7 +435,6 @@ def _smoother(filter_posterior, movement_state_transition,
     smoother_prior = np.zeros_like(filter_posterior)
     weights = np.zeros_like(filter_posterior)
     n_time, _, n_position_bins = filter_posterior.shape
-    uniform = 1 / n_position_bins
 
     smoother_posterior[-1] = filter_posterior[-1].copy()
 

@@ -284,10 +284,15 @@ class ReplayDetector(BaseEstimator):
         observed_position_bin = get_observed_position_bin(
             position, self.place_bin_edges_)
 
+        uniform = np.ones((self.place_bin_centers_.size,))
+        uniform[~self.is_track_interior_] = 0.0
+        uniform /= uniform.sum()
+
         logger.info('Finding causal replay probability and position...')
         causal_posterior, state_probability, _ = _filter(
             likelihood, self.movement_state_transition_,
-            replay_state_transition, observed_position_bin)
+            replay_state_transition, observed_position_bin,
+            uniform)
         if likelihood.shape[-1] > 1:
             likelihood_dims = ['time', 'state', 'position']
         else:
@@ -305,7 +310,7 @@ class ReplayDetector(BaseEstimator):
             logger.info('Finding acausal replay probability and position...')
             acausal_posterior, state_probability, _, _ = _smoother(
                 causal_posterior, self.movement_state_transition_,
-                replay_state_transition, observed_position_bin)
+                replay_state_transition, observed_position_bin, uniform)
             results['acausal_posterior'] = (posterior_dims, acausal_posterior)
 
         results['replay_probability'] = (['time'], state_probability[:, 1])
