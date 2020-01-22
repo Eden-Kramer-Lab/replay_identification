@@ -16,7 +16,7 @@ def linear_position_to_2D_projection(linear_position, node_linear_position,
             ((linear_position <= node_linear_position[:, 1]) | is_node[:, 1])
         )[0][0]
     except IndexError:
-        return np.full((1, 2), np.nan)
+        return np.full((2,), np.nan), -1
     pct_dist = (linear_position -
                 node_linear_position[edge_ind][0]) / edge_dist[edge_ind]
     segment_diff = np.diff(node_2D_position, axis=1).squeeze()
