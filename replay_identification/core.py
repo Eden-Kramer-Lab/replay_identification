@@ -267,6 +267,7 @@ def get_track_grid(
         place_bin_edges_2D_position,
         centers_shape,
         edges,
+        track_graph1,
     )
 
 

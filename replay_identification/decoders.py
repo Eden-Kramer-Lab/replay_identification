@@ -155,6 +155,7 @@ class ReplayDetector(BaseEstimator):
                 self.place_bin_edges_2D_position_,
                 self.centers_shape_,
                 self.edges_,
+                self.track_graph_,
             ) = get_track_grid(track_graph, center_well_id, edge_order,
                                edge_spacing, self.place_bin_size)
 
