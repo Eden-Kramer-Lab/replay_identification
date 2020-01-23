@@ -283,7 +283,7 @@ class ReplayDetector(BaseEstimator):
                     likelihood[:, :, ~self.is_track_interior_.squeeze()] = 0.0
         replay_state_transition = self.replay_state_transition_(lagged_speed)
         observed_position_bin = get_observed_position_bin(
-            position, self.place_bin_edges_)
+            position, self.place_bin_edges_, self.is_track_interior_)
 
         uniform = np.ones((self.place_bin_centers_.size,))
         uniform[~self.is_track_interior_] = 0.0
