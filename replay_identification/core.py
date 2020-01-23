@@ -1,10 +1,9 @@
+import networkx as nx
 import numpy as np
 from numba import njit
 from scipy import ndimage
 from scipy.interpolate import interp1d
 from sklearn.neighbors import NearestNeighbors
-
-import networkx as nx
 
 
 def linear_position_to_2D_projection(linear_position, node_linear_position,
