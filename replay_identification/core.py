@@ -464,7 +464,7 @@ def _smoother(filter_posterior, movement_state_transition,
         # Update p(x_{k}, I_{k} \vert H_{1:k})
         ratio = np.exp(
             np.log(smoother_posterior[k + 1] + np.spacing(1)) -
-            np.log(smoother_prior[k]) + np.spacing(1))
+            np.log(smoother_prior[k] + np.spacing(1)))
         integrated_ratio = np.sum(ratio, axis=1)
         # I_{k} = 0, I_{k + 1} = 0
         weights[k, 0] = (
