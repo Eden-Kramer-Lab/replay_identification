@@ -330,12 +330,13 @@ def normalize_to_probability(distribution):
     return distribution / np.nansum(distribution)
 
 
-def get_observed_position_bin(position, bin_edges):
-    position = position.squeeze()
-    is_too_big = position >= bin_edges[-1]
-    bin_size = np.diff(bin_edges, axis=0)[0][0]
-    position[is_too_big] = position[is_too_big] - (bin_size / 2)
-    return np.digitize(position.squeeze(), bin_edges.squeeze()) - 1
+def get_observed_position_bin(position, bin_edges, is_track_interior):
+    bin_ind = np.digitize(position.squeeze(), bin_edges.squeeze()) - 1
+    not_track_bin = np.nonzero(~is_track_interior)[0]
+    not_track_bin = np.append(not_track_bin, bin_edges.size)
+    for bin in not_track_bin:
+        bin_ind[bin_ind == bin] = bin - 1
+    return bin_ind
 
 
 @njit(cache=True, nogil=True)
