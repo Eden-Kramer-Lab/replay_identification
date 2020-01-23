@@ -91,3 +91,5 @@ coverage.xml
 .DS_Store
 *.png
 *.mp4
+*.dirlock
+*.lock
