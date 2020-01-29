@@ -206,11 +206,12 @@ def get_track_grid(
         n_nodes = len(track_graph1.nodes)
 
     distance_between_nodes = dict(
-        nx.all_pairs_dijkstra_path_length(track_graph1, weight="distance")
+        nx.single_source_dijkstra_path_length(
+            track_graph1, source=center_well_id, weight="distance")
     )
 
     node_ids, linear_distance = list(
-        zip(*distance_between_nodes[center_well_id].items())
+        zip(*distance_between_nodes.items())
     )
     linear_distance = np.array(linear_distance)
 
