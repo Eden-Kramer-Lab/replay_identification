@@ -8,9 +8,10 @@ from logging import getLogger
 import numpy as np
 import pandas as pd
 from patsy import build_design_matrices, dmatrix
-from regularized_glm import penalized_IRLS
 from statsmodels.api import families
 from tqdm.autonotebook import tqdm
+
+from regularized_glm import penalized_IRLS
 
 from .core import atleast_2d, scale_likelihood
 
