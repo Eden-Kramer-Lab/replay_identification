@@ -8,46 +8,6 @@ SQRT_2PI = np.float64(np.sqrt(2.0 * np.pi))
 
 
 def _setup_distance(linear_position, nodes_df):
-    # (
-    #     place_bin_centers,
-    #     place_bin_edges,
-    #     is_track_interior,
-    #     distance_between_nodes,
-    #     place_bin_center_ind_to_node,
-    #     place_bin_center_2D_position,
-    #     place_bin_edges_2D_position,
-    #     centers_shape,
-    #     edges,
-    #     track_graph1,
-    #     place_bin_center_ind_to_edge_id,
-    # ) = get_track_grid(
-    #     track_graph, center_well_id, edge_order, edge_spacing, place_bin_size)
-    #
-    # distance_between_nodes = dict(
-    #     nx.single_source_dijkstra_path_length(
-    #         track_graph1, source=center_well_id, weight="distance")
-    # )
-    #
-    # node_ids, linear_distance = list(
-    #     zip(*distance_between_nodes.items())
-    # )
-    # linear_distance = np.array(linear_distance)
-    #
-    # edge_ids = nx.get_node_attributes(track_graph1, "edge_id")
-    # edge_id = np.array([edge_ids[node_id] for node_id in node_ids])
-    #
-    # is_bin_edges = nx.get_node_attributes(track_graph1, "is_bin_edge")
-    # is_bin_edge = np.array([is_bin_edges[node_id] for node_id in node_ids])
-    #
-    # node_linear_position = convert_linear_distance_to_linear_position(
-    #     linear_distance, edge_id, edge_order, edge_spacing
-    # )
-    #
-    # nodes_df = (pd.DataFrame(
-    #     dict(node_ids=node_ids, edge_id=edge_id, is_bin_edge=is_bin_edge,
-    #          linear_position=node_linear_position))
-    #     .sort_values(by=['linear_position', 'edge_id'], axis='rows'))
-
     bin_ind = np.searchsorted(nodes_df.linear_position.values, linear_position)
     is_same_edge = (nodes_df.iloc[bin_ind - 1].edge_id.values ==
                     nodes_df.iloc[bin_ind].edge_id.values)

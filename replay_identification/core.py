@@ -1,5 +1,6 @@
 import networkx as nx
 import numpy as np
+import pandas as pd
 from numba import njit
 from scipy import ndimage
 from scipy.interpolate import interp1d
@@ -226,6 +227,11 @@ def get_track_grid(
         linear_distance, edge_id, edge_order, edge_spacing=edge_spacing
     )
 
+    nodes_df = (pd.DataFrame(
+        dict(node_ids=node_ids, edge_id=edge_id, is_bin_edge=is_bin_edge,
+             linear_position=node_linear_position))
+        .sort_values(by=['linear_position', 'edge_id'], axis='rows'))
+
     place_bin_edges, unique_ind = np.unique(
         node_linear_position[is_bin_edge], return_index=True)
     place_bin_centers = get_centers(place_bin_edges)
@@ -274,6 +280,7 @@ def get_track_grid(
         edges,
         track_graph1,
         place_bin_center_ind_to_edge_id,
+        nodes_df,
     )
 
 
