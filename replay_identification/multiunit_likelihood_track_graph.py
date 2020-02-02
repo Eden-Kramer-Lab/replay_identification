@@ -8,7 +8,8 @@ SQRT_2PI = np.float64(np.sqrt(2.0 * np.pi))
 
 
 def _setup_distance(linear_position, nodes_df):
-    bin_ind = np.searchsorted(nodes_df.linear_position.values, linear_position)
+    bin_ind = np.searchsorted(
+        nodes_df.linear_position.values, linear_position).squeeze()
     is_same_edge = (nodes_df.iloc[bin_ind - 1].edge_id.values ==
                     nodes_df.iloc[bin_ind].edge_id.values)
 
@@ -16,7 +17,7 @@ def _setup_distance(linear_position, nodes_df):
     right_node_ind = bin_ind
 
     right_node_ind[~is_same_edge] = left_node_ind[~is_same_edge] = np.argmin(
-        np.abs(linear_position[~is_same_edge, np.newaxis] -
+        np.abs(linear_position[~is_same_edge] -
                nodes_df.linear_position.values), axis=1)
 
     place_bin_center_to_node_id = (
