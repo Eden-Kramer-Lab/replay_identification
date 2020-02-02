@@ -8,8 +8,8 @@ SQRT_2PI = np.float64(np.sqrt(2.0 * np.pi))
 
 
 def _setup_distance(linear_position, nodes_df):
-    bin_ind = np.searchsorted(
-        nodes_df.linear_position.values, linear_position).squeeze()
+    linear_position = linear_position.squeeze()
+    bin_ind = np.searchsorted(nodes_df.linear_position.values, linear_position)
     is_same_edge = (nodes_df.iloc[bin_ind - 1].edge_id.values ==
                     nodes_df.iloc[bin_ind].edge_id.values)
 
@@ -17,12 +17,8 @@ def _setup_distance(linear_position, nodes_df):
     right_node_ind = bin_ind
 
     right_node_ind[~is_same_edge] = left_node_ind[~is_same_edge] = np.argmin(
-        np.abs(linear_position[~is_same_edge] -
+        np.abs(linear_position[~is_same_edge, np.newaxis] -
                nodes_df.linear_position.values), axis=1)
-
-    place_bin_center_to_node_id = (
-        nodes_df.loc[~nodes_df.is_bin_edge].sort_values(
-            by=['linear_position']).node_ids.values)
 
     left_node_id = nodes_df.node_ids.values[left_node_ind]
     right_node_id = nodes_df.node_ids.values[right_node_ind]
@@ -31,8 +27,7 @@ def _setup_distance(linear_position, nodes_df):
     right_dist = np.abs(
         nodes_df.linear_position.values[left_node_ind] - linear_position)
 
-    return (left_node_id, right_node_id, left_dist, right_dist,
-            place_bin_center_to_node_id)
+    return left_node_id, right_node_id, left_dist, right_dist
 
 
 def get_distance2(track_graph, left_node_id, right_node_id, left_dist,
@@ -65,7 +60,7 @@ def batch(n_samples, batch_size=1):
 
 
 def convert_linear_position_to_track_distances(
-        linear_position, track_graph, nodes_df):
+        linear_position, track_graph, nodes_df, place_bin_center_to_node_id):
     '''
 
     Parameters
@@ -76,8 +71,10 @@ def convert_linear_position_to_track_distances(
     track_distances : np.ndarray, shape (n_time, n_place_bins)
 
     '''
-    (left_node_id, right_node_id, left_dist, right_dist,
-     place_bin_center_to_node_id) = _setup_distance(linear_position, nodes_df)
+    (left_node_id,
+     right_node_id,
+     left_dist,
+     right_dist) = _setup_distance(linear_position, nodes_df)
 
     n_time = linear_position.shape[0]
     track_distances = []
@@ -88,7 +85,8 @@ def convert_linear_position_to_track_distances(
                 left_dist[time_ind], right_dist[time_ind],
                 place_bin_center_to_node_id))
 
-    return np.concatenate(dask.compute(*track_distances), axis=0)
+    return np.concatenate(
+        dask.compute(*track_distances, scheduler='processes'), axis=0)
 
 
 def get_gaussian_track_distances(track_distances, variance=8):
