@@ -94,7 +94,7 @@ def get_gaussian_track_distances(track_distances, variance=8):
         track_distances.ravel()).reshape(track_distances.shape)
 
 
-@numba.njit(nogil=True, cache=False, parallel=True)
+@numba.njit(nogil=True, cache=False, parallel=True, error_model='numpy')
 def numba_product(eval_point, samples, bandwidths):
     '''
     Parameters
