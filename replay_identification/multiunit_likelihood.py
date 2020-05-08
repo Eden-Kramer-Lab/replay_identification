@@ -6,7 +6,7 @@ from functools import partial
 import numba
 import numpy as np
 from sklearn.base import BaseEstimator, DensityMixin
-from tqdm.autonotebook import tqdm
+from tqdm.auto import tqdm
 
 from .core import atleast_2d, scale_likelihood
 
