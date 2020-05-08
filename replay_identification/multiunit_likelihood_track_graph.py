@@ -148,36 +148,37 @@ def get_kde(test_multiunit, train_multiunit, is_track_interior, bandwidths,
     return kde
 
 
-@numba.njit(nogil=True, cache=True, parallel=True)
-def numba_kde(eval_points, samples, bandwidths, precalculated_kernel=None):
+@numba.njit(nogil=True, cache=False, parallel=True)
+def numba_kde(eval_points, samples, bandwidths, precalculated_kernel):
     n_eval_points, n_bandwidths = eval_points.shape
-    result = np.zeros((n_eval_points,))
+    n_grid = precalculated_kernel.shape[1]
+    result = np.zeros((n_eval_points, n_grid))
     n_samples = len(samples)
-    if precalculated_kernel is None:
-        precalculated_kernel = np.ones((n_samples, n_eval_points))
 
-    for i in numba.prange(n_eval_points):
-        for j in range(n_samples):
+    for eval_ind in range(n_eval_points):
+        for sample_ind in range(n_samples):
             product_kernel = 1.0
-            for k in range(n_bandwidths):
-                bandwidth = bandwidths[k]
-                eval_point = eval_points[i, k]
-                sample = samples[j, k]
+            for bandwidth_ind in range(n_bandwidths):
+                bandwidth = bandwidths[bandwidth_ind]
+                eval_point = eval_points[eval_ind, bandwidth_ind]
+                sample = samples[sample_ind, bandwidth_ind]
                 product_kernel *= (np.exp(
                     -0.5 * ((eval_point - sample) / bandwidth)**2) /
                     (bandwidth * SQRT_2PI)) / bandwidth
-            result[i] += product_kernel * precalculated_kernel[j, i]
-        result[i] /= n_samples
+            for grid_ind in range(n_grid):
+                result[eval_ind, grid_ind] += (
+                    product_kernel * precalculated_kernel[sample_ind, grid_ind]
+                    / n_samples)
 
     return result
 
 
-@numba.njit(nogil=True, cache=True, parallel=True, fast_math=True)
+@numba.njit(nogil=True, cache=False, parallel=True, fastmath=True)
 def gaussian_kernel(eval_point, bandwidths, sample, n_bandwidths):
     product_kernel = 1.0
     for k in range(n_bandwidths):
         bandwidth = bandwidths[k]
         product_kernel *= (np.exp(
-            -0.5 * ((eval_point - sample) / bandwidth)**2) /
+            -0.5 * ((eval_point[k] - sample[k]) / bandwidth)**2) /
             (bandwidth * SQRT_2PI)) / bandwidth
     return product_kernel
