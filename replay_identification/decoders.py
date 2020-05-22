@@ -466,13 +466,13 @@ class ReplayDetector(BaseEstimator):
 
         fig, axes = plt.subplots(2, 1, figsize=(5, 5), sharex=True)
         axes[0].plot(lagged_speeds, probablity_replay[:, 1])
-        axes[0].set_ylabel('Probability Replay')
-        axes[0].set_title('Previous time step is replay')
+        axes[0].set_ylabel('Probability Non-Local')
+        axes[0].set_title('Previous time step is non-local')
 
         axes[1].plot(lagged_speeds, probablity_replay[:, 0])
         axes[1].set_xlabel('Speed t - 1')
-        axes[1].set_ylabel('Probability Replay')
-        axes[1].set_title('Previous time step is not replay')
+        axes[1].set_ylabel('Probability Non-Local')
+        axes[1].set_title('Previous time step is local')
 
         plt.tight_layout()
 
