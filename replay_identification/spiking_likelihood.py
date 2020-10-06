@@ -1,5 +1,5 @@
-"""Fitting and predicting the likelihood of replay events based on place field
-spiking patterns.
+"""Fitting and predicting the likelihood of non_local events based on place
+field spiking patterns.
 """
 
 from functools import partial
@@ -8,10 +8,9 @@ from logging import getLogger
 import numpy as np
 import pandas as pd
 from patsy import build_design_matrices, dmatrix
+from regularized_glm import penalized_IRLS
 from statsmodels.api import families
 from tqdm.autonotebook import tqdm
-
-from regularized_glm import penalized_IRLS
 
 from .core import atleast_2d, scale_likelihood
 
@@ -98,7 +97,7 @@ def poisson_log_likelihood(is_spike, conditional_intensity=None,
 def spiking_likelihood(
         is_spike, position, design_matrix, place_field_coefficients,
         place_conditional_intensity, is_track_interior, time_bin_size=1):
-    """Computes the likelihood ratio between replay and not replay events.
+    """Computes the likelihood of non-local and local events.
 
     Parameters
     ----------
@@ -114,18 +113,21 @@ def spiking_likelihood(
     spiking_likelihood : ndarray, shape (n_time, n_place_bins,)
 
     """
-    no_replay_design_matrix = create_predict_design_matrix(
+    local_design_matrix = create_predict_design_matrix(
         position, design_matrix)
-    no_replay_conditional_intensity = get_conditional_intensity(
-        place_field_coefficients, no_replay_design_matrix)
+    local_conditional_intensity = get_conditional_intensity(
+        place_field_coefficients, local_design_matrix)
     n_time = is_spike.shape[0]
     n_place_bins = place_conditional_intensity.shape[0]
     spiking_likelihood = np.zeros((n_time, 2, n_place_bins))
+
+    # Spike non-local
     spiking_likelihood[:, 1, :] = (combined_likelihood(
         is_spike.T[..., np.newaxis],
         place_conditional_intensity.T[:, np.newaxis, :], time_bin_size))
+    # Local
     spiking_likelihood[:, 0, :] = (combined_likelihood(
-        is_spike.T, no_replay_conditional_intensity.T, time_bin_size)
+        is_spike.T, local_conditional_intensity.T, time_bin_size)
     )
     spiking_likelihood[:, :, ~is_track_interior] = np.nan
 
