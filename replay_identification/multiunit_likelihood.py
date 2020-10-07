@@ -46,6 +46,9 @@ def multiunit_likelihood(multiunit, position, place_bin_centers,
     multiunit_likelihood[:, 0, :] = (estimate_no_replay_log_likelihood(
         np.moveaxis(multiunit, -1, 0), position, occupancy_model,
         joint_models, marginal_models, mean_rates, time_bin_size))
+
+    no_spike = np.all(np.isnan(multiunit), axis=(1, 2))
+    multiunit_likelihood[no_spike] = 0.0
     multiunit_likelihood[:, :, ~is_track_interior] = np.nan
 
     return scale_likelihood(multiunit_likelihood)

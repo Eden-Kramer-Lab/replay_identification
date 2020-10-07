@@ -121,14 +121,17 @@ def spiking_likelihood(
     n_place_bins = place_conditional_intensity.shape[0]
     spiking_likelihood = np.zeros((n_time, 2, n_place_bins))
 
-    # Spike non-local
+    # Non-Local
     spiking_likelihood[:, 1, :] = (combined_likelihood(
         is_spike.T[..., np.newaxis],
         place_conditional_intensity.T[:, np.newaxis, :], time_bin_size))
+
     # Local
     spiking_likelihood[:, 0, :] = (combined_likelihood(
         is_spike.T, local_conditional_intensity.T, time_bin_size)
     )
+    no_spike = np.isclose(is_spike.sum(axis=1), 0.0)
+    spiking_likelihood[no_spike] = 0.0
     spiking_likelihood[:, :, ~is_track_interior] = np.nan
 
     return scale_likelihood(spiking_likelihood)
