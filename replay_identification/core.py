@@ -363,7 +363,7 @@ def get_observed_position_bin(position, bin_edges, is_track_interior):
     return bin_ind
 
 
-@njit(cache=True, nogil=True)
+@njit(cache=True, nogil=True, error_model='numpy')
 def _filter(likelihood, movement_state_transition, replay_state_transition,
             observed_position_bin, uniform):
     '''
@@ -425,7 +425,7 @@ def _filter(likelihood, movement_state_transition, replay_state_transition,
     return posterior, state_probability, prior
 
 
-@njit(cache=True, nogil=True)
+@njit(cache=True, nogil=True, error_model='numpy')
 def _smoother(filter_posterior, movement_state_transition,
               replay_state_transition, observed_position_bin, uniform):
     '''
