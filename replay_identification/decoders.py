@@ -265,6 +265,7 @@ class ReplayDetector(BaseEstimator):
         if time is None:
             time = np.arange(n_time)
         lagged_speed = lagmat(speed, maxlag=1).squeeze()
+        lagged_speed[0] = speed[0]
 
         place_bins = self.place_bin_centers_
 
