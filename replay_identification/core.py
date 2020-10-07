@@ -356,9 +356,8 @@ def normalize_to_probability(distribution):
 
 
 def get_observed_position_bin(position, bin_edges, is_track_interior):
-    bin_ind = np.digitize(position.squeeze(), bin_edges.squeeze()) - 1
+    bin_ind = np.digitize(position.squeeze(), bin_edges[1:-1].squeeze())
     not_track_bin = np.nonzero(~is_track_interior)[0]
-    not_track_bin = np.append(not_track_bin, bin_edges.size)
     for bin in not_track_bin:
         bin_ind[bin_ind == bin] = bin - 1
     return bin_ind
