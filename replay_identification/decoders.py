@@ -345,7 +345,8 @@ class ReplayDetector(BaseEstimator):
 
         if axes is None:
             fig, axes = plt.subplots(n_rows, col_wrap, sharex=True,
-                                     figsize=(col_wrap * 2, n_rows * 2))
+                                     figsize=(col_wrap * 2, n_rows * 2),
+                                     constrained_layout=True)
 
         for ind, ax in enumerate(axes.flat):
             if ind < n_neurons:
@@ -353,7 +354,7 @@ class ReplayDetector(BaseEstimator):
                 mask[~self.is_track_interior_] = np.nan
                 ax.plot(self.place_bin_centers_,
                         place_conditional_intensity[:, ind] *
-                        sampling_frequency * mask, color='red', linewidth=3,
+                        sampling_frequency * mask, color='black', linewidth=1,
                         label='fitted model')
                 ax.set_title(f'Neuron #{ind + 1}')
                 ax.set_ylabel('Spikes / s')
