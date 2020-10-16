@@ -41,7 +41,7 @@ def fit_replay_state_transition(speed, is_replay, penalty=1E-5,
     }).dropna()
 
     if speed_knots is None:
-        speed_mid_point = (np.nanmax(speed) - np.nanmin(speed)) / 2
+        speed_mid_point = np.nanmedian(speed[speed > 10])
         speed_knots = [1., 2., 3., speed_mid_point]
 
     MODEL_FORMULA = (
