@@ -361,7 +361,6 @@ class ReplayDetector(BaseEstimator):
                 ax.set_xlabel('Position')
             else:
                 ax.axis('off')
-        plt.tight_layout()
 
     @staticmethod
     def plot_spikes(spikes, position, is_ripple, sampling_frequency=1,
