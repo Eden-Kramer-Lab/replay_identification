@@ -5,6 +5,7 @@ from logging import getLogger
 import joblib
 import matplotlib.pyplot as plt
 import numpy as np
+import sklearn
 import xarray as xr
 from sklearn.base import BaseEstimator
 from sklearn.mixture import BayesianGaussianMixture
@@ -22,6 +23,7 @@ from .speed_likelhood import fit_speed_likelihood
 from .spiking_likelihood import fit_spiking_likelihood
 
 logger = getLogger(__name__)
+sklearn.set_config(print_changed_only=False)
 
 _DEFAULT_LIKELIHOODS = ['spikes', 'lfp_power']
 _DEFAULT_MULTIUNIT_KWARGS = dict(
