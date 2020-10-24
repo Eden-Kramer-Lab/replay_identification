@@ -367,7 +367,7 @@ def fit_multiunit_likelihood(position, multiunit, is_training,
     )
 
 
-@numba.njit(nogil=True, cache=True, parallel=True)
+@numba.njit(nogil=True, cache=True, parallel=True, error_model='numpy')
 def numba_kde(eval_points, samples, bandwidths):
     n_eval_points, n_bandwidths = eval_points.shape
     result = np.zeros((n_eval_points,))
