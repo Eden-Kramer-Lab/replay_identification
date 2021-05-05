@@ -47,6 +47,9 @@ def multiunit_likelihood(multiunit, position, place_bin_centers,
     multiunit_likelihood[:, 0, :] = (estimate_local_log_likelihood(
         np.moveaxis(multiunit, -1, 0), position, occupancy_model,
         joint_models, marginal_models, mean_rates, time_bin_size))
+
+    no_spike = np.all(np.isnan(multiunit), axis=(1, 2))
+    multiunit_likelihood[no_spike] = 0.0
     multiunit_likelihood[:, :, ~is_track_interior] = np.nan
 
     return scale_likelihood(multiunit_likelihood)
@@ -365,7 +368,7 @@ def fit_multiunit_likelihood(position, multiunit, is_training,
     )
 
 
-@numba.njit(nogil=True, cache=True, parallel=True)
+@numba.njit(nogil=True, cache=True, parallel=True, error_model='numpy')
 def numba_kde(eval_points, samples, bandwidths):
     n_eval_points, n_bandwidths = eval_points.shape
     result = np.zeros((n_eval_points,))

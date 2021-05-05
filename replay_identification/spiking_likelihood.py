@@ -1,5 +1,5 @@
-"""Fitting and predicting the likelihood of non_local events based on place field
-spiking patterns.
+"""Fitting and predicting the likelihood of non_local events based on place
+field spiking patterns.
 """
 
 from functools import partial
@@ -7,11 +7,10 @@ from logging import getLogger
 
 import numpy as np
 import pandas as pd
-from tqdm.autonotebook import tqdm
-
 from patsy import build_design_matrices, dmatrix
 from regularized_glm import penalized_IRLS
 from statsmodels.api import families
+from tqdm.autonotebook import tqdm
 
 from .core import atleast_2d, scale_likelihood
 
@@ -133,6 +132,8 @@ def spiking_likelihood(
     spiking_likelihood[:, 0, :] = (combined_likelihood(
         is_spike.T, local_conditional_intensity.T, time_bin_size)
     )
+    no_spike = np.isclose(is_spike.sum(axis=1), 0.0)
+    spiking_likelihood[no_spike] = 0.0
     spiking_likelihood[:, :, ~is_track_interior] = np.nan
 
     return scale_likelihood(spiking_likelihood)

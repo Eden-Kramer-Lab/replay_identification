@@ -356,15 +356,14 @@ def normalize_to_probability(distribution):
 
 
 def get_observed_position_bin(position, bin_edges, is_track_interior):
-    bin_ind = np.digitize(position.squeeze(), bin_edges.squeeze()) - 1
+    bin_ind = np.digitize(position.squeeze(), bin_edges[1:-1].squeeze())
     not_track_bin = np.nonzero(~is_track_interior)[0]
-    not_track_bin = np.append(not_track_bin, bin_edges.size)
     for bin in not_track_bin:
         bin_ind[bin_ind == bin] = bin - 1
     return bin_ind
 
 
-@njit(cache=True, nogil=True)
+@njit(cache=True, nogil=True, error_model='numpy')
 def _filter(likelihood, movement_state_transition, replay_state_transition,
             observed_position_bin, uniform):
     '''
@@ -416,7 +415,7 @@ def _filter(likelihood, movement_state_transition, replay_state_transition,
         # I_{k - 1} = 1, I_{k} = 1
         prior[k, 1] += (
             replay_state_transition[k, 1] *
-            (movement_state_transition @ posterior[k - 1, 1]))
+            (movement_state_transition.T @ posterior[k - 1, 1]))
 
         posterior[k] = normalize_to_probability(
             prior[k] * likelihood[k])
@@ -426,7 +425,7 @@ def _filter(likelihood, movement_state_transition, replay_state_transition,
     return posterior, state_probability, prior
 
 
-@njit(cache=True, nogil=True)
+@njit(cache=True, nogil=True, error_model='numpy')
 def _smoother(filter_posterior, movement_state_transition,
               replay_state_transition, observed_position_bin, uniform):
     '''
@@ -485,7 +484,7 @@ def _smoother(filter_posterior, movement_state_transition,
         # I_{k} = 1, I_{k + 1} = 1
         smoother_prior[k, 1] += (
             replay_state_transition[k + 1, 1] *
-            (movement_state_transition @ filter_posterior[k, 1]))
+            (movement_state_transition.T @ filter_posterior[k, 1]))
 
         # Update p(x_{k}, I_{k} \vert H_{1:k})
         ratio = np.exp(

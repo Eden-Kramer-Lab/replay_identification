@@ -1,14 +1,16 @@
 from functools import partial
+from logging import getLogger
 
 import numpy as np
 import pandas as pd
 from patsy import NAAction, build_design_matrices, dmatrices
+from regularized_glm import penalized_IRLS
 from statsmodels.api import families
 from statsmodels.tsa.tsatools import lagmat
 
-from regularized_glm import penalized_IRLS
-
 FAMILY = families.Binomial()
+
+logger = getLogger(__name__)
 
 
 def fit_replay_state_transition(speed, is_replay, penalty=1E-5,
@@ -39,7 +41,7 @@ def fit_replay_state_transition(speed, is_replay, penalty=1E-5,
     }).dropna()
 
     if speed_knots is None:
-        speed_mid_point = (np.nanmax(speed) - np.nanmin(speed)) / 2
+        speed_mid_point = np.nanmedian(speed[speed > 10])
         speed_knots = [1., 2., 3., speed_mid_point]
 
     MODEL_FORMULA = (
@@ -50,6 +52,9 @@ def fit_replay_state_transition(speed, is_replay, penalty=1E-5,
     penalty[0] = 0.0
     fit = penalized_IRLS(design_matrix, response, family=FAMILY,
                          penalty=penalty)
+    if np.isnan(fit.AIC):
+        logger.error("Discrete state transition failed to fit properly. "
+                     "Try specifying `speed_knots`")
     return partial(predict_probability, design_matrix=design_matrix,
                    coefficients=fit.coefficients)
 
