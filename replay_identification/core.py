@@ -415,7 +415,7 @@ def _filter(likelihood, movement_state_transition, replay_state_transition,
         # I_{k - 1} = 1, I_{k} = 1
         prior[k, 1] += (
             replay_state_transition[k, 1] *
-            (movement_state_transition @ posterior[k - 1, 1]))
+            (movement_state_transition.T @ posterior[k - 1, 1]))
 
         posterior[k] = normalize_to_probability(
             prior[k] * likelihood[k])
@@ -484,7 +484,7 @@ def _smoother(filter_posterior, movement_state_transition,
         # I_{k} = 1, I_{k + 1} = 1
         smoother_prior[k, 1] += (
             replay_state_transition[k + 1, 1] *
-            (movement_state_transition @ filter_posterior[k, 1]))
+            (movement_state_transition.T @ filter_posterior[k, 1]))
 
         # Update p(x_{k}, I_{k} \vert H_{1:k})
         ratio = np.exp(
