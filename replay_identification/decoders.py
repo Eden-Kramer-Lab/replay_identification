@@ -115,7 +115,7 @@ class ReplayDetector(BaseEstimator):
     def fit(self, is_ripple, speed, position, lfp_power=None,
             spikes=None, multiunit=None, is_track_interior=None,
             track_graph=None, center_well_id=None, edge_order=None,
-            edge_spacing=None):
+            edge_spacing=None, is_training=None):
         """Train the model on replay and non-replay periods.
 
         Parameters
@@ -137,7 +137,8 @@ class ReplayDetector(BaseEstimator):
         speed = np.asarray(speed).squeeze()
         position = atleast_2d(np.asarray(position))
         is_ripple = np.asarray(is_ripple).squeeze()
-        is_training = speed > self.speed_threshold
+        if is_training is None:
+            is_training = speed > self.speed_threshold
 
         if track_graph is None:
             (self.edges_, self.place_bin_edges_, self.place_bin_centers_,
