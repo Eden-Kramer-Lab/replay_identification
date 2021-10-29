@@ -11,7 +11,7 @@ from statsmodels.tsa.tsatools import lagmat
 
 from .core import scale_likelihood
 
-FAMILY = families.Gaussian(link=families.links.log)
+FAMILY = families.Gaussian(link=families.links.log())
 FORMULA = 'speed ~ lagged_speed - 1'
 
 
