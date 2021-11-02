@@ -12,7 +12,8 @@ from regularized_glm import penalized_IRLS
 from statsmodels.api import families
 from tqdm.autonotebook import tqdm
 
-from .core import atleast_2d, scale_likelihood
+from .bins import atleast_2d, get_n_bins
+from .core import scale_likelihood
 
 logger = getLogger(__name__)
 

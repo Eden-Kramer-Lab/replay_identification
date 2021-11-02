@@ -8,7 +8,8 @@ import numpy as np
 from sklearn.base import BaseEstimator, DensityMixin
 from tqdm.auto import tqdm
 
-from .core import atleast_2d, scale_likelihood
+from .bins import atleast_2d
+from .core import scale_likelihood
 
 SQRT_2PI = np.float64(np.sqrt(2.0 * np.pi))
 
