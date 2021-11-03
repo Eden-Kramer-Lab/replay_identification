@@ -18,6 +18,7 @@ dependencies:
 - tqdm
 - ipywidgets
 - nodejs
+- track_linearization
 - spectral_connectivity
 - regularized_glm
 - patsy

@@ -2,11 +2,13 @@
 field spiking patterns.
 """
 
+import logging
 from functools import partial
 from logging import getLogger
 
+import dask
 import numpy as np
-import pandas as pd
+from dask.distributed import Client, get_client
 from patsy import build_design_matrices, dmatrix
 from regularized_glm import penalized_IRLS
 from statsmodels.api import families
@@ -18,91 +20,45 @@ from .core import scale_likelihood
 logger = getLogger(__name__)
 
 
-def fit_glm_model(spikes, design_matrix, penalty=1E1):
-    """Fits the Poisson model to the spikes from a neuron.
-
-    Parameters
-    ----------
-    spikes : array_like
-    design_matrix : array_like or pandas DataFrame
-    ind : int
-    penalty : float, optional
-
-    Returns
-    -------
-    fitted_model : statsmodel results
-
-    """
-    penalty = np.ones((design_matrix.shape[1],)) * penalty
-    penalty[0] = 0.0
-    results = penalized_IRLS(
-        np.array(design_matrix), np.array(spikes),
-        family=families.Poisson(), penalty=penalty)
-
-    return np.squeeze(results.coefficients)
+@dask.delayed
+def fit_glm(response, design_matrix, penalty=None, tolerance=1E-5):
+    if penalty is not None:
+        penalty = np.ones((design_matrix.shape[1],)) * penalty
+        penalty[0] = 0.0  # don't penalize the intercept
+    else:
+        penalty = np.finfo(np.float).eps
+    return penalized_IRLS(
+        design_matrix, response.squeeze(), family=families.Poisson(),
+        penalty=penalty, tolerance=tolerance)
 
 
-def create_predict_design_matrix(position, design_matrix):
-    position = atleast_2d(position)
-    is_nan = np.any(np.isnan(position), axis=1)
-    position[is_nan] = 0
-    predictors = {'position': position}
-    design_matrix = build_design_matrices(
-        [design_matrix.design_info], predictors)[0]
-    design_matrix[is_nan] = np.nan
-    return design_matrix
-
-
-def get_conditional_intensity(coefficients, design_matrix):
-    """Predict the model's response given a design matrix and the model
-    parameters.
-
-    Parameters
-    ----------
-    coefficients : ndarray, shape (n_coefficients, n_neurons)
-    design_matrix : ndarray, shape (n_obs, n_coefficients)
-
-    Returns
-    -------
-    conditional_intensity : ndarray, shape (n_coefficients, n_neurons)
-
-    """
-    intensity = np.exp(design_matrix @ coefficients)
-    intensity[np.isnan(intensity)] = np.spacing(1)
-    return intensity
-
-
-def poisson_log_likelihood(is_spike, conditional_intensity=None,
-                           time_bin_size=1):
+def poisson_log_likelihood(spikes, conditional_intensity):
     """Probability of parameters given spiking at a particular time.
 
     Parameters
     ----------
-    is_spike : array_like with values in {0, 1}, shape (n_signals,)
+    spikes : ndarray, shape (n_time,)
         Indicator of spike or no spike at current time.
-    conditional_intensity : array_like, shape (n_signals, n_states,
-                                               n_place_bins)
+    conditional_intensity : ndarray, shape (n_place_bins,)
         Instantaneous probability of observing a spike
-    time_bin_size : float, optional
 
     Returns
     -------
-    poisson_log_likelihood : array_like, shape (n_signals, n_states,
-                                                n_place_bins)
+    poisson_log_likelihood : array_like, shape (n_time, n_place_bins)
 
     """
-    return (np.log(conditional_intensity + np.spacing(1)) * is_spike
-            - conditional_intensity * time_bin_size)
+    return (np.log(conditional_intensity + np.spacing(1)) * spikes
+            - conditional_intensity)
 
 
 def spiking_likelihood(
-        is_spike, position, design_matrix, place_field_coefficients,
-        place_conditional_intensity, is_track_interior, time_bin_size=1):
+        spikes, position, design_matrix, place_field_coefficients,
+        place_conditional_intensity, is_track_interior):
     """Computes the likelihood of non-local and local events.
 
     Parameters
     ----------
-    is_spike : ndarray, shape (n_time, n_neurons)
+    spikes : ndarray, shape (n_time, n_neurons)
     position : ndarray, shape (n_time,)
     design_matrix : ndarray, shape (n_time, n_coefficients)
     place_field_coefficients : ndarray, shape (n_coefficients, n_neurons)
@@ -114,31 +70,34 @@ def spiking_likelihood(
     spiking_likelihood : ndarray, shape (n_time, n_place_bins,)
 
     """
-    local_design_matrix = create_predict_design_matrix(
-        position, design_matrix)
-    local_conditional_intensity = get_conditional_intensity(
-        place_field_coefficients, local_design_matrix)
-    n_time = is_spike.shape[0]
+    local_design_matrix = make_spline_predict_matrix(
+        design_matrix.design_info, position)
+    local_conditional_intensity = get_firing_rate(
+        local_design_matrix, place_field_coefficients, sampling_frequency=1)
+    n_time = spikes.shape[0]
     n_place_bins = place_conditional_intensity.shape[0]
     spiking_likelihood = np.zeros((n_time, 2, n_place_bins))
 
     # Non-Local
     spiking_likelihood[:, 1, :] = (combined_likelihood(
-        is_spike.T[..., np.newaxis],
-        place_conditional_intensity.T[:, np.newaxis, :], time_bin_size))
+        spikes.T[..., np.newaxis],
+        place_conditional_intensity.T[:, np.newaxis, :]))
 
     # Local
     spiking_likelihood[:, 0, :] = (combined_likelihood(
-        is_spike.T, local_conditional_intensity.T, time_bin_size)
+        spikes.T, local_conditional_intensity.T)
     )
-    no_spike = np.isclose(is_spike.sum(axis=1), 0.0)
+
+    no_spike = np.isclose(spikes.sum(axis=1), 0.0)
     spiking_likelihood[no_spike] = 0.0
+
+    is_track_interior = is_track_interior.ravel(order='F')
     spiking_likelihood[:, :, ~is_track_interior] = np.nan
 
     return scale_likelihood(spiking_likelihood)
 
 
-def combined_likelihood(spikes, conditional_intensity, time_bin_size=1):
+def combined_likelihood(spikes, conditional_intensity):
     n_time = spikes.shape[1]
     n_bins = (conditional_intensity.shape[-1]
               if conditional_intensity.ndim > 2 else 1)
@@ -147,13 +106,58 @@ def combined_likelihood(spikes, conditional_intensity, time_bin_size=1):
     for is_spike, ci in zip(tqdm(spikes, desc='neurons'),
                             conditional_intensity):
         log_likelihood += atleast_2d(
-            poisson_log_likelihood(is_spike, ci, time_bin_size))
+            poisson_log_likelihood(is_spike, ci))
 
     return log_likelihood
 
 
+def make_spline_design_matrix(position, place_bin_edges, knot_spacing=10):
+    inner_knots = []
+    for pos, edges in zip(position.T, place_bin_edges.T):
+        n_points = get_n_bins(edges, bin_size=knot_spacing)
+        knots = np.linspace(edges.min(), edges.max(), n_points)[1:-1]
+        knots = knots[(knots > pos.min()) & (knots < pos.max())]
+        inner_knots.append(knots)
+
+    inner_knots = np.meshgrid(*inner_knots)
+
+    data = {}
+    formula = '1 + te('
+    for ind in range(position.shape[1]):
+        formula += f'cr(x{ind}, knots=inner_knots[{ind}])'
+        formula += ', '
+        data[f'x{ind}'] = position[:, ind]
+
+    formula += 'constraints="center")'
+
+    return dmatrix(formula, data)
+
+
+def make_spline_predict_matrix(design_info, position):
+    position = atleast_2d(position)
+    is_nan = np.any(np.isnan(position), axis=1)
+    position[is_nan] = 0.0
+
+    predict_data = {}
+    for ind in range(position.shape[1]):
+        predict_data[f'x{ind}'] = position[:, ind]
+
+    design_matrix = build_design_matrices(
+        [design_info], predict_data)[0]
+    design_matrix[is_nan] = np.nan
+
+    return design_matrix
+
+
+def get_firing_rate(design_matrix, coefficients, sampling_frequency=1):
+    rate = np.exp(design_matrix @ coefficients) * sampling_frequency
+    rate[np.isnan(rate)] = np.spacing(1)
+    return rate
+
+
 def fit_spiking_likelihood(position, spikes, is_training,
-                           place_bin_centers, is_track_interior, penalty=1E1,
+                           place_bin_centers, place_bin_edges,
+                           is_track_interior, penalty=1E1,
                            knot_spacing=30):
     """Estimate the place field model.
 
@@ -170,23 +174,27 @@ def fit_spiking_likelihood(position, spikes, is_training,
     spiking_likelihood : function
 
     """
-    min_position, max_position = np.nanmin(position), np.nanmax(position)
-    n_steps = (max_position - min_position) // knot_spacing
-    position_knots = min_position + np.arange(1, n_steps) * knot_spacing  # noqa: F841, E501
-    FORMULA = ('1 + cr(position, knots=position_knots, constraints="center")')
-    training_data = pd.DataFrame(
-        dict(position=position[is_training].squeeze())).dropna()
-    design_matrix = dmatrix(
-        FORMULA, training_data, return_type='dataframe')
+    if np.any(np.ptp(place_bin_edges, axis=0) <= knot_spacing):
+        logging.warning("Range of position is smaller than knot spacing.")
+    is_nan = np.any(np.isnan(position), axis=1)
+    design_matrix = make_spline_design_matrix(
+        position[is_training & ~is_nan], place_bin_edges, knot_spacing)
+    try:
+        client = get_client()
+    except ValueError:
+        client = Client()
+    dm = client.scatter(np.asarray(design_matrix), broadcast=True)
+    place_field_coefficients = [
+        fit_glm(is_spike[is_training & ~is_nan], dm, penalty).coefficients
+        for is_spike in spikes.T]
     place_field_coefficients = np.stack(
-        [fit_glm_model(
-            pd.DataFrame(s).loc[design_matrix.index],
-            design_matrix, penalty=penalty)
-         for s in tqdm(spikes[is_training].T, desc='neurons')], axis=1)
-    place_design_matrix = create_predict_design_matrix(
-        place_bin_centers, design_matrix)
-    place_conditional_intensity = get_conditional_intensity(
-        place_field_coefficients, place_design_matrix)
+        dask.compute(*place_field_coefficients), axis=1)
+
+    predict_matrix = make_spline_predict_matrix(
+        design_matrix.design_info, place_bin_centers)
+    place_conditional_intensity = get_firing_rate(
+        predict_matrix, place_field_coefficients, sampling_frequency=1)
+
     return partial(
         spiking_likelihood,
         design_matrix=design_matrix,

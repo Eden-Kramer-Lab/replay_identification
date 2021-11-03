@@ -1,6 +1,7 @@
 '''Tools for simulating place field spiking'''
 import numpy as np
-from scipy.stats import norm
+from replay_identification.bins import atleast_2d
+from scipy.stats import multivariate_normal, norm
 
 
 def simulate_time(n_samples, sampling_frequency):
@@ -49,3 +50,55 @@ def create_place_field(
     field_firing_rate /= np.nanmax(field_firing_rate)
     field_firing_rate[~is_condition] = 0
     return baseline_firing_rate + max_firing_rate * field_firing_rate
+
+
+def simulate_place_field_firing_rate(means, position, max_rate=15,
+                                     variance=10, is_condition=None):
+    '''Simulates the firing rate of a neuron with a place field at `means`.
+
+    Parameters
+    ----------
+    means : ndarray, shape (n_position_dims,)
+    position : ndarray, shape (n_time, n_position_dims)
+    max_rate : float, optional
+    variance : float, optional
+    is_condition : None or ndarray, (n_time,)
+
+    Returns
+    -------
+    firing_rate : ndarray, shape (n_time,)
+
+    '''
+    if is_condition is None:
+        is_condition = np.ones(position.shape[0], dtype=bool)
+    position = atleast_2d(position)
+    firing_rate = multivariate_normal(means, variance).pdf(position)
+    firing_rate /= firing_rate.max()
+    firing_rate *= max_rate
+    firing_rate[~is_condition] = 0.0
+
+    return firing_rate
+
+
+def simulate_neuron_with_place_field(means, position, max_rate=15, variance=36,
+                                     sampling_frequency=500,
+                                     is_condition=None):
+    '''Simulates the spiking of a neuron with a place field at `means`.
+
+    Parameters
+    ----------
+    means : ndarray, shape (n_position_dims,)
+    position : ndarray, shape (n_time, n_position_dims)
+    max_rate : float, optional
+    variance : float, optional
+    sampling_frequency : float, optional
+    is_condition : None or ndarray, (n_time,)
+
+    Returns
+    -------
+    spikes : ndarray, shape (n_time,)
+
+    '''
+    firing_rate = simulate_place_field_firing_rate(
+        means, position, max_rate, variance, is_condition)
+    return simulate_poisson_spikes(firing_rate, sampling_frequency)

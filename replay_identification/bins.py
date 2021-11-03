@@ -3,14 +3,24 @@ import numpy as np
 import pandas as pd
 from scipy import ndimage
 from scipy.interpolate import interp1d
+from scipy.spatial.distance import cdist
 from sklearn.neighbors import NearestNeighbors
 
 
-def get_observed_position_bin(position, bin_edges, is_track_interior):
-    bin_ind = np.digitize(position.squeeze(), bin_edges[1:-1].squeeze())
-    not_track_bin = np.nonzero(~is_track_interior)[0]
-    for bin in not_track_bin:
-        bin_ind[bin_ind == bin] = bin - 1
+def get_observed_position_bin(position, bin_edges, bin_centers,
+                              is_track_interior):
+    bin_ind = []
+    for pos, edges in zip(position.T, bin_edges):
+        bin_ind.append(np.digitize(pos, edges[1:-1]))
+
+    bin_center_shape = [e.size - 1 for e in bin_edges]
+    bin_ind = np.ravel_multi_index(bin_ind, bin_center_shape, order='F')
+
+    # Handle bin inds that end up off track
+    not_track_bin = ~is_track_interior[bin_ind]
+    bin_ind[not_track_bin] = np.argmin(
+        cdist(position[not_track_bin], bin_centers), axis=1)
+
     return bin_ind
 
 
@@ -35,6 +45,12 @@ def get_n_bins(position, bin_size=2.5, position_range=None):
         extent = np.diff(position_range, axis=1).squeeze()
     else:
         extent = np.ptp(position, axis=0)
+    try:
+        extent[np.isclose(extent, 0.0)] = bin_size
+    except TypeError:
+        if np.isclose(extent, 0.0):
+            extent = bin_size
+
     return np.ceil(extent / bin_size).astype(np.int32)
 
 

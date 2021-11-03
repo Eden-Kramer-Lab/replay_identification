@@ -11,8 +11,9 @@ from sklearn.base import BaseEstimator
 from sklearn.mixture import BayesianGaussianMixture
 from statsmodels.tsa.tsatools import lagmat
 
-from .bins import (atleast_2d, get_grid, get_observed_position_bin,
-                   get_track_grid, get_track_interior)
+from .bins import (atleast_2d, get_centers, get_grid,
+                   get_observed_position_bin, get_track_grid,
+                   get_track_interior)
 from .core import _filter, _smoother, replace_NaN, return_None
 from .lfp_likelihood import fit_lfp_likelihood
 from .movement_state_transition import (empirical_movement, random_walk,
@@ -64,7 +65,7 @@ class ReplayDetector(BaseEstimator):
     fit
         Fits the model to the training data.
     predict
-        Predicts the replay probability and posterior density to new data.
+        Predicts the non-local probability and posterior density to new data.
     plot_fitted_place_fields
         Plot the place fields from the fitted spiking data.
     plot_fitted_multiunit_model
@@ -154,7 +155,7 @@ class ReplayDetector(BaseEstimator):
 
     def fit(self, is_ripple, speed, position, lfp_power=None,
             spikes=None, multiunit=None, is_track_interior=None,
-            track_graph=None, center_well_id=None, edge_order=None,
+            track_graph=None, edge_order=None,
             edge_spacing=None, is_training=None):
         """Train the model on replay and non-replay periods.
 
@@ -183,9 +184,13 @@ class ReplayDetector(BaseEstimator):
         self.fit_place_grid(position, track_graph,
                             edge_order, edge_spacing)
 
-        logger.info('Fitting speed model...')
-        self._speed_likelihood = fit_speed_likelihood(
-            speed, is_ripple, self.speed_threshold)
+        try:
+            logger.info('Fitting speed model...')
+            self._speed_likelihood = fit_speed_likelihood(
+                speed, is_ripple, self.speed_threshold)
+        except ValueError:
+            self._speed_likelihood = return_None
+
         if lfp_power is not None:
             logger.info('Fitting LFP power model...')
             lfp_power = np.asarray(lfp_power)
@@ -199,8 +204,9 @@ class ReplayDetector(BaseEstimator):
             spikes = np.asarray(spikes)
             self._spiking_likelihood = fit_spiking_likelihood(
                 position, spikes, is_training,
-                self.place_bin_centers_,  self.is_track_interior_,
-                self.spike_model_penalty, self.spike_model_knot_spacing)
+                self.place_bin_centers_,  self.place_bin_edges_,
+                self.is_track_interior_, self.spike_model_penalty,
+                self.spike_model_knot_spacing)
         else:
             self._spiking_likelihood = return_None
 
@@ -226,7 +232,7 @@ class ReplayDetector(BaseEstimator):
                 self.place_bin_centers_nodes_df_.node_id)
             self.movement_state_transition_ = random_walk_on_track_graph(
                 self.place_bin_centers_,
-                self.movement_mean,
+                0.0,
                 self.movement_var,
                 place_bin_center_ind_to_node,
                 self.distance_between_nodes_
@@ -267,7 +273,7 @@ class ReplayDetector(BaseEstimator):
         Returns
         -------
         decoding_results : xarray.Dataset
-            Includes replay probability and posterior density.
+            Includes non-local probability and posterior density.
 
         """
         n_time = speed.shape[0]
@@ -286,6 +292,7 @@ class ReplayDetector(BaseEstimator):
         lagged_speed[0] = speed[0]
 
         place_bins = self.place_bin_centers_
+        is_track_interior = self.is_track_interior_.ravel(order='F')
 
         likelihood = np.ones((n_time, 2, 1))
 
@@ -295,7 +302,7 @@ class ReplayDetector(BaseEstimator):
             'lfp_power': partial(self._lfp_likelihood,
                                  ripple_band_power=lfp_power),
             'spikes': partial(self._spiking_likelihood,
-                              is_spike=spikes, position=position),
+                              spikes=spikes, position=position),
             'multiunit': partial(self._multiunit_likelihood,
                                  multiunit=multiunit, position=position)
         }
@@ -305,41 +312,78 @@ class ReplayDetector(BaseEstimator):
                 logger.info('Predicting {0} likelihood...'.format(name))
                 likelihood = likelihood * replace_NaN(likelihood_func())
                 if (name == 'spikes') or (name == 'multiunit'):
-                    likelihood[:, :, ~self.is_track_interior_.squeeze()] = 0.0
+                    likelihood[:, :, ~is_track_interior] = 0.0
         replay_state_transition = self.replay_state_transition_(lagged_speed)
         observed_position_bin = get_observed_position_bin(
-            position, self.place_bin_edges_, self.is_track_interior_)
+            position, self.edges_, place_bins, is_track_interior)
 
-        uniform = np.ones((self.place_bin_centers_.size,))
-        uniform[~self.is_track_interior_] = 0.0
+        uniform = np.ones((place_bins.shape[0],))
+        uniform[~is_track_interior] = 0.0
         uniform /= uniform.sum()
 
-        logger.info('Finding causal replay probability and position...')
+        logger.info('Finding causal non-local probability and position...')
         causal_posterior, state_probability, _ = _filter(
             likelihood, self.movement_state_transition_,
             replay_state_transition, observed_position_bin,
             uniform)
-        if likelihood.shape[-1] > 1:
+
+        n_position_dims = place_bins.shape[1]
+
+        if (likelihood.shape[-1] > 1) & (n_position_dims > 1):
+            likelihood_dims = ['time', 'state', 'x_position', 'y_position']
+            posterior_dims = likelihood_dims
+            coords = dict(
+                time=time,
+                x_position=get_centers(self.edges_[0]),
+                y_position=get_centers(self.edges_[1]),
+                state=['Local', 'Non-Local'],
+            )
+            likelihood_shape = (n_time, 2, *self.centers_shape_)
+            posterior_shape = likelihood_shape
+        elif (likelihood.shape[-1] > 1) & (n_position_dims == 1):
             likelihood_dims = ['time', 'state', 'position']
+            posterior_dims = likelihood_dims
+            coords = dict(
+                time=time,
+                position=get_centers(self.edges_[0]),
+                state=['Local', 'Non-Local'],
+            )
+            likelihood_shape = (n_time, 2, *self.centers_shape_)
+            posterior_shape = likelihood_shape
         else:
             likelihood_dims = ['time', 'state']
-        coords = {'time': time,
-                  'position': place_bins.squeeze(),
-                  'state': ['Local', 'Non-Local']}
-        posterior_dims = ['time', 'state', 'position']
+            posterior_dims = ['time', 'state', 'position']
+            likelihood_shape = (n_time, 2)
+            posterior_shape = (n_time, 2, *self.centers_shape_)
+            coords = dict(
+                time=time,
+                position=get_centers(self.edges_[0]),
+                state=['Local', 'Non-Local'],
+            )
 
-        results = xr.Dataset(
-            {'causal_posterior': (posterior_dims, causal_posterior),
-             'likelihood': (likelihood_dims, likelihood.squeeze())},
-            coords=coords)
+        try:
+            results = xr.Dataset(
+                {'causal_posterior': (posterior_dims, causal_posterior.reshape(posterior_shape).swapaxes(3, 2)),
+                 'likelihood': (likelihood_dims, likelihood.reshape(likelihood_shape).swapaxes(3, 2))},
+                coords=coords)
+        except np.AxisError:
+            results = xr.Dataset(
+                {'causal_posterior': (posterior_dims, causal_posterior.squeeze()),
+                 'likelihood': (likelihood_dims, likelihood.squeeze())},
+                coords=coords)
         if use_smoother:
-            logger.info('Finding acausal replay probability and position...')
+            logger.info(
+                'Finding acausal non-local probability and position...')
             acausal_posterior, state_probability, _, _ = _smoother(
                 causal_posterior, self.movement_state_transition_,
                 replay_state_transition, observed_position_bin, uniform)
-            results['acausal_posterior'] = (posterior_dims, acausal_posterior)
-
-        results['replay_probability'] = (['time'], state_probability[:, 1])
+            try:
+                results['acausal_posterior'] = (
+                    posterior_dims, acausal_posterior.reshape(posterior_shape).swapaxes(3, 2))
+            except np.AxisError:
+                results['acausal_posterior'] = (
+                    posterior_dims, acausal_posterior.squeeze())
+        results['non_local_probability'] = (['time'], state_probability[:, 1])
 
         return results
 
@@ -367,7 +411,7 @@ class ReplayDetector(BaseEstimator):
         for ind, ax in enumerate(axes.flat):
             if ind < n_neurons:
                 mask = np.ones_like(self.place_bin_centers_.squeeze())
-                mask[~self.is_track_interior_] = np.nan
+                mask[~self.is_track_interior_.ravel(order='F')] = np.nan
                 ax.plot(self.place_bin_centers_,
                         place_conditional_intensity[:, ind] *
                         sampling_frequency * mask, color='black', linewidth=1,
