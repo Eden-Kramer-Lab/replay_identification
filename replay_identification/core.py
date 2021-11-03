@@ -82,8 +82,8 @@ def _causal_classifier(likelihood, movement_state_transition, replay_state_trans
 
 
 @njit(cache=True, nogil=True, error_model='numpy')
-def _smoother(filter_posterior, movement_state_transition,
-              replay_state_transition, observed_position_bin, uniform):
+def _acausal_classifier(filter_posterior, movement_state_transition,
+                        replay_state_transition, observed_position_bin, uniform):
     '''
     Parameters
     ----------
