@@ -14,7 +14,8 @@ from statsmodels.tsa.tsatools import lagmat
 from .bins import (atleast_2d, get_centers, get_grid,
                    get_observed_position_bin, get_track_grid,
                    get_track_interior)
-from .core import _filter, _smoother, replace_NaN, return_None
+from .core import (_acausal_classifier, _causal_classifier, replace_NaN,
+                   return_None)
 from .lfp_likelihood import fit_lfp_likelihood
 from .movement_state_transition import (empirical_movement, random_walk,
                                         random_walk_on_track_graph)
@@ -252,7 +253,7 @@ class ReplayDetector(BaseEstimator):
 
     def predict(self, speed, position, lfp_power=None, spikes=None,
                 multiunit=None, use_likelihoods=_DEFAULT_LIKELIHOODS,
-                time=None, use_smoother=True):
+                time=None, use_acausal=True):
         """Predict the probability of replay and replay position/position.
 
         Parameters
@@ -268,7 +269,7 @@ class ReplayDetector(BaseEstimator):
              (speed | lfp_power | spikes | multiunit)
         time : ndarray or None, shape (n_time,), optional
             Experiment time will be included in the results if specified.
-        use_smoother : bool, True
+        use_acausal : bool, True
 
         Returns
         -------
@@ -322,7 +323,7 @@ class ReplayDetector(BaseEstimator):
         uniform /= uniform.sum()
 
         logger.info('Finding causal non-local probability and position...')
-        causal_posterior, state_probability, _ = _filter(
+        causal_posterior, state_probability, _ = _causal_classifier(
             likelihood, self.movement_state_transition_,
             replay_state_transition, observed_position_bin,
             uniform)
@@ -371,10 +372,10 @@ class ReplayDetector(BaseEstimator):
                 {'causal_posterior': (posterior_dims, causal_posterior.squeeze()),
                  'likelihood': (likelihood_dims, likelihood.squeeze())},
                 coords=coords)
-        if use_smoother:
+        if use_acausal:
             logger.info(
                 'Finding acausal non-local probability and position...')
-            acausal_posterior, state_probability, _, _ = _smoother(
+            acausal_posterior, state_probability, _, _ = _acausal_classifier(
                 causal_posterior, self.movement_state_transition_,
                 replay_state_transition, observed_position_bin, uniform)
             try:
