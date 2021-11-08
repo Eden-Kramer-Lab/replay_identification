@@ -184,6 +184,7 @@ class ReplayDetector(BaseEstimator):
 
         self.fit_place_grid(position, track_graph,
                             edge_order, edge_spacing)
+        is_track_interior = self.is_track_interior_.ravel(order='F')
 
         try:
             logger.info('Fitting speed model...')
@@ -206,7 +207,7 @@ class ReplayDetector(BaseEstimator):
             self._spiking_likelihood = fit_spiking_likelihood(
                 position, spikes, is_training,
                 self.place_bin_centers_,  self.place_bin_edges_,
-                self.is_track_interior_, self.spike_model_penalty,
+                is_track_interior, self.spike_model_penalty,
                 self.spike_model_knot_spacing)
         else:
             self._spiking_likelihood = return_None
@@ -218,7 +219,7 @@ class ReplayDetector(BaseEstimator):
                 position, multiunit, is_training, self.place_bin_centers_,
                 self.multiunit_density_model, self.multiunit_model_kwargs,
                 self.multiunit_occupancy_model,
-                self.multiunit_occupancy_kwargs, self.is_track_interior_
+                self.multiunit_occupancy_kwargs, is_track_interior
             )
         else:
             self._multiunit_likelihood = return_None
@@ -241,7 +242,7 @@ class ReplayDetector(BaseEstimator):
         elif self.movement_state_transition_type == 'random_walk':
             self.movement_state_transition_ = random_walk(
                 self.place_bin_centers_, self.movement_var,
-                self.is_track_interior_, self.replay_speed)
+                is_track_interior, self.replay_speed)
 
         logger.info('Fitting replay state transition...')
         self.replay_state_transition_ = _DISCRETE_STATE_TRANSITIONS[
