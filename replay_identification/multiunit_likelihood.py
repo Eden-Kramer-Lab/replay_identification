@@ -77,7 +77,7 @@ def estimate_replay_log_likelihood(
 
     '''
 
-    n_bin = place_bin_centers.size
+    n_bin = place_bin_centers.shape[0]
     n_time = multiunits.shape[1]
     log_likelihood = np.zeros((n_time, n_bin))
 
