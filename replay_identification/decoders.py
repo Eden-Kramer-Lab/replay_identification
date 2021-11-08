@@ -29,9 +29,9 @@ sklearn.set_config(print_changed_only=False)
 
 _DEFAULT_LIKELIHOODS = ['multiunit']
 _DEFAULT_MULTIUNIT_KWARGS = dict(
-    bandwidth=np.array([24.0, 24.0, 24.0, 24.0, 6.0]))
+    bandwidth=np.array([24.0, 24.0, 24.0, 24.0, 6.0, 6.0]))
 _DEFAULT_LFP_KWARGS = dict(n_components=1, max_iter=200, tol=1E-6)
-_DEFAULT_OCCUPANCY_KWARGS = dict(bandwidth=np.array([6.0]))
+_DEFAULT_OCCUPANCY_KWARGS = dict(bandwidth=np.array([6.0, 6.0]))
 
 
 class ReplayDetector(BaseEstimator):
