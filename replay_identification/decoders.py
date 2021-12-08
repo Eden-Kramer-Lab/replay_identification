@@ -78,23 +78,29 @@ class ReplayDetector(BaseEstimator):
 
     """
 
-    def __init__(self, speed_threshold=4.0, spike_model_penalty=0.5,
-                 replay_state_transition_penalty=1E-5,
-                 place_bin_size=2.0, position_range=None,
-                 is_track_interior=None,
-                 infer_track_interior=True, replay_speed=1,
-                 movement_var=4.0, spike_model_knot_spacing=5,
-                 speed_knots=None,
-                 multiunit_density_model=NumbaKDE,
-                 multiunit_model_kwargs=_DEFAULT_MULTIUNIT_KWARGS,
-                 multiunit_occupancy_model=NumbaKDE,
-                 multiunit_occupancy_kwargs=_DEFAULT_OCCUPANCY_KWARGS,
-                 lfp_model=BayesianGaussianMixture,
-                 lfp_model_kwargs=_DEFAULT_LFP_KWARGS,
-                 movement_state_transition_type='empirical',
-                 discrete_state_transition_type='ripples_with_speed_threshold',
-                 discrete_diagonal=None,
-                 ):
+    def __init__(
+        self,
+        speed_threshold=4.0,
+        spike_model_penalty=0.5,
+        replay_state_transition_penalty=1E-5,
+        place_bin_size=2.0,
+        position_range=None,
+        is_track_interior=None,
+        infer_track_interior=True,
+        replay_speed=1,
+        movement_var=4.0,
+        spike_model_knot_spacing=5,
+        speed_knots=None,
+        multiunit_density_model=NumbaKDE,
+        multiunit_model_kwargs=_DEFAULT_MULTIUNIT_KWARGS,
+        multiunit_occupancy_model=NumbaKDE,
+        multiunit_occupancy_kwargs=_DEFAULT_OCCUPANCY_KWARGS,
+        lfp_model=BayesianGaussianMixture,
+        lfp_model_kwargs=_DEFAULT_LFP_KWARGS,
+        movement_state_transition_type='empirical',
+        discrete_state_transition_type='ripples_with_speed_threshold',
+        discrete_diagonal=None,
+    ):
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
         self.replay_state_transition_penalty = replay_state_transition_penalty
@@ -254,7 +260,8 @@ class ReplayDetector(BaseEstimator):
 
     def predict(self, speed, position, lfp_power=None, spikes=None,
                 multiunit=None, use_likelihoods=_DEFAULT_LIKELIHOODS,
-                time=None, use_acausal=True):
+                time=None, use_acausal=True,
+                set_no_spike_to_equally_likely=True):
         """Predict the probability of replay and replay position/position.
 
         Parameters
@@ -271,6 +278,9 @@ class ReplayDetector(BaseEstimator):
         time : ndarray or None, shape (n_time,), optional
             Experiment time will be included in the results if specified.
         use_acausal : bool, True
+        set_no_spike_to_equally_likely : bool, True
+            If there are no spikes in a time bin, likelihood is 1 for all
+            positions.
 
         Returns
         -------
@@ -299,14 +309,23 @@ class ReplayDetector(BaseEstimator):
         likelihood = np.ones((n_time, 2, 1))
 
         likelihoods = {
-            'speed': partial(self._speed_likelihood, speed=speed,
-                             lagged_speed=lagged_speed),
-            'lfp_power': partial(self._lfp_likelihood,
-                                 ripple_band_power=lfp_power),
-            'spikes': partial(self._spiking_likelihood,
-                              spikes=spikes, position=position),
-            'multiunit': partial(self._multiunit_likelihood,
-                                 multiunit=multiunit, position=position)
+            'speed': partial(
+                self._speed_likelihood,
+                speed=speed,
+                lagged_speed=lagged_speed),
+            'lfp_power': partial(
+                self._lfp_likelihood,
+                ripple_band_power=lfp_power),
+            'spikes': partial(
+                self._spiking_likelihood,
+                spikes=spikes,
+                position=position,
+                set_no_spike_to_equally_likely=set_no_spike_to_equally_likely),
+            'multiunit': partial(
+                self._multiunit_likelihood,
+                multiunit=multiunit,
+                position=position,
+                set_no_spike_to_equally_likely=set_no_spike_to_equally_likely)
         }
 
         for name, likelihood_func in likelihoods.items():

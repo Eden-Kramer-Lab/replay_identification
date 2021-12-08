@@ -53,7 +53,8 @@ def poisson_log_likelihood(spikes, conditional_intensity):
 
 def spiking_likelihood(
         spikes, position, design_matrix, place_field_coefficients,
-        place_conditional_intensity, is_track_interior):
+        place_conditional_intensity, is_track_interior,
+        set_no_spike_to_equally_likely=True):
     """Computes the likelihood of non-local and local events.
 
     Parameters
@@ -76,25 +77,26 @@ def spiking_likelihood(
         local_design_matrix, place_field_coefficients, sampling_frequency=1)
     n_time = spikes.shape[0]
     n_place_bins = place_conditional_intensity.shape[0]
-    spiking_likelihood = np.zeros((n_time, 2, n_place_bins))
+    spiking_log_likelihood = np.zeros((n_time, 2, n_place_bins))
 
     # Non-Local
-    spiking_likelihood[:, 1, :] = (combined_likelihood(
+    spiking_log_likelihood[:, 1, :] = (combined_likelihood(
         spikes.T[..., np.newaxis],
         place_conditional_intensity.T[:, np.newaxis, :]))
 
     # Local
-    spiking_likelihood[:, 0, :] = (combined_likelihood(
+    spiking_log_likelihood[:, 0, :] = (combined_likelihood(
         spikes.T, local_conditional_intensity.T)
     )
 
-    no_spike = np.isclose(spikes.sum(axis=1), 0.0)
-    spiking_likelihood[no_spike] = 0.0
+    if set_no_spike_to_equally_likely:
+        no_spike = np.isclose(spikes.sum(axis=1), 0.0)
+        spiking_log_likelihood[no_spike] = 0.0
 
     is_track_interior = is_track_interior.ravel(order='F')
-    spiking_likelihood[:, :, ~is_track_interior] = np.nan
+    spiking_log_likelihood[:, :, ~is_track_interior] = np.nan
 
-    return scale_likelihood(spiking_likelihood)
+    return scale_likelihood(spiking_log_likelihood)
 
 
 def combined_likelihood(spikes, conditional_intensity):

@@ -16,7 +16,8 @@ SQRT_2PI = np.float64(np.sqrt(2.0 * np.pi))
 
 def multiunit_likelihood(multiunit, position, place_bin_centers,
                          occupancy_model, joint_models, marginal_models,
-                         mean_rates, is_track_interior, time_bin_size=1):
+                         mean_rates, is_track_interior, time_bin_size=1,
+                         set_no_spike_to_equally_likely=True):
     '''The likelihood of being in a replay state vs. not a replay state based
     on whether the multiunits correspond to the current position of the animal.
 
@@ -48,8 +49,9 @@ def multiunit_likelihood(multiunit, position, place_bin_centers,
         np.moveaxis(multiunit, -1, 0), position, occupancy_model,
         joint_models, marginal_models, mean_rates, time_bin_size))
 
-    no_spike = np.all(np.isnan(multiunit), axis=(1, 2))
-    multiunit_likelihood[no_spike] = 0.0
+    if set_no_spike_to_equally_likely:
+        no_spike = np.all(np.isnan(multiunit), axis=(1, 2))
+        multiunit_likelihood[no_spike] = 0.0
     multiunit_likelihood[:, :, ~is_track_interior] = np.nan
 
     return scale_likelihood(multiunit_likelihood)
