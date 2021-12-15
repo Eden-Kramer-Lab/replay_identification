@@ -61,6 +61,7 @@ def fit_speed_likelihood(speed, is_replay, speed_threshold=4.0):
     speed_likelihood : function
 
     """
+    is_replay = np.asarray(is_replay).astype(bool)
     lagged_speed = lagmat(speed, 1)
     lagged_speed[0] = speed[0]
     replay_coefficients, replay_scale = fit_speed_model(

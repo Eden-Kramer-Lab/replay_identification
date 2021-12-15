@@ -21,15 +21,24 @@ logger = getLogger(__name__)
 
 
 @dask.delayed
-def fit_glm(response, design_matrix, penalty=None, tolerance=1E-5):
+def fit_glm(response, design_matrix, is_training=None,
+            penalty=None, tolerance=1E-5):
     if penalty is not None:
         penalty = np.ones((design_matrix.shape[1],)) * penalty
         penalty[0] = 0.0  # don't penalize the intercept
     else:
         penalty = np.finfo(np.float).eps
+
+    if is_training is not None:
+        is_training = atleast_2d(is_training)
+
     return penalized_IRLS(
-        design_matrix, response.squeeze(), family=families.Poisson(),
-        penalty=penalty, tolerance=tolerance)
+        design_matrix,
+        response.squeeze(),
+        family=families.Poisson(),
+        penalty=penalty,
+        tolerance=tolerance,
+        prior_weights=is_training)
 
 
 def poisson_log_likelihood(spikes, conditional_intensity):
@@ -54,7 +63,7 @@ def poisson_log_likelihood(spikes, conditional_intensity):
 def spiking_likelihood(
         spikes, position, design_matrix, place_field_coefficients,
         place_conditional_intensity, is_track_interior,
-        set_no_spike_to_equally_likely=True):
+        set_no_spike_to_equally_likely=False):
     """Computes the likelihood of non-local and local events.
 
     Parameters
@@ -180,15 +189,21 @@ def fit_spiking_likelihood(position, spikes, is_training,
         logging.warning("Range of position is smaller than knot spacing.")
     is_nan = np.any(np.isnan(position), axis=1)
     design_matrix = make_spline_design_matrix(
-        position[is_training & ~is_nan], place_bin_edges, knot_spacing)
+        position[~is_nan], place_bin_edges, knot_spacing)
     try:
         client = get_client()
     except ValueError:
         client = Client()
     dm = client.scatter(np.asarray(design_matrix), broadcast=True)
+    is_training = np.asarray(is_training).astype(float)
+    is_training[np.isclose(is_training, 0.0)] = np.spacing(3)
+
     place_field_coefficients = [
-        fit_glm(is_spike[is_training & ~is_nan], dm, penalty).coefficients
-        for is_spike in spikes.T]
+        fit_glm(is_spike,
+                dm,
+                is_training[~is_nan],
+                penalty).coefficients
+        for is_spike in spikes[~is_nan].T]
     place_field_coefficients = np.stack(
         dask.compute(*place_field_coefficients), axis=1)
 
