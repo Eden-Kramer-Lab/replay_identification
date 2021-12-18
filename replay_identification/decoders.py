@@ -343,7 +343,8 @@ class ReplayDetector(BaseEstimator):
         uniform /= uniform.sum()
 
         logger.info('Finding causal non-local probability and position...')
-        causal_posterior, state_probability, _ = _causal_classifier(
+        (causal_posterior, state_probability, _,
+         data_log_likelihood) = _causal_classifier(
             likelihood, self.movement_state_transition_,
             replay_state_transition, observed_position_bin,
             uniform)
@@ -386,12 +387,14 @@ class ReplayDetector(BaseEstimator):
             results = xr.Dataset(
                 {'causal_posterior': (posterior_dims, causal_posterior.reshape(posterior_shape).swapaxes(3, 2)),
                  'likelihood': (likelihood_dims, likelihood.reshape(likelihood_shape).swapaxes(3, 2))},
-                coords=coords)
+                coords=coords,
+                attrs=dict(data_log_likelihood=data_log_likelihood))
         except np.AxisError:
             results = xr.Dataset(
                 {'causal_posterior': (posterior_dims, causal_posterior.squeeze()),
                  'likelihood': (likelihood_dims, likelihood.squeeze())},
-                coords=coords)
+                coords=coords,
+                attrs=dict(data_log_likelihood=data_log_likelihood))
         if use_acausal:
             logger.info(
                 'Finding acausal non-local probability and position...')

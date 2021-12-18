@@ -53,7 +53,10 @@ def _causal_classifier(likelihood, movement_state_transition, replay_state_trans
     state_probability = np.zeros((n_time, n_states))
 
     # Initial Conditions
-    posterior[0, 0, observed_position_bin[0]] = 1.0
+    posterior[0, 0, observed_position_bin[0]] = likelihood[0, 0, 0]
+    norm = np.nansum(posterior[0])
+    data_log_likelihood = np.log(norm)
+    posterior[0] /= norm
     state_probability[0] = np.sum(posterior[0], axis=1)
 
     for k in np.arange(1, n_time):
@@ -73,12 +76,14 @@ def _causal_classifier(likelihood, movement_state_transition, replay_state_trans
             replay_state_transition[k, 1] *
             (movement_state_transition.T @ posterior[k - 1, 1]))
 
-        posterior[k] = normalize_to_probability(
-            prior[k] * likelihood[k])
+        posterior[k] = prior[k] * likelihood[k]
+        norm = np.nansum(posterior[k])
+        data_log_likelihood += np.log(norm)
+        posterior[k] /= norm
 
         state_probability[k] = np.sum(posterior[k], axis=1)
 
-    return posterior, state_probability, prior
+    return posterior, state_probability, prior, data_log_likelihood
 
 
 @njit(cache=True, nogil=True, error_model='numpy')
