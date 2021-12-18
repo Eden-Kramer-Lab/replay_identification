@@ -14,13 +14,15 @@ from statsmodels.tsa.tsatools import lagmat
 from .bins import (atleast_2d, get_centers, get_grid,
                    get_observed_position_bin, get_track_grid,
                    get_track_interior)
-from .core import (_acausal_classifier, _causal_classifier, replace_NaN,
-                   return_None)
+from .core import (_acausal_classifier, _causal_classifier, check_converged,
+                   replace_NaN, return_None)
 from .lfp_likelihood import fit_lfp_likelihood
 from .movement_state_transition import (empirical_movement, random_walk,
                                         random_walk_on_track_graph)
 from .multiunit_likelihood import NumbaKDE, fit_multiunit_likelihood
-from .replay_state_transition import _DISCRETE_STATE_TRANSITIONS
+from .replay_state_transition import (_DISCRETE_STATE_TRANSITIONS,
+                                      _constant_probability,
+                                      estimate_discrete_state_transition)
 from .speed_likelhood import fit_speed_likelihood
 from .spiking_likelihood import fit_spiking_likelihood
 
@@ -160,10 +162,55 @@ class ReplayDetector(BaseEstimator):
 
         return self
 
+    def estimate_parameters(self, fit_args, predict_args, tolerance=1E-4,
+                            max_iter=10, estimate_state_transition=True,
+                            estimate_likelihood=True):
+
+        self.fit(**fit_args)
+        results = self.predict(**predict_args)
+
+        data_log_likelihoods = [results.data_log_likelihood]
+        log_likelihood_change = np.inf
+        converged = False
+        increasing = True
+        n_iter = 0
+
+        logger.info(
+            f'iteration {n_iter}, likelihood: {data_log_likelihoods[-1]}')
+
+        while not converged and (n_iter <= max_iter):
+            if estimate_state_transition:
+                discrete_state_transition = estimate_discrete_state_transition(
+                    self, results)
+                self.replay_state_transition_ = partial(
+                    _constant_probability,
+                    diagonal=discrete_state_transition[:, 1])
+            if estimate_likelihood:
+                fit_args['is_training'] = 1 - results.non_local_probability
+                fit_args['refit'] = True
+                self.fit(**fit_args)
+            results = self.predict(**predict_args)
+            data_log_likelihoods.append(results.data_log_likelihood)
+            log_likelihood_change = (
+                data_log_likelihoods[-1] - data_log_likelihoods[-2])
+            n_iter += 1
+
+            converged, increasing = check_converged(
+                data_log_likelihoods[-1], data_log_likelihoods[-2], tolerance)
+
+            logger.info(
+                f'iteration {n_iter}, '
+                f'likelihood: {data_log_likelihoods[-1]}, '
+                f'change: {log_likelihood_change}'
+            )
+
+        return results, data_log_likelihoods
+
     def fit(self, is_ripple, speed, position, lfp_power=None,
             spikes=None, multiunit=None, is_track_interior=None,
             track_graph=None, edge_order=None,
-            edge_spacing=None, is_training=None):
+            edge_spacing=None, is_training=None,
+            refit=False):
         """Train the model on replay and non-replay periods.
 
         Parameters
@@ -250,11 +297,12 @@ class ReplayDetector(BaseEstimator):
                 self.place_bin_centers_, self.movement_var,
                 is_track_interior, self.replay_speed)
 
-        logger.info('Fitting replay state transition...')
-        self.replay_state_transition_ = _DISCRETE_STATE_TRANSITIONS[
-            self.discrete_state_transition_type](
-            speed, is_ripple, self.replay_state_transition_penalty,
-            self.speed_knots, self.discrete_diagonal)
+        if not refit:
+            logger.info('Fitting replay state transition...')
+            self.replay_state_transition_ = _DISCRETE_STATE_TRANSITIONS[
+                self.discrete_state_transition_type](
+                speed, is_ripple, self.replay_state_transition_penalty,
+                self.speed_knots, self.discrete_diagonal)
 
         return self
 

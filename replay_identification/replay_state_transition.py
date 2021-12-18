@@ -199,6 +199,33 @@ def predict(design_matrix, coefficients):
     return FAMILY.link.inverse(design_matrix @ np.squeeze(coefficients))
 
 
+def estimate_discrete_state_transition(classifier, results):
+    try:
+        causal_prob = results.causal_posterior.sum('position').values
+        acausal_prob = results.acausal_posterior.sum('position').values
+    except ValueError:
+        causal_prob = results.causal_posterior.sum(
+            ['x_position', 'y_position']).values
+        acausal_prob = results.acausal_posterior.sum(
+            ['x_position', 'y_position']).values
+
+    # only works with constant transition matrix
+    transition = classifier.replay_state_transition_(np.arange(1))[0]
+    discrete_state_transition = np.asarray(
+        [[1 - transition[0], transition[0]],
+         [1 - transition[1], transition[1]]])
+    EPS = 1e-32
+    discrete_state_transition = (
+        discrete_state_transition[np.newaxis] *
+        causal_prob[2:-1, np.newaxis] *
+        acausal_prob[3:, np.newaxis] /
+        causal_prob[3:, np.newaxis]).sum(axis=0) + EPS
+    discrete_state_transition /= discrete_state_transition.sum(
+        axis=1, keepdims=True)
+
+    return discrete_state_transition
+
+
 _DISCRETE_STATE_TRANSITIONS = {
     'ripples_with_speed_threshold': fit_replay_state_transition,
     'ripples_no_speed_threshold': fit_replay_state_transition_no_speed,

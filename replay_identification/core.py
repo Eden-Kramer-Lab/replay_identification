@@ -192,3 +192,13 @@ def scale_likelihood(log_likelihood):
     '''
     return np.exp(log_likelihood -
                   np.nanmax(log_likelihood, axis=(1, 2), keepdims=True))
+
+
+def check_converged(loglik, previous_loglik, tolerance=1e-4):
+    delta_loglik = abs(loglik - previous_loglik)
+    avg_loglik = (abs(loglik) + abs(previous_loglik) + np.spacing(1)) / 2
+
+    is_increasing = loglik - previous_loglik >= -1e-3
+    is_converged = (delta_loglik / avg_loglik) < tolerance
+
+    return is_converged, is_increasing
