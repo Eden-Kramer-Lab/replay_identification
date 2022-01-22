@@ -4,11 +4,13 @@ channels:
 - conda-forge
 - edeno
 dependencies:
-- "python>=3.6"
+- python
 - numpy
 - numba
+- cupy
 - scipy
 - statsmodels
+- seaborn
 - scikit-learn
 - matplotlib
 - networkx
