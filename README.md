@@ -1,4 +1,5 @@
 # replay_identification
+[![PR Test](https://github.com/Eden-Kramer-Lab/replay_identification/actions/workflows/PR-test.yml/badge.svg)](https://github.com/Eden-Kramer-Lab/replay_identification/actions/workflows/PR-test.yml)
 [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/Eden-Kramer-Lab/replay_identification/python-version)
 [![DOI](https://zenodo.org/badge/105480682.svg)](https://zenodo.org/badge/latestdoi/105480682)
 
