@@ -404,13 +404,13 @@ class ReplayDetector(BaseEstimator):
 
         logger.info('Finding causal non-local probability and position...')
         if not use_gpu:
-            (causal_posterior, state_probability, _,
+            (causal_posterior, state_probability,
              data_log_likelihood) = _causal_classifier(
                 likelihood, self.movement_state_transition_,
                 replay_state_transition, observed_position_bin,
                 uniform)
         else:
-            (causal_posterior, state_probability, _,
+            (causal_posterior, state_probability,
              data_log_likelihood) = _causal_classifier_gpu(
                 likelihood, self.movement_state_transition_,
                 replay_state_transition, observed_position_bin,
@@ -467,11 +467,11 @@ class ReplayDetector(BaseEstimator):
                 'Finding acausal non-local probability and position...')
 
             if not use_gpu:
-                acausal_posterior, state_probability, _, _ = _acausal_classifier(
+                acausal_posterior, state_probability = _acausal_classifier(
                     causal_posterior, self.movement_state_transition_,
                     replay_state_transition, observed_position_bin, uniform)
             else:
-                acausal_posterior, state_probability, _, _ = _acausal_classifier_gpu(
+                acausal_posterior, state_probability = _acausal_classifier_gpu(
                     causal_posterior, self.movement_state_transition_,
                     replay_state_transition, observed_position_bin, uniform)
 

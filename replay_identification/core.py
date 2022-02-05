@@ -50,7 +50,6 @@ def _causal_classifier(likelihood, movement_state_transition, replay_state_trans
     n_states = 2
 
     posterior = np.zeros((n_time, n_states, n_position_bins))
-    prior = np.zeros_like(posterior)
     state_probability = np.zeros((n_time, n_states))
 
     # Initial Conditions
@@ -61,30 +60,31 @@ def _causal_classifier(likelihood, movement_state_transition, replay_state_trans
     state_probability[0] = np.sum(posterior[0], axis=1)
 
     for k in np.arange(1, n_time):
+        prior = np.zeros((n_states, n_position_bins))
         position_ind = observed_position_bin[k]
         # I_{k - 1} = 0, I_{k} = 0
-        prior[k, 0, position_ind] = (
+        prior[0, position_ind] = (
             (1 - replay_state_transition[k, 0]) * state_probability[k - 1, 0])
         # I_{k - 1} = 1, I_{k} = 0
-        prior[k, 0, position_ind] += (
+        prior[0, position_ind] += (
             (1 - replay_state_transition[k, 1]) * state_probability[k - 1, 1])
 
         # I_{k - 1} = 0, I_{k} = 1
-        prior[k, 1] = (replay_state_transition[k, 0] * uniform *
-                       state_probability[k - 1, 0])
+        prior[1] = (replay_state_transition[k, 0] * uniform *
+                    state_probability[k - 1, 0])
         # I_{k - 1} = 1, I_{k} = 1
-        prior[k, 1] += (
+        prior[1] += (
             replay_state_transition[k, 1] *
             (movement_state_transition.T @ posterior[k - 1, 1]))
 
-        posterior[k] = prior[k] * likelihood[k]
+        posterior[k] = prior * likelihood[k]
         norm = np.nansum(posterior[k])
         data_log_likelihood += np.log(norm)
         posterior[k] /= norm
 
         state_probability[k] = np.sum(posterior[k], axis=1)
 
-    return posterior, state_probability, prior, data_log_likelihood
+    return posterior, state_probability, data_log_likelihood
 
 
 @njit(cache=True, nogil=True, error_model='numpy')
@@ -120,63 +120,62 @@ def _acausal_classifier(filter_posterior, movement_state_transition,
     filter_probability = np.sum(filter_posterior, axis=2)
 
     smoother_posterior = np.zeros_like(filter_posterior)
-    smoother_prior = np.zeros_like(filter_posterior)
-    weights = np.zeros_like(filter_posterior)
     n_time, _, n_position_bins = filter_posterior.shape
 
     smoother_posterior[-1] = filter_posterior[-1].copy()
 
     for k in np.arange(n_time - 2, -1, -1):
+        smoother_prior = np.zeros((2, n_position_bins))
+        weights = np.zeros((2, n_position_bins))
         position_ind = observed_position_bin[k + 1]
 
         # Predict p(x_{k + 1}, I_{k + 1} \vert H_{1:k})
         # I_{k} = 0, I_{k + 1} = 0
-        smoother_prior[k, 0, position_ind] = (
+        smoother_prior[0, position_ind] = (
             (1 - replay_state_transition[k + 1, 0]) * filter_probability[k, 0])
 
         # I_{k} = 1, I_{k + 1} = 0
-        smoother_prior[k, 0, position_ind] += (
+        smoother_prior[0, position_ind] += (
             (1 - replay_state_transition[k + 1, 1]) * filter_probability[k, 1])
 
         # I_{k} = 0, I_{k + 1} = 1
-        smoother_prior[k, 1] = (
+        smoother_prior[1] = (
             replay_state_transition[k + 1, 0] * uniform *
             filter_probability[k, 0])
 
         # I_{k} = 1, I_{k + 1} = 1
-        smoother_prior[k, 1] += (
+        smoother_prior[1] += (
             replay_state_transition[k + 1, 1] *
             (movement_state_transition.T @ filter_posterior[k, 1]))
 
         # Update p(x_{k}, I_{k} \vert H_{1:k})
         ratio = np.exp(
-            np.log(smoother_posterior[k + 1] + np.spacing(1)) -
-            np.log(smoother_prior[k] + np.spacing(1)))
+            np.log(smoother_posterior[k + 1]) -
+            np.log(smoother_prior + np.spacing(1)))
         integrated_ratio = np.sum(ratio, axis=1)
         # I_{k} = 0, I_{k + 1} = 0
-        weights[k, 0] = (
+        weights[0] = (
             (1 - replay_state_transition[k + 1, 0]) * ratio[0, position_ind])
 
         # I_{k} = 0, I_{k + 1} = 1
-        weights[k, 0] += (
+        weights[0] += (
             uniform * replay_state_transition[k + 1, 0] * integrated_ratio[1])
 
         # I_{k} = 1, I_{k + 1} = 0
-        weights[k, 1] = (
+        weights[1] = (
             (1 - replay_state_transition[k + 1, 1]) * ratio[0, position_ind])
 
         # I_{k} = 1, I_{k + 1} = 1
-        weights[k, 1] += (
+        weights[1] += (
             replay_state_transition[k + 1, 1] *
             ratio[1] @ movement_state_transition)
 
         smoother_posterior[k] = normalize_to_probability(
-            weights[k] * filter_posterior[k])
+            weights * filter_posterior[k])
 
-    smoother_probability = (
-        np.sum(smoother_posterior, axis=2))
+    smoother_probability = np.sum(smoother_posterior, axis=2)
 
-    return smoother_posterior, smoother_probability, smoother_prior, weights
+    return smoother_posterior, smoother_probability
 
 
 def scale_likelihood(log_likelihood):
@@ -243,7 +242,6 @@ def _causal_classifier_gpu(likelihood, movement_state_transition, replay_state_t
     n_states = 2
 
     posterior = cp.zeros((n_time, n_states, n_position_bins), dtype=cp.float32)
-    prior = cp.zeros_like(posterior)
     state_probability = cp.zeros((n_time, n_states), dtype=cp.float32)
 
     # Initial Conditions
@@ -254,23 +252,24 @@ def _causal_classifier_gpu(likelihood, movement_state_transition, replay_state_t
     state_probability[0] = cp.sum(posterior[0], axis=1)
 
     for k in np.arange(1, n_time):
+        prior = cp.zeros((n_states, n_position_bins), dtype=cp.float32)
         position_ind = observed_position_bin[k]
         # I_{k - 1} = 0, I_{k} = 0
-        prior[k, 0, position_ind] = (
+        prior[0, position_ind] = (
             (1 - replay_state_transition[k, 0]) * state_probability[k - 1, 0])
         # I_{k - 1} = 1, I_{k} = 0
-        prior[k, 0, position_ind] += (
+        prior[0, position_ind] += (
             (1 - replay_state_transition[k, 1]) * state_probability[k - 1, 1])
 
         # I_{k - 1} = 0, I_{k} = 1
-        prior[k, 1] = (replay_state_transition[k, 0] * uniform *
-                       state_probability[k - 1, 0])
+        prior[1] = (replay_state_transition[k, 0] * uniform *
+                    state_probability[k - 1, 0])
         # I_{k - 1} = 1, I_{k} = 1
-        prior[k, 1] += (
+        prior[1] += (
             replay_state_transition[k, 1] *
             (movement_state_transition.T @ posterior[k - 1, 1]))
 
-        posterior[k] = prior[k] * likelihood[k]
+        posterior[k] = prior * likelihood[k]
         norm = cp.nansum(posterior[k])
         data_log_likelihood += cp.log(norm)
         posterior[k] /= norm
@@ -279,7 +278,6 @@ def _causal_classifier_gpu(likelihood, movement_state_transition, replay_state_t
 
     return (cp.asnumpy(posterior),
             cp.asnumpy(state_probability),
-            cp.asnumpy(prior),
             data_log_likelihood)
 
 
@@ -325,62 +323,61 @@ def _acausal_classifier_gpu(filter_posterior, movement_state_transition,
     filter_probability = cp.sum(filter_posterior, axis=2)
 
     smoother_posterior = cp.zeros_like(filter_posterior)
-    smoother_prior = cp.zeros_like(filter_posterior)
-    weights = cp.zeros_like(filter_posterior)
     n_time, _, n_position_bins = filter_posterior.shape
 
     smoother_posterior[-1] = filter_posterior[-1].copy()
 
     for k in cp.arange(n_time - 2, -1, -1):
+        smoother_prior = cp.zeros((2, n_position_bins), dtype=cp.float32)
+        weights = cp.zeros((2, n_position_bins), dtype=cp.float32)
+
         position_ind = observed_position_bin[k + 1]
 
         # Predict p(x_{k + 1}, I_{k + 1} \vert H_{1:k})
         # I_{k} = 0, I_{k + 1} = 0
-        smoother_prior[k, 0, position_ind] = (
+        smoother_prior[0, position_ind] = (
             (1 - replay_state_transition[k + 1, 0]) * filter_probability[k, 0])
 
         # I_{k} = 1, I_{k + 1} = 0
-        smoother_prior[k, 0, position_ind] += (
+        smoother_prior[0, position_ind] += (
             (1 - replay_state_transition[k + 1, 1]) * filter_probability[k, 1])
 
         # I_{k} = 0, I_{k + 1} = 1
-        smoother_prior[k, 1] = (
+        smoother_prior[1] = (
             replay_state_transition[k + 1, 0] * uniform *
             filter_probability[k, 0])
 
         # I_{k} = 1, I_{k + 1} = 1
-        smoother_prior[k, 1] += (
+        smoother_prior[1] += (
             replay_state_transition[k + 1, 1] *
             (movement_state_transition.T @ filter_posterior[k, 1]))
 
         # Update p(x_{k}, I_{k} \vert H_{1:k})
         ratio = cp.exp(
-            cp.log(smoother_posterior[k + 1] + EPS) -
-            cp.log(smoother_prior[k] + EPS))
+            cp.log(smoother_posterior[k + 1]) -
+            cp.log(smoother_prior + EPS))
         integrated_ratio = cp.sum(ratio, axis=1)
         # I_{k} = 0, I_{k + 1} = 0
-        weights[k, 0] = (
+        weights[0] = (
             (1 - replay_state_transition[k + 1, 0]) * ratio[0, position_ind])
 
         # I_{k} = 0, I_{k + 1} = 1
-        weights[k, 0] += (
+        weights[0] += (
             uniform * replay_state_transition[k + 1, 0] * integrated_ratio[1])
 
         # I_{k} = 1, I_{k + 1} = 0
-        weights[k, 1] = (
+        weights[1] = (
             (1 - replay_state_transition[k + 1, 1]) * ratio[0, position_ind])
 
         # I_{k} = 1, I_{k + 1} = 1
-        weights[k, 1] += (
+        weights[1] += (
             replay_state_transition[k + 1, 1] *
             ratio[1] @ movement_state_transition)
 
-        smoother_posterior[k] = weights[k] * filter_posterior[k]
+        smoother_posterior[k] = weights * filter_posterior[k]
         smoother_posterior[k] /= cp.nansum(smoother_posterior[k])
 
     smoother_probability = cp.sum(smoother_posterior, axis=2)
 
     return (cp.asnumpy(smoother_posterior),
-            cp.asnumpy(smoother_probability),
-            cp.asnumpy(smoother_prior),
-            cp.asnumpy(weights))
+            cp.asnumpy(smoother_probability))
