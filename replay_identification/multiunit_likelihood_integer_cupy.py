@@ -1,7 +1,11 @@
+from functools import partial
+
 import cupy as cp
 import numpy as np
 from replay_identification.bins import atleast_2d
 from tqdm.autonotebook import tqdm
+
+from .core import scale_likelihood
 
 SQRT_2PI = cp.sqrt(2.0 * cp.pi)
 
@@ -181,13 +185,13 @@ def estimate_log_joint_mark_intensity(decoding_marks,
             mean_rate))
 
 
-def fit_multiunit_likelihood_integer_cupy(position,
-                                          multiunits,
-                                          place_bin_centers,
-                                          mark_std,
-                                          position_std,
-                                          is_track_interior=None,
-                                          **kwargs):
+def fit_multiunit_likelihood_gpu(position,
+                                 multiunits,
+                                 place_bin_centers,
+                                 mark_std,
+                                 position_std,
+                                 is_track_interior=None,
+                                 **kwargs):
     '''
 
     Parameters
@@ -258,16 +262,20 @@ def fit_multiunit_likelihood_integer_cupy(position,
         cp.stack(ground_process_intensities, axis=0), axis=0, keepdims=True))
     summed_ground_process_intensity += np.spacing(1)
 
-    return {
-        'encoding_marks': encoding_marks,
-        'encoding_positions': encoding_positions,
-        'summed_ground_process_intensity': summed_ground_process_intensity,
-        'occupancy': occupancy,
-        'mean_rates': mean_rates,
-        'mark_std': mark_std,
-        'position_std': position_std,
+    return partial(
+        multiunit_likelihood,
+        place_bin_centers=place_bin_centers,
+        encoding_marks=encoding_marks,
+        encoding_marks_position=encoding_positions,
+        encoding_position=position,
+        summed_ground_process_intensity=summed_ground_process_intensity,
+        occupancy=occupancy,
+        mean_rates=mean_rates,
+        mark_std=mark_std,
+        position_std=position_std,
+        is_track_interior=is_track_interior,
         **kwargs,
-    }
+    )
 
 
 def estimate_multiunit_likelihood_integer_cupy(multiunits,
@@ -378,7 +386,7 @@ def estimate_local_gpi(test_position, enc_pos, occupancy, mean_rate,
         mean_rate)
 
 
-def estimate_non_local_multiunit_likelihood_integer_cupy(
+def estimate_non_local_multiunit_likelihood(
         multiunits,
         encoding_marks,
         mark_std,
@@ -531,13 +539,13 @@ def estimate_local_log_joint_mark_intensity(decoding_marks,
 
     return cp.asnumpy(
         estimate_log_intensity(
-            cp.sum(mark_distance * position_distance,
+            cp.sum(mark_distance * position_distance.T,
                    axis=1) / n_encoding_spikes,
             occupancy,
             mean_rate))
 
 
-def estimate_local_multiunit_likelihood_integer_cupy(
+def estimate_local_multiunit_likelihood(
         decoding_multiunit,
         decoding_position,
         encoding_marks,
@@ -572,10 +580,11 @@ def estimate_local_multiunit_likelihood_integer_cupy(
     log_likelihood = (-time_bin_size * np.ones((n_time,), dtype=np.float32))
 
     decoding_multiunits = np.moveaxis(decoding_multiunit, -1, 0)
+    decoding_position_gpu = cp.asarray(decoding_position, dtype=cp.float32)
 
     local_occupancy = estimate_local_occupancy(
-        train_position=encoding_position,
-        test_position=decoding_position,
+        train_position=cp.asarray(encoding_position, dtype=cp.float32),
+        test_position=decoding_position_gpu,
         position_std=position_std,
         block_size=block_size
     )
@@ -586,13 +595,15 @@ def estimate_local_multiunit_likelihood_integer_cupy(
             encoding_marks, encoding_marks_position, mean_rates):
 
         is_decoding_spike = np.any(~np.isnan(decoding_multiunit), axis=1)
+        is_decoding_spike_gpu = cp.asarray(is_decoding_spike)
         decoding_marks = cp.asarray(
             decoding_multiunit[is_decoding_spike], dtype=cp.int16)
         n_decoding_marks = decoding_marks.shape[0]
+        enc_pos_gpu = cp.asarray(enc_pos, dtype=cp.float32)
 
         log_likelihood += cp.asnumpy(estimate_local_gpi(
-            test_position=decoding_position,
-            enc_pos=enc_pos,
+            test_position=decoding_position_gpu,
+            enc_pos=enc_pos_gpu,
             occupancy=local_occupancy,
             mean_rate=mean_rate,
             position_std=position_std
@@ -605,24 +616,85 @@ def estimate_local_multiunit_likelihood_integer_cupy(
             block_size = n_decoding_marks
 
         position_distance = estimate_position_distance(
-            decoding_position[is_decoding_spike],
-            enc_pos,
+            decoding_position_gpu[is_decoding_spike_gpu],
+            enc_pos_gpu,
             position_std
-        ).astype(cp.float32)
+        ).astype(cp.float32)  # n_encoding_spikes, n_decoding_spikes
 
         for start_ind in range(0, n_decoding_marks, block_size):
             block_inds = slice(start_ind, start_ind + block_size)
             log_joint_mark_intensity[block_inds] = estimate_local_log_joint_mark_intensity(
                 decoding_marks[block_inds],
-                enc_marks,
+                cp.asarray(enc_marks, cp.int16),
                 mark_std,
-                local_occupancy[is_decoding_spike][block_inds],
+                local_occupancy[is_decoding_spike_gpu][block_inds],
                 mean_rate,
                 max_mark_value=max_mark_value,
                 set_diag_zero=set_diag_zero,
-                position_distance=position_distance[block_inds],
+                position_distance=position_distance[:, block_inds],
             )
         log_likelihood[is_decoding_spike] += (
             log_joint_mark_intensity + np.spacing(1))
 
     return log_likelihood
+
+
+def multiunit_likelihood(multiunit, position, place_bin_centers, encoding_marks,
+                         mark_std,
+                         encoding_marks_position, position_std, occupancy,
+                         summed_ground_process_intensity, encoding_position,
+                         mean_rates, is_track_interior, time_bin_size=1,
+                         set_no_spike_to_equally_likely=True,
+                         block_size=None):
+    '''The likelihood of being in a replay state vs. not a replay state based
+    on whether the multiunits correspond to the current position of the animal.
+
+    Parameters
+    ----------
+    multiunit : ndarray, shape (n_time, n_marks, n_electrodes)
+    position : ndarray, shape (n_time,)
+    place_bin_centers : ndarray, shape (n_place_bins,)
+    occupancy_model : list of fitted density models, len (n_electrodes)
+    joint_models : list of fitted density models, len (n_electrodes)
+    marginal_models : list of fitted density models, len (n_electrodes)
+    mean_rates : list of floats, len (n_electrodes)
+    is_track_interior : ndarray, shape (n_bins, n_position_dim)
+    time_bin_size : float, optional
+
+    Returns
+    -------
+    multiunit_likelihood : ndarray, shape (n_time, 2, n_place_bins)
+
+    '''
+    n_time = multiunit.shape[0]
+    n_place_bins = place_bin_centers.size
+    multiunit_likelihood = np.zeros((n_time, 2, n_place_bins))
+    multiunit_likelihood[:, 1, :] = estimate_non_local_multiunit_likelihood(
+        multiunit,
+        encoding_marks,
+        mark_std,
+        place_bin_centers,
+        encoding_marks_position,
+        position_std,
+        occupancy,
+        mean_rates,
+        summed_ground_process_intensity,
+        block_size=block_size)
+    multiunit_likelihood[:, 0, :] = estimate_local_multiunit_likelihood(
+        multiunit,
+        position,
+        encoding_marks,
+        mark_std,
+        encoding_position,
+        encoding_marks_position,
+        position_std,
+        mean_rates,
+        block_size=block_size,
+    )[:, np.newaxis]
+
+    if set_no_spike_to_equally_likely:
+        no_spike = np.all(np.isnan(multiunit), axis=(1, 2))
+        multiunit_likelihood[no_spike] = 0.0
+    multiunit_likelihood[:, :, ~is_track_interior] = np.nan
+
+    return scale_likelihood(multiunit_likelihood)

@@ -1,3 +1,4 @@
+import cupy as cp
 import numpy as np
 from numba import njit
 
@@ -202,3 +203,184 @@ def check_converged(loglik, previous_loglik, tolerance=1e-4):
     is_converged = (delta_loglik / avg_loglik) < tolerance
 
     return is_converged, is_increasing
+
+
+def _causal_classifier_gpu(likelihood, movement_state_transition, replay_state_transition,
+                           observed_position_bin, uniform):
+    '''
+    Parameters
+    ----------
+    likelihood : ndarray, shape (n_time, ...)
+    movement_state_transition : ndarray, shape (n_position_bins,
+                                                n_position_bins)
+    replay_state_transition : ndarray, shape (n_time, 2)
+        replay_state_transition[k, 0] = Pr(I_{k} = 1 | I_{k-1} = 0, v_{k})
+        replay_state_transition[k, 1] = Pr(I_{k} = 1 | I_{k-1} = 1, v_{k})
+    observed_position_bin : ndarray, shape (n_time,)
+        Which position bin is the animal in.
+    position_bin_size : float
+
+    Returns
+    -------
+    posterior : ndarray, shape (n_time, 2, n_position_bins)
+    state_probability : ndarray, shape (n_time, 2)
+        state_probability[:, 0] = Pr(I_{1:T} = 0)
+        state_probability[:, 1] = Pr(I_{1:T} = 1)
+    prior : ndarray, shape (n_time, 2, n_position_bins)
+
+    '''
+
+    likelihood = cp.asarray(likelihood, dtype=cp.float32)
+    movement_state_transition = cp.asarray(
+        movement_state_transition, dtype=cp.float32)
+    replay_state_transition = cp.asarray(
+        replay_state_transition, dtype=cp.float32)
+    observed_position_bin = cp.asarray(observed_position_bin)
+    uniform = cp.asarray(uniform, dtype=cp.float32)
+
+    n_position_bins = movement_state_transition.shape[0]
+    n_time = likelihood.shape[0]
+    n_states = 2
+
+    posterior = cp.zeros((n_time, n_states, n_position_bins), dtype=cp.float32)
+    prior = cp.zeros_like(posterior)
+    state_probability = cp.zeros((n_time, n_states), dtype=cp.float32)
+
+    # Initial Conditions
+    posterior[0, 0, observed_position_bin[0]] = likelihood[0, 0, 0]
+    norm = cp.nansum(posterior[0])
+    data_log_likelihood = cp.log(norm)
+    posterior[0] /= norm
+    state_probability[0] = cp.sum(posterior[0], axis=1)
+
+    for k in np.arange(1, n_time):
+        position_ind = observed_position_bin[k]
+        # I_{k - 1} = 0, I_{k} = 0
+        prior[k, 0, position_ind] = (
+            (1 - replay_state_transition[k, 0]) * state_probability[k - 1, 0])
+        # I_{k - 1} = 1, I_{k} = 0
+        prior[k, 0, position_ind] += (
+            (1 - replay_state_transition[k, 1]) * state_probability[k - 1, 1])
+
+        # I_{k - 1} = 0, I_{k} = 1
+        prior[k, 1] = (replay_state_transition[k, 0] * uniform *
+                       state_probability[k - 1, 0])
+        # I_{k - 1} = 1, I_{k} = 1
+        prior[k, 1] += (
+            replay_state_transition[k, 1] *
+            (movement_state_transition.T @ posterior[k - 1, 1]))
+
+        posterior[k] = prior[k] * likelihood[k]
+        norm = cp.nansum(posterior[k])
+        data_log_likelihood += cp.log(norm)
+        posterior[k] /= norm
+
+        state_probability[k] = cp.sum(posterior[k], axis=1)
+
+    return (cp.asnumpy(posterior),
+            cp.asnumpy(state_probability),
+            cp.asnumpy(prior),
+            data_log_likelihood)
+
+
+def _acausal_classifier_gpu(filter_posterior, movement_state_transition,
+                            replay_state_transition, observed_position_bin, uniform):
+    '''
+    Parameters
+    ----------
+    filter_posterior : ndarray, shape (n_time, 2, n_position_bins)
+    movement_state_transition : ndarray, shape (n_position_bins,
+                                                n_position_bins)
+    replay_state_transition : ndarray, shape (n_time, 2)
+        replay_state_transition[k, 0] = Pr(I_{k} = 1 | I_{k-1} = 0, v_{k})
+        replay_state_transition[k, 1] = Pr(I_{k} = 1 | I_{k-1} = 1, v_{k})
+    observed_position_bin : ndarray, shape (n_time,)
+        Which position bin is the animal in.
+    position_bin_size : float
+
+    Returns
+    -------
+    smoother_posterior : ndarray, shape (n_time, 2, n_position_bins)
+        p(x_{k + 1}, I_{k + 1} \vert H_{1:T})
+    smoother_probability : ndarray, shape (n_time, 2)
+        smoother_probability[:, 0] = Pr(I_{1:T} = 0)
+        smoother_probability[:, 1] = Pr(I_{1:T} = 1)
+    smoother_prior : ndarray, shape (n_time, 2, n_position_bins)
+        p(x_{k + 1}, I_{k + 1} \vert H_{1:k})
+    weights : ndarray, shape (n_time, 2, n_position_bins)
+        \sum_{I_{k+1}} \int \Big[ \frac{p(x_{k+1} \mid x_{k}, I_{k}, I_{k+1}) *
+        Pr(I_{k + 1} \mid I_{k}, v_{k}) * p(x_{k+1}, I_{k+1} \mid H_{1:T})}
+        {p(x_{k + 1}, I_{k + 1} \mid H_{1:k})} \Big] dx_{k+1}
+    '''  # noqa
+
+    filter_posterior = cp.asarray(filter_posterior, dtype=cp.float32)
+    movement_state_transition = cp.asarray(
+        movement_state_transition, dtype=cp.float32)
+    replay_state_transition = cp.asarray(
+        replay_state_transition, dtype=cp.float32)
+    observed_position_bin = cp.asarray(observed_position_bin)
+    uniform = cp.asarray(uniform, dtype=cp.float32)
+    EPS = cp.asarray(np.spacing(1), dtype=cp.float32)
+
+    filter_probability = cp.sum(filter_posterior, axis=2)
+
+    smoother_posterior = cp.zeros_like(filter_posterior)
+    smoother_prior = cp.zeros_like(filter_posterior)
+    weights = cp.zeros_like(filter_posterior)
+    n_time, _, n_position_bins = filter_posterior.shape
+
+    smoother_posterior[-1] = filter_posterior[-1].copy()
+
+    for k in cp.arange(n_time - 2, -1, -1):
+        position_ind = observed_position_bin[k + 1]
+
+        # Predict p(x_{k + 1}, I_{k + 1} \vert H_{1:k})
+        # I_{k} = 0, I_{k + 1} = 0
+        smoother_prior[k, 0, position_ind] = (
+            (1 - replay_state_transition[k + 1, 0]) * filter_probability[k, 0])
+
+        # I_{k} = 1, I_{k + 1} = 0
+        smoother_prior[k, 0, position_ind] += (
+            (1 - replay_state_transition[k + 1, 1]) * filter_probability[k, 1])
+
+        # I_{k} = 0, I_{k + 1} = 1
+        smoother_prior[k, 1] = (
+            replay_state_transition[k + 1, 0] * uniform *
+            filter_probability[k, 0])
+
+        # I_{k} = 1, I_{k + 1} = 1
+        smoother_prior[k, 1] += (
+            replay_state_transition[k + 1, 1] *
+            (movement_state_transition.T @ filter_posterior[k, 1]))
+
+        # Update p(x_{k}, I_{k} \vert H_{1:k})
+        ratio = cp.exp(
+            cp.log(smoother_posterior[k + 1] + EPS) -
+            cp.log(smoother_prior[k] + EPS))
+        integrated_ratio = cp.sum(ratio, axis=1)
+        # I_{k} = 0, I_{k + 1} = 0
+        weights[k, 0] = (
+            (1 - replay_state_transition[k + 1, 0]) * ratio[0, position_ind])
+
+        # I_{k} = 0, I_{k + 1} = 1
+        weights[k, 0] += (
+            uniform * replay_state_transition[k + 1, 0] * integrated_ratio[1])
+
+        # I_{k} = 1, I_{k + 1} = 0
+        weights[k, 1] = (
+            (1 - replay_state_transition[k + 1, 1]) * ratio[0, position_ind])
+
+        # I_{k} = 1, I_{k + 1} = 1
+        weights[k, 1] += (
+            replay_state_transition[k + 1, 1] *
+            ratio[1] @ movement_state_transition)
+
+        smoother_posterior[k] = weights[k] * filter_posterior[k]
+        smoother_posterior[k] /= cp.nansum(smoother_posterior[k])
+
+    smoother_probability = cp.sum(smoother_posterior, axis=2)
+
+    return (cp.asnumpy(smoother_posterior),
+            cp.asnumpy(smoother_probability),
+            cp.asnumpy(smoother_prior),
+            cp.asnumpy(weights))

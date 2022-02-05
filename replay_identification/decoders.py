@@ -14,12 +14,14 @@ from statsmodels.tsa.tsatools import lagmat
 from .bins import (atleast_2d, get_centers, get_grid,
                    get_observed_position_bin, get_track_grid,
                    get_track_interior)
-from .core import (_acausal_classifier, _causal_classifier, check_converged,
+from .core import (_acausal_classifier, _acausal_classifier_gpu,
+                   _causal_classifier, _causal_classifier_gpu, check_converged,
                    replace_NaN, return_None)
 from .lfp_likelihood import fit_lfp_likelihood
 from .movement_state_transition import (empirical_movement, random_walk,
                                         random_walk_on_track_graph)
 from .multiunit_likelihood import NumbaKDE, fit_multiunit_likelihood
+from .multiunit_likelihood_integer_cupy import fit_multiunit_likelihood_gpu
 from .replay_state_transition import (_DISCRETE_STATE_TRANSITIONS,
                                       _constant_probability,
                                       estimate_discrete_state_transition)
@@ -210,7 +212,7 @@ class ReplayDetector(BaseEstimator):
             spikes=None, multiunit=None, is_track_interior=None,
             track_graph=None, edge_order=None,
             edge_spacing=None, is_training=None,
-            refit=False):
+            refit=False, use_gpu=False):
         """Train the model on replay and non-replay periods.
 
         Parameters
@@ -268,12 +270,21 @@ class ReplayDetector(BaseEstimator):
         if multiunit is not None:
             logger.info('Fitting multiunit model...')
             multiunit = np.asarray(multiunit)
-            self._multiunit_likelihood = fit_multiunit_likelihood(
-                position, multiunit, is_training, self.place_bin_centers_,
-                self.multiunit_density_model, self.multiunit_model_kwargs,
-                self.multiunit_occupancy_model,
-                self.multiunit_occupancy_kwargs, is_track_interior
-            )
+            if not use_gpu:
+                self._multiunit_likelihood = fit_multiunit_likelihood(
+                    position, multiunit, is_training, self.place_bin_centers_,
+                    self.multiunit_density_model, self.multiunit_model_kwargs,
+                    self.multiunit_occupancy_model,
+                    self.multiunit_occupancy_kwargs, is_track_interior
+                )
+            else:
+                self._multiunit_likelihood = fit_multiunit_likelihood_gpu(
+                    position[is_training],
+                    multiunit[is_training],
+                    self.place_bin_centers_,
+                    is_track_interior=is_track_interior,
+                    **self.multiunit_model_kwargs
+                )
         else:
             self._multiunit_likelihood = return_None
 
@@ -309,7 +320,8 @@ class ReplayDetector(BaseEstimator):
     def predict(self, speed, position, lfp_power=None, spikes=None,
                 multiunit=None, use_likelihoods=_DEFAULT_LIKELIHOODS,
                 time=None, use_acausal=True,
-                set_no_spike_to_equally_likely=True):
+                set_no_spike_to_equally_likely=True,
+                use_gpu=False):
         """Predict the probability of replay and replay position/position.
 
         Parameters
@@ -391,11 +403,18 @@ class ReplayDetector(BaseEstimator):
         uniform /= uniform.sum()
 
         logger.info('Finding causal non-local probability and position...')
-        (causal_posterior, state_probability, _,
-         data_log_likelihood) = _causal_classifier(
-            likelihood, self.movement_state_transition_,
-            replay_state_transition, observed_position_bin,
-            uniform)
+        if not use_gpu:
+            (causal_posterior, state_probability, _,
+             data_log_likelihood) = _causal_classifier(
+                likelihood, self.movement_state_transition_,
+                replay_state_transition, observed_position_bin,
+                uniform)
+        else:
+            (causal_posterior, state_probability, _,
+             data_log_likelihood) = _causal_classifier_gpu(
+                likelihood, self.movement_state_transition_,
+                replay_state_transition, observed_position_bin,
+                uniform)
 
         n_position_dims = place_bins.shape[1]
 
@@ -446,9 +465,16 @@ class ReplayDetector(BaseEstimator):
         if use_acausal:
             logger.info(
                 'Finding acausal non-local probability and position...')
-            acausal_posterior, state_probability, _, _ = _acausal_classifier(
-                causal_posterior, self.movement_state_transition_,
-                replay_state_transition, observed_position_bin, uniform)
+
+            if not use_gpu:
+                acausal_posterior, state_probability, _, _ = _acausal_classifier(
+                    causal_posterior, self.movement_state_transition_,
+                    replay_state_transition, observed_position_bin, uniform)
+            else:
+                acausal_posterior, state_probability, _, _ = _acausal_classifier_gpu(
+                    causal_posterior, self.movement_state_transition_,
+                    replay_state_transition, observed_position_bin, uniform)
+
             try:
                 results['acausal_posterior'] = (
                     posterior_dims, acausal_posterior.reshape(posterior_shape).swapaxes(3, 2))
