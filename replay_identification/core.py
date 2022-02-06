@@ -1,4 +1,7 @@
-import cupy as cp
+try:
+    import cupy as cp
+except ImportError:
+    import numpy as cp
 import numpy as np
 from numba import njit
 
