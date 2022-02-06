@@ -373,16 +373,17 @@ def estimate_local_occupancy(train_position, test_position, position_std,
         cp.asarray(test_position, dtype=cp.float32),
         cp.asarray(train_position, dtype=cp.float32),
         position_std,
-        block_size
+        block_size=block_size
     )
 
 
 def estimate_local_gpi(test_position, enc_pos, occupancy, mean_rate,
-                       position_std):
+                       position_std, block_size=None):
     marginal_density = estimate_position_density(
         cp.asarray(test_position, dtype=cp.float32),
         cp.asarray(enc_pos, dtype=cp.float32),
-        position_std)
+        position_std,
+        block_size=block_size)
     return estimate_intensity(
         marginal_density,
         cp.asarray(occupancy, dtype=cp.float32),
@@ -618,14 +619,13 @@ def estimate_local_multiunit_likelihood(
         if block_size is None:
             block_size = n_decoding_marks
 
-        position_distance = estimate_position_distance(
-            decoding_position_gpu[is_decoding_spike_gpu],
-            enc_pos_gpu,
-            position_std
-        ).astype(cp.float32)  # n_encoding_spikes, n_decoding_spikes
-
         for start_ind in range(0, n_decoding_marks, block_size):
             block_inds = slice(start_ind, start_ind + block_size)
+            position_distance = estimate_position_distance(
+                decoding_position_gpu[is_decoding_spike_gpu][block_inds],
+                enc_pos_gpu,
+                position_std
+            ).astype(cp.float32)  # n_encoding_spikes, n_decoding_spikes
             log_joint_mark_intensity[block_inds] = estimate_local_log_joint_mark_intensity(
                 decoding_marks[block_inds],
                 cp.asarray(enc_marks, cp.int16),
@@ -634,7 +634,7 @@ def estimate_local_multiunit_likelihood(
                 mean_rate,
                 max_mark_value=max_mark_value,
                 set_diag_zero=set_diag_zero,
-                position_distance=position_distance[:, block_inds],
+                position_distance=position_distance,
             )
         log_likelihood[is_decoding_spike] += (
             log_joint_mark_intensity + np.spacing(1))
