@@ -562,7 +562,7 @@ def estimate_local_multiunit_likelihood(
         set_diag_zero=False,
         time_bin_size=1,
         block_size=None,
-        disable_progress_bar=True):
+        disable_progress_bar=False):
     '''
 
     Parameters
@@ -605,19 +605,20 @@ def estimate_local_multiunit_likelihood(
         n_decoding_marks = decoding_marks.shape[0]
         enc_pos_gpu = cp.asarray(enc_pos, dtype=cp.float32)
 
+        if block_size is None:
+            block_size = n_decoding_marks
+
         log_likelihood += cp.asnumpy(estimate_local_gpi(
             test_position=decoding_position_gpu,
             enc_pos=enc_pos_gpu,
             occupancy=local_occupancy,
             mean_rate=mean_rate,
-            position_std=position_std
+            position_std=position_std,
+            block_size=block_size
         ))
 
         log_joint_mark_intensity = np.zeros(
             (n_decoding_marks,), dtype=np.float32)
-
-        if block_size is None:
-            block_size = n_decoding_marks
 
         for start_ind in range(0, n_decoding_marks, block_size):
             block_inds = slice(start_ind, start_ind + block_size)
