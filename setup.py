@@ -2,10 +2,10 @@
 
 from setuptools import find_packages, setup
 
-INSTALL_REQUIRES = ['numpy >= 1.11', 'statsmodels', 'numba', 'matplotlib',
+INSTALL_REQUIRES = ['numpy >= 1.20', 'statsmodels', 'numba', 'matplotlib',
                     'xarray', 'scipy', 'scikit-learn', 'regularized_glm',
                     'spectral_connectivity', 'tqdm', 'joblib', 'networkx',
-                    'ipywidgets', 'nodejs', 'track_linearization']
+                    'ipywidgets', 'nodejs', 'track_linearization', 'seaborn']
 TESTS_REQUIRE = ['pytest >= 2.7.1']
 
 setup(
