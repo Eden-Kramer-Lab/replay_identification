@@ -21,6 +21,7 @@ from .lfp_likelihood import fit_lfp_likelihood
 from .movement_state_transition import (empirical_movement, random_walk,
                                         random_walk_on_track_graph)
 from .multiunit_likelihood import NumbaKDE, fit_multiunit_likelihood
+from .multiunit_likelihood_integer import fit_multiunit_likelihood_integer
 from .multiunit_likelihood_integer_cupy import fit_multiunit_likelihood_gpu
 from .replay_state_transition import (_DISCRETE_STATE_TRANSITIONS,
                                       _constant_probability,
@@ -212,7 +213,7 @@ class ReplayDetector(BaseEstimator):
             spikes=None, multiunit=None, is_track_interior=None,
             track_graph=None, edge_order=None,
             edge_spacing=None, is_training=None,
-            refit=False, use_gpu=False):
+            refit=False, use_gpu=False, integer_marks=False):
         """Train the model on replay and non-replay periods.
 
         Parameters
@@ -271,12 +272,20 @@ class ReplayDetector(BaseEstimator):
             logger.info('Fitting multiunit model...')
             multiunit = np.asarray(multiunit)
             if not use_gpu:
-                self._multiunit_likelihood = fit_multiunit_likelihood(
-                    position, multiunit, is_training, self.place_bin_centers_,
-                    self.multiunit_density_model, self.multiunit_model_kwargs,
-                    self.multiunit_occupancy_model,
-                    self.multiunit_occupancy_kwargs, is_track_interior
-                )
+                if not integer_marks:
+                    self._multiunit_likelihood = fit_multiunit_likelihood(
+                        position, multiunit, is_training, self.place_bin_centers_,
+                        self.multiunit_density_model, self.multiunit_model_kwargs,
+                        self.multiunit_occupancy_model,
+                        self.multiunit_occupancy_kwargs, is_track_interior
+                    )
+                else:
+                    self._multiunit_likelihood = fit_multiunit_likelihood_integer(
+                        position, multiunit, is_training, self.place_bin_centers_,
+                        self.multiunit_density_model, self.multiunit_model_kwargs,
+                        self.multiunit_occupancy_model,
+                        self.multiunit_occupancy_kwargs, is_track_interior
+                    )
             else:
                 self._multiunit_likelihood = fit_multiunit_likelihood_gpu(
                     position[is_training],
