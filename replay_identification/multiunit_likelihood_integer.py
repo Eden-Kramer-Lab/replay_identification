@@ -62,15 +62,7 @@ def estimate_position_density(place_bin_centers, positions, position_std,
     n_position_bins = place_bin_centers.shape[0]
 
     if block_size is None:
-        gpu_memory_size = np.get_default_memory_pool().total_bytes()
-        distance_matrix_size = (n_time * n_position_bins * 32) // 8  # bytes
-        if distance_matrix_size < gpu_memory_size * 0.8:
-            block_size = n_position_bins
-        else:
-            block_size = int(gpu_memory_size * 0.8 *
-                             8 // (32 * n_time))
-            if block_size <= 0:
-                block_size = 1
+        block_size = n_time
 
     position_density = np.empty((n_position_bins,))
     for start_ind in range(0, n_position_bins, block_size):
@@ -183,13 +175,13 @@ def estimate_log_joint_mark_intensity(decoding_marks,
         mean_rate)
 
 
-def fit_multiunit_likelihood_gpu(position,
-                                 multiunits,
-                                 place_bin_centers,
-                                 mark_std,
-                                 position_std,
-                                 is_track_interior=None,
-                                 **kwargs):
+def fit_multiunit_likelihood_integer(position,
+                                     multiunits,
+                                     place_bin_centers,
+                                     mark_std,
+                                     position_std,
+                                     is_track_interior=None,
+                                     **kwargs):
     '''
 
     Parameters
@@ -218,12 +210,11 @@ def fit_multiunit_likelihood_gpu(position,
     place_bin_centers = atleast_2d(place_bin_centers)
     interior_place_bin_centers = np.asarray(
         place_bin_centers[is_track_interior], dtype=np.float32)
-    gpu_is_track_interior = np.asarray(is_track_interior)
 
     not_nan_position = np.all(~np.isnan(position), axis=1)
 
     occupancy = np.zeros((place_bin_centers.shape[0],))
-    occupancy[gpu_is_track_interior] = estimate_position_density(
+    occupancy[is_track_interior] = estimate_position_density(
         interior_place_bin_centers,
         np.asarray(position[not_nan_position], dtype=np.float32),
         position_std)
@@ -241,7 +232,7 @@ def fit_multiunit_likelihood_gpu(position,
         marginal_density = np.zeros((place_bin_centers.shape[0],))
 
         if is_spike.sum() > 0:
-            marginal_density[gpu_is_track_interior] = estimate_position_density(
+            marginal_density[is_track_interior] = estimate_position_density(
                 interior_place_bin_centers,
                 np.asarray(
                     position[is_spike & not_nan_position], dtype=np.float32),
@@ -320,8 +311,7 @@ def estimate_multiunit_likelihood_integer_cupy(multiunits,
     n_position_bins = is_track_interior.sum()
     interior_place_bin_centers = np.asarray(
         place_bin_centers[is_track_interior], dtype=np.float32)
-    gpu_is_track_interior = np.asarray(is_track_interior)
-    interior_occupancy = occupancy[gpu_is_track_interior]
+    interior_occupancy = occupancy[is_track_interior]
 
     for multiunit, enc_marks, enc_pos, mean_rate in zip(
             tqdm(multiunits, desc='n_electrodes',
@@ -429,8 +419,7 @@ def estimate_non_local_multiunit_likelihood(
     n_position_bins = is_track_interior.sum()
     interior_place_bin_centers = np.asarray(
         place_bin_centers[is_track_interior], dtype=np.float32)
-    gpu_is_track_interior = np.asarray(is_track_interior)
-    interior_occupancy = occupancy[gpu_is_track_interior]
+    interior_occupancy = occupancy[is_track_interior]
 
     for multiunit, enc_marks, enc_pos, mean_rate in zip(
             tqdm(multiunits, desc='n_electrodes'),
@@ -442,19 +431,7 @@ def estimate_non_local_multiunit_likelihood(
             (n_decoding_marks, n_position_bins), dtype=np.float32)
 
         if block_size is None:
-            gpu_memory_size = np.get_default_memory_pool().total_bytes()
-            mark_distance_matrix_size = (
-                n_decoding_marks * enc_marks.shape[0] * 32) // 8  # bytes
-            if mark_distance_matrix_size < gpu_memory_size * 0.8:
-                if n_decoding_marks > 0:
-                    block_size = n_decoding_marks
-                else:
-                    block_size = 1
-            else:
-                block_size = int(gpu_memory_size * 0.8 *
-                                 8 // (32 * enc_marks.shape[0]))
-                if block_size <= 0:
-                    block_size = 1
+            block_size = n_decoding_marks
 
         position_distance = estimate_position_distance(
             interior_place_bin_centers,
@@ -578,11 +555,10 @@ def estimate_local_multiunit_likelihood(
     log_likelihood = (-time_bin_size * np.ones((n_time,), dtype=np.float32))
 
     decoding_multiunits = np.moveaxis(decoding_multiunit, -1, 0)
-    decoding_position_gpu = np.asarray(decoding_position, dtype=np.float32)
 
     local_occupancy = estimate_local_occupancy(
         train_position=np.asarray(encoding_position, dtype=np.float32),
-        test_position=decoding_position_gpu,
+        test_position=decoding_position,
         position_std=position_std,
         block_size=block_size
     )
@@ -593,18 +569,17 @@ def estimate_local_multiunit_likelihood(
             encoding_marks, encoding_marks_position, mean_rates):
 
         is_decoding_spike = np.any(~np.isnan(decoding_multiunit), axis=1)
-        is_decoding_spike_gpu = np.asarray(is_decoding_spike)
         decoding_marks = np.asarray(
             decoding_multiunit[is_decoding_spike], dtype=np.int16)
         n_decoding_marks = decoding_marks.shape[0]
-        enc_pos_gpu = np.asarray(enc_pos, dtype=np.float32)
+        enc_pos = np.asarray(enc_pos, dtype=np.float32)
 
         if block_size is None:
             block_size = n_decoding_marks
 
         log_likelihood += estimate_local_gpi(
-            test_position=decoding_position_gpu,
-            enc_pos=enc_pos_gpu,
+            test_position=decoding_position,
+            enc_pos=enc_pos,
             occupancy=local_occupancy,
             mean_rate=mean_rate,
             position_std=position_std,
@@ -617,15 +592,15 @@ def estimate_local_multiunit_likelihood(
         for start_ind in range(0, n_decoding_marks, block_size):
             block_inds = slice(start_ind, start_ind + block_size)
             position_distance = estimate_position_distance(
-                decoding_position_gpu[is_decoding_spike_gpu][block_inds],
-                enc_pos_gpu,
+                decoding_position[is_decoding_spike][block_inds],
+                enc_pos,
                 position_std
             ).astype(np.float32)  # n_encoding_spikes, n_decoding_spikes
             log_joint_mark_intensity[block_inds] = estimate_local_log_joint_mark_intensity(
                 decoding_marks[block_inds],
                 np.asarray(enc_marks, np.int16),
                 mark_std,
-                local_occupancy[is_decoding_spike_gpu][block_inds],
+                local_occupancy[is_decoding_spike][block_inds],
                 mean_rate,
                 max_mark_value=max_mark_value,
                 set_diag_zero=set_diag_zero,
