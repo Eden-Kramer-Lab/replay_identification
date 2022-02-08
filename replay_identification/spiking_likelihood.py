@@ -187,23 +187,28 @@ def fit_spiking_likelihood(position, spikes, is_training,
     """
     if np.any(np.ptp(place_bin_edges, axis=0) <= knot_spacing):
         logging.warning("Range of position is smaller than knot spacing.")
-    is_nan = np.any(np.isnan(position), axis=1)
+
+    is_training = np.asarray(is_training).astype(float)
+    include = ~np.isclose(is_training, 0.0) & ~np.any(
+        np.isnan(position), axis=1)
+    is_training = is_training[include]
+    position = position[include]
+    spikes = spikes[include]
+
     design_matrix = make_spline_design_matrix(
-        position[~is_nan], place_bin_edges, knot_spacing)
+        position, place_bin_edges, knot_spacing)
     try:
         client = get_client()
     except ValueError:
         client = Client()
     dm = client.scatter(np.asarray(design_matrix), broadcast=True)
-    is_training = np.asarray(is_training).astype(float)
-    is_training[np.isclose(is_training, 0.0)] = np.spacing(3)
 
     place_field_coefficients = [
         fit_glm(is_spike,
                 dm,
-                is_training[~is_nan],
+                is_training,
                 penalty).coefficients
-        for is_spike in spikes[~is_nan].T]
+        for is_spike in spikes.T]
     place_field_coefficients = np.stack(
         dask.compute(*place_field_coefficients), axis=1)
 
