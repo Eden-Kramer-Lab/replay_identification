@@ -274,22 +274,28 @@ class ReplayDetector(BaseEstimator):
             if not use_gpu:
                 if not integer_marks:
                     self._multiunit_likelihood = fit_multiunit_likelihood(
-                        position, multiunit, is_training, self.place_bin_centers_,
-                        self.multiunit_density_model, self.multiunit_model_kwargs,
+                        position, multiunit, is_training,
+                        self.place_bin_centers_,
+                        self.multiunit_density_model,
+                        self.multiunit_model_kwargs,
                         self.multiunit_occupancy_model,
-                        self.multiunit_occupancy_kwargs, is_track_interior
+                        self.multiunit_occupancy_kwargs,
+                        is_track_interior
                     )
                 else:
                     self._multiunit_likelihood = fit_multiunit_likelihood_integer(
-                        position, multiunit, is_training, self.place_bin_centers_,
-                        self.multiunit_density_model, self.multiunit_model_kwargs,
-                        self.multiunit_occupancy_model,
-                        self.multiunit_occupancy_kwargs, is_track_interior
+                        position,
+                        multiunit,
+                        is_training,
+                        self.place_bin_centers_,
+                        is_track_interior=is_track_interior,
+                        **self.multiunit_model_kwargs
                     )
             else:
                 self._multiunit_likelihood = fit_multiunit_likelihood_gpu(
-                    position[is_training],
-                    multiunit[is_training],
+                    position,
+                    multiunit,
+                    is_training,
                     self.place_bin_centers_,
                     is_track_interior=is_track_interior,
                     **self.multiunit_model_kwargs

@@ -177,6 +177,7 @@ def estimate_log_joint_mark_intensity(decoding_marks,
 
 def fit_multiunit_likelihood_integer(position,
                                      multiunits,
+                                     is_training,
                                      place_bin_centers,
                                      mark_std,
                                      position_std,
@@ -206,7 +207,8 @@ def fit_multiunit_likelihood_integer(position,
     if is_track_interior is None:
         is_track_interior = np.ones((place_bin_centers.shape[0],),
                                     dtype=np.bool)
-    position = atleast_2d(position)
+    position = atleast_2d(position)[is_training]
+    multiunits = multiunits[is_training]
     place_bin_centers = atleast_2d(place_bin_centers)
     interior_place_bin_centers = np.asarray(
         place_bin_centers[is_track_interior], dtype=np.float32)
