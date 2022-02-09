@@ -387,7 +387,7 @@ def estimate_non_local_multiunit_likelihood(
 
     for multiunit, enc_marks, enc_pos, enc_weights, mean_rate in zip(
             tqdm(multiunits, desc='n_electrodes',
-                 disable_progress_bar=disable_progress_bar),
+                 disable=disable_progress_bar),
             encoding_marks, encoding_positions, encoding_weights, mean_rates):
         is_spike = np.any(~np.isnan(multiunit), axis=1)
         decoding_marks = cp.asarray(multiunit[is_spike], dtype=cp.int16)
