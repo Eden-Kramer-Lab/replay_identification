@@ -66,15 +66,7 @@ def estimate_position_density(place_bin_centers, positions, position_std,
     n_position_bins = place_bin_centers.shape[0]
 
     if block_size is None:
-        gpu_memory_size = cp.get_default_memory_pool().total_bytes()
-        distance_matrix_size = (n_time * n_position_bins * 32) // 8  # bytes
-        if distance_matrix_size < gpu_memory_size * 0.8:
-            block_size = n_position_bins
-        else:
-            block_size = int(gpu_memory_size * 0.8 *
-                             8 // (32 * n_time))
-            if block_size <= 0:
-                block_size = 1
+        block_size = n_position_bins
 
     position_density = cp.empty((n_position_bins,))
     for start_ind in range(0, n_position_bins, block_size):
@@ -451,19 +443,7 @@ def estimate_non_local_multiunit_likelihood(
             (n_decoding_marks, n_position_bins), dtype=np.float32)
 
         if block_size is None:
-            gpu_memory_size = cp.get_default_memory_pool().total_bytes()
-            mark_distance_matrix_size = (
-                n_decoding_marks * enc_marks.shape[0] * 32) // 8  # bytes
-            if mark_distance_matrix_size < gpu_memory_size * 0.8:
-                if n_decoding_marks > 0:
-                    block_size = n_decoding_marks
-                else:
-                    block_size = 1
-            else:
-                block_size = int(gpu_memory_size * 0.8 *
-                                 8 // (32 * enc_marks.shape[0]))
-                if block_size <= 0:
-                    block_size = 1
+            block_size = n_decoding_marks
 
         position_distance = estimate_position_distance(
             interior_place_bin_centers,
