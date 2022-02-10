@@ -309,26 +309,26 @@ def fit_multiunit_likelihood_gpu(position,
 
 
 def estimate_local_occupancy(train_position, test_position, position_std,
-                             is_training=None,
+                             sample_weights=None,
                              block_size=None):
     return estimate_position_density(
         cp.asarray(test_position, dtype=cp.float32),
         cp.asarray(train_position, dtype=cp.float32),
         position_std,
         block_size=block_size,
-        sample_weights=cp.asarray(is_training, dtype=cp.float32)
+        sample_weights=sample_weights,
     )
 
 
-def estimate_local_gpi(test_position, enc_pos, enc_weights,
+def estimate_local_gpi(test_position, enc_pos,
                        occupancy, mean_rate,
-                       position_std, block_size=None):
+                       position_std, block_size=None, sample_weights=None):
     marginal_density = estimate_position_density(
         cp.asarray(test_position, dtype=cp.float32),
         cp.asarray(enc_pos, dtype=cp.float32),
         position_std,
         block_size=block_size,
-        sample_weights=enc_weights)
+        sample_weights=sample_weights)
     return estimate_intensity(
         marginal_density,
         cp.asarray(occupancy, dtype=cp.float32),
