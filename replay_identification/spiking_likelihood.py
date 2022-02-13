@@ -8,9 +8,9 @@ from logging import getLogger
 
 import dask
 import numpy as np
+import statsmodels.api as sm
 from dask.distributed import Client, get_client
 from patsy import build_design_matrices, dmatrix
-from regularized_glm import penalized_IRLS
 from statsmodels.api import families
 from tqdm.autonotebook import tqdm
 
@@ -29,16 +29,16 @@ def fit_glm(response, design_matrix, is_training=None,
     else:
         penalty = np.finfo(np.float).eps
 
-    if is_training is not None:
-        is_training = atleast_2d(is_training)
-
-    return penalized_IRLS(
-        design_matrix,
-        response.squeeze(),
+    glm = sm.GLM(
+        y=response.squeeze(),
+        X=design_matrix,
         family=families.Poisson(),
-        penalty=penalty,
-        tolerance=tolerance,
-        prior_weights=is_training)
+        var_weights=is_training.squeeze())
+
+    return glm.fit_regularized(
+        alpha=penalty,
+        L1_wt=0,
+        cnvrg_tol=tolerance)
 
 
 def poisson_log_likelihood(spikes, conditional_intensity):
@@ -207,7 +207,7 @@ def fit_spiking_likelihood(position, spikes, is_training,
         fit_glm(is_spike,
                 dm,
                 is_training,
-                penalty).coefficients
+                penalty).params
         for is_spike in spikes.T]
     place_field_coefficients = np.stack(
         dask.compute(*place_field_coefficients), axis=1)
