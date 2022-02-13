@@ -30,8 +30,8 @@ def fit_glm(response, design_matrix, is_training=None,
         penalty = np.finfo(np.float).eps
 
     glm = sm.GLM(
-        y=response.squeeze(),
-        X=design_matrix,
+        response.squeeze(),
+        design_matrix,
         family=families.Poisson(),
         var_weights=is_training.squeeze())
 
