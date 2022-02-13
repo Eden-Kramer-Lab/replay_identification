@@ -86,7 +86,7 @@ class ReplayDetector(BaseEstimator):
     def __init__(
         self,
         speed_threshold=4.0,
-        spike_model_penalty=0.5,
+        spike_model_penalty=1E-5,
         replay_state_transition_penalty=1E-5,
         place_bin_size=2.0,
         position_range=None,
