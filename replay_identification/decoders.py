@@ -94,7 +94,7 @@ class ReplayDetector(BaseEstimator):
         infer_track_interior=True,
         replay_speed=1,
         movement_var=4.0,
-        spike_model_knot_spacing=5,
+        spike_model_knot_spacing=12.5,
         speed_knots=None,
         multiunit_density_model=NumbaKDE,
         multiunit_model_kwargs=_DEFAULT_MULTIUNIT_KWARGS,
