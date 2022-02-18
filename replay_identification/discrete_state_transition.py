@@ -13,8 +13,8 @@ FAMILY = families.Binomial()
 logger = getLogger(__name__)
 
 
-def fit_replay_state_transition(speed, is_replay, penalty=1E-5,
-                                speed_knots=None, diagonal=None):
+def fit_discrete_state_transition(speed, is_replay, penalty=1E-5,
+                                  speed_knots=None, diagonal=None):
     """Estimate the predicted probablity of replay given speed and whether
     it was a replay in the previous time step.
 
@@ -59,7 +59,7 @@ def fit_replay_state_transition(speed, is_replay, penalty=1E-5,
                    coefficients=fit.coefficients)
 
 
-def fit_replay_state_transition_no_speed(
+def fit_discrete_state_transition_no_speed(
         speed, is_replay, penalty=1E-5, speed_knots=None, diagonal=None):
     """Estimate the predicted probablity of replay and whether
     it was a replay in the previous time step.
@@ -210,7 +210,7 @@ def estimate_discrete_state_transition(classifier, results):
             ['x_position', 'y_position']).values
 
     # only works with constant transition matrix
-    transition = classifier.replay_state_transition_(np.arange(1))[0]
+    transition = classifier.discrete_state_transition_(np.arange(1))[0]
     discrete_state_transition = np.asarray(
         [[1 - transition[0], transition[0]],
          [1 - transition[1], transition[1]]])
@@ -227,7 +227,7 @@ def estimate_discrete_state_transition(classifier, results):
 
 
 _DISCRETE_STATE_TRANSITIONS = {
-    'ripples_with_speed_threshold': fit_replay_state_transition,
-    'ripples_no_speed_threshold': fit_replay_state_transition_no_speed,
+    'ripples_with_speed_threshold': fit_discrete_state_transition,
+    'ripples_no_speed_threshold': fit_discrete_state_transition_no_speed,
     'constant': constant_transition,
 }

@@ -17,15 +17,15 @@ from .bins import (atleast_2d, get_centers, get_grid,
 from .core import (_acausal_classifier, _acausal_classifier_gpu,
                    _causal_classifier, _causal_classifier_gpu, check_converged,
                    replace_NaN, return_None)
+from .discrete_state_transition import (_DISCRETE_STATE_TRANSITIONS,
+                                        _constant_probability,
+                                        estimate_discrete_state_transition)
 from .lfp_likelihood import fit_lfp_likelihood
 from .movement_state_transition import (empirical_movement, random_walk,
                                         random_walk_on_track_graph)
 from .multiunit_likelihood import NumbaKDE, fit_multiunit_likelihood
 from .multiunit_likelihood_integer import fit_multiunit_likelihood_integer
 from .multiunit_likelihood_integer_cupy import fit_multiunit_likelihood_gpu
-from .replay_state_transition import (_DISCRETE_STATE_TRANSITIONS,
-                                      _constant_probability,
-                                      estimate_discrete_state_transition)
 from .speed_likelhood import fit_speed_likelihood
 from .spiking_likelihood import fit_spiking_likelihood
 
@@ -48,7 +48,7 @@ class ReplayDetector(BaseEstimator):
     speed_threshold : float, optional
         Speed cutoff that denotes when the animal is moving vs. not moving.
     spike_model_penalty : float, optional
-    replay_state_transition_penalty : float, optional
+    discrete_state_transition_penalty : float, optional
     place_bin_size : float, optional
     replay_speed : int, optional
         The amount of speedup expected from the replay events vs.
@@ -76,7 +76,7 @@ class ReplayDetector(BaseEstimator):
         Plot the place fields from the fitted spiking data.
     plot_fitted_multiunit_model
         Plot position by mark from the fitted multiunit data.
-    plot_replay_state_transition
+    plot_discrete_state_transition
         Plot the replay state transition model over speed lags.
     plot_movement_state_transition
         Plot the semi-latent state movement transition model.
@@ -87,7 +87,7 @@ class ReplayDetector(BaseEstimator):
         self,
         speed_threshold=4.0,
         spike_model_penalty=1E-5,
-        replay_state_transition_penalty=1E-5,
+        discrete_state_transition_penalty=1E-5,
         place_bin_size=2.0,
         position_range=None,
         is_track_interior=None,
@@ -108,7 +108,7 @@ class ReplayDetector(BaseEstimator):
     ):
         self.speed_threshold = speed_threshold
         self.spike_model_penalty = spike_model_penalty
-        self.replay_state_transition_penalty = replay_state_transition_penalty
+        self.discrete_state_transition_penalty = discrete_state_transition_penalty
         self.place_bin_size = place_bin_size
         self.position_range = position_range
         self.is_track_interior = is_track_interior
@@ -185,7 +185,7 @@ class ReplayDetector(BaseEstimator):
             if estimate_state_transition:
                 discrete_state_transition = estimate_discrete_state_transition(
                     self, results)
-                self.replay_state_transition_ = partial(
+                self.discrete_state_transition_ = partial(
                     _constant_probability,
                     diagonal=discrete_state_transition[:, 1])
             if estimate_likelihood:
@@ -325,9 +325,9 @@ class ReplayDetector(BaseEstimator):
 
         if not refit:
             logger.info('Fitting replay state transition...')
-            self.replay_state_transition_ = _DISCRETE_STATE_TRANSITIONS[
+            self.discrete_state_transition_ = _DISCRETE_STATE_TRANSITIONS[
                 self.discrete_state_transition_type](
-                speed, is_ripple, self.replay_state_transition_penalty,
+                speed, is_ripple, self.discrete_state_transition_penalty,
                 self.speed_knots, self.discrete_diagonal)
 
         return self
@@ -409,7 +409,8 @@ class ReplayDetector(BaseEstimator):
                 likelihood = likelihood * replace_NaN(likelihood_func())
                 if (name == 'spikes') or (name == 'multiunit'):
                     likelihood[:, :, ~is_track_interior] = 0.0
-        replay_state_transition = self.replay_state_transition_(lagged_speed)
+        discrete_state_transition = self.discrete_state_transition_(
+            lagged_speed)
         observed_position_bin = get_observed_position_bin(
             position, self.edges_, place_bins, is_track_interior)
 
@@ -422,13 +423,13 @@ class ReplayDetector(BaseEstimator):
             (causal_posterior, state_probability,
              data_log_likelihood) = _causal_classifier(
                 likelihood, self.movement_state_transition_,
-                replay_state_transition, observed_position_bin,
+                discrete_state_transition, observed_position_bin,
                 uniform)
         else:
             (causal_posterior, state_probability,
              data_log_likelihood) = _causal_classifier_gpu(
                 likelihood, self.movement_state_transition_,
-                replay_state_transition, observed_position_bin,
+                discrete_state_transition, observed_position_bin,
                 uniform)
 
         n_position_dims = place_bins.shape[1]
@@ -484,11 +485,11 @@ class ReplayDetector(BaseEstimator):
             if not use_gpu:
                 acausal_posterior, state_probability = _acausal_classifier(
                     causal_posterior, self.movement_state_transition_,
-                    replay_state_transition, observed_position_bin, uniform)
+                    discrete_state_transition, observed_position_bin, uniform)
             else:
                 acausal_posterior, state_probability = _acausal_classifier_gpu(
                     causal_posterior, self.movement_state_transition_,
-                    replay_state_transition, observed_position_bin, uniform)
+                    discrete_state_transition, observed_position_bin, uniform)
 
             try:
                 results['acausal_posterior'] = (
@@ -635,10 +636,10 @@ class ReplayDetector(BaseEstimator):
 
         return axes
 
-    def plot_replay_state_transition(self):
+    def plot_discrete_state_transition(self):
         """Plot the replay state transition model over speed lags."""
         lagged_speeds = np.arange(0, 30, .1)
-        probablity_replay = self.replay_state_transition_(lagged_speeds)
+        probablity_replay = self.discrete_state_transition_(lagged_speeds)
 
         fig, axes = plt.subplots(2, 1, figsize=(5, 5), sharex=True)
         axes[0].plot(lagged_speeds, probablity_replay[:, 1])
