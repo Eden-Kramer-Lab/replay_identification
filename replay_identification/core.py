@@ -24,7 +24,7 @@ def normalize_to_probability(distribution):
 
 
 @njit(cache=True, nogil=True, error_model='numpy')
-def _causal_classifier(likelihood, movement_state_transition, replay_state_transition,
+def _causal_classifier(likelihood, movement_state_transition, discrete_state_transition,
                        observed_position_bin, uniform):
     '''
     Parameters
@@ -32,9 +32,9 @@ def _causal_classifier(likelihood, movement_state_transition, replay_state_trans
     likelihood : ndarray, shape (n_time, ...)
     movement_state_transition : ndarray, shape (n_position_bins,
                                                 n_position_bins)
-    replay_state_transition : ndarray, shape (n_time, 2)
-        replay_state_transition[k, 0] = Pr(I_{k} = 1 | I_{k-1} = 0, v_{k})
-        replay_state_transition[k, 1] = Pr(I_{k} = 1 | I_{k-1} = 1, v_{k})
+    discrete_state_transition : ndarray, shape (n_time, 2)
+        discrete_state_transition[k, 0] = Pr(I_{k} = 1 | I_{k-1} = 0, v_{k})
+        discrete_state_transition[k, 1] = Pr(I_{k} = 1 | I_{k-1} = 1, v_{k})
     observed_position_bin : ndarray, shape (n_time,)
         Which position bin is the animal in.
     position_bin_size : float
@@ -67,17 +67,17 @@ def _causal_classifier(likelihood, movement_state_transition, replay_state_trans
         position_ind = observed_position_bin[k]
         # I_{k - 1} = 0, I_{k} = 0
         prior[0, position_ind] = (
-            (1 - replay_state_transition[k, 0]) * state_probability[k - 1, 0])
+            (1 - discrete_state_transition[k, 0]) * state_probability[k - 1, 0])
         # I_{k - 1} = 1, I_{k} = 0
         prior[0, position_ind] += (
-            (1 - replay_state_transition[k, 1]) * state_probability[k - 1, 1])
+            (1 - discrete_state_transition[k, 1]) * state_probability[k - 1, 1])
 
         # I_{k - 1} = 0, I_{k} = 1
-        prior[1] = (replay_state_transition[k, 0] * uniform *
+        prior[1] = (discrete_state_transition[k, 0] * uniform *
                     state_probability[k - 1, 0])
         # I_{k - 1} = 1, I_{k} = 1
         prior[1] += (
-            replay_state_transition[k, 1] *
+            discrete_state_transition[k, 1] *
             (movement_state_transition.T @ posterior[k - 1, 1]))
 
         posterior[k] = prior * likelihood[k]
@@ -92,16 +92,16 @@ def _causal_classifier(likelihood, movement_state_transition, replay_state_trans
 
 @njit(cache=True, nogil=True, error_model='numpy')
 def _acausal_classifier(filter_posterior, movement_state_transition,
-                        replay_state_transition, observed_position_bin, uniform):
+                        discrete_state_transition, observed_position_bin, uniform):
     '''
     Parameters
     ----------
     filter_posterior : ndarray, shape (n_time, 2, n_position_bins)
     movement_state_transition : ndarray, shape (n_position_bins,
                                                 n_position_bins)
-    replay_state_transition : ndarray, shape (n_time, 2)
-        replay_state_transition[k, 0] = Pr(I_{k} = 1 | I_{k-1} = 0, v_{k})
-        replay_state_transition[k, 1] = Pr(I_{k} = 1 | I_{k-1} = 1, v_{k})
+    discrete_state_transition : ndarray, shape (n_time, 2)
+        discrete_state_transition[k, 0] = Pr(I_{k} = 1 | I_{k-1} = 0, v_{k})
+        discrete_state_transition[k, 1] = Pr(I_{k} = 1 | I_{k-1} = 1, v_{k})
     observed_position_bin : ndarray, shape (n_time,)
         Which position bin is the animal in.
     position_bin_size : float
@@ -135,20 +135,20 @@ def _acausal_classifier(filter_posterior, movement_state_transition,
         # Predict p(x_{k + 1}, I_{k + 1} \vert H_{1:k})
         # I_{k} = 0, I_{k + 1} = 0
         smoother_prior[0, position_ind] = (
-            (1 - replay_state_transition[k + 1, 0]) * filter_probability[k, 0])
+            (1 - discrete_state_transition[k + 1, 0]) * filter_probability[k, 0])
 
         # I_{k} = 1, I_{k + 1} = 0
         smoother_prior[0, position_ind] += (
-            (1 - replay_state_transition[k + 1, 1]) * filter_probability[k, 1])
+            (1 - discrete_state_transition[k + 1, 1]) * filter_probability[k, 1])
 
         # I_{k} = 0, I_{k + 1} = 1
         smoother_prior[1] = (
-            replay_state_transition[k + 1, 0] * uniform *
+            discrete_state_transition[k + 1, 0] * uniform *
             filter_probability[k, 0])
 
         # I_{k} = 1, I_{k + 1} = 1
         smoother_prior[1] += (
-            replay_state_transition[k + 1, 1] *
+            discrete_state_transition[k + 1, 1] *
             (movement_state_transition.T @ filter_posterior[k, 1]))
 
         # Update p(x_{k}, I_{k} \vert H_{1:k})
@@ -158,19 +158,19 @@ def _acausal_classifier(filter_posterior, movement_state_transition,
         integrated_ratio = np.sum(ratio, axis=1)
         # I_{k} = 0, I_{k + 1} = 0
         weights[0] = (
-            (1 - replay_state_transition[k + 1, 0]) * ratio[0, position_ind])
+            (1 - discrete_state_transition[k + 1, 0]) * ratio[0, position_ind])
 
         # I_{k} = 0, I_{k + 1} = 1
         weights[0] += (
-            uniform * replay_state_transition[k + 1, 0] * integrated_ratio[1])
+            uniform * discrete_state_transition[k + 1, 0] * integrated_ratio[1])
 
         # I_{k} = 1, I_{k + 1} = 0
         weights[1] = (
-            (1 - replay_state_transition[k + 1, 1]) * ratio[0, position_ind])
+            (1 - discrete_state_transition[k + 1, 1]) * ratio[0, position_ind])
 
         # I_{k} = 1, I_{k + 1} = 1
         weights[1] += (
-            replay_state_transition[k + 1, 1] *
+            discrete_state_transition[k + 1, 1] *
             ratio[1] @ movement_state_transition)
 
         smoother_posterior[k] = normalize_to_probability(
@@ -207,7 +207,7 @@ def check_converged(loglik, previous_loglik, tolerance=1e-4):
     return is_converged, is_increasing
 
 
-def _causal_classifier_gpu(likelihood, movement_state_transition, replay_state_transition,
+def _causal_classifier_gpu(likelihood, movement_state_transition, discrete_state_transition,
                            observed_position_bin, uniform):
     '''
     Parameters
@@ -215,9 +215,9 @@ def _causal_classifier_gpu(likelihood, movement_state_transition, replay_state_t
     likelihood : ndarray, shape (n_time, ...)
     movement_state_transition : ndarray, shape (n_position_bins,
                                                 n_position_bins)
-    replay_state_transition : ndarray, shape (n_time, 2)
-        replay_state_transition[k, 0] = Pr(I_{k} = 1 | I_{k-1} = 0, v_{k})
-        replay_state_transition[k, 1] = Pr(I_{k} = 1 | I_{k-1} = 1, v_{k})
+    discrete_state_transition : ndarray, shape (n_time, 2)
+        discrete_state_transition[k, 0] = Pr(I_{k} = 1 | I_{k-1} = 0, v_{k})
+        discrete_state_transition[k, 1] = Pr(I_{k} = 1 | I_{k-1} = 1, v_{k})
     observed_position_bin : ndarray, shape (n_time,)
         Which position bin is the animal in.
     position_bin_size : float
@@ -235,8 +235,8 @@ def _causal_classifier_gpu(likelihood, movement_state_transition, replay_state_t
     likelihood = cp.asarray(likelihood, dtype=cp.float32)
     movement_state_transition = cp.asarray(
         movement_state_transition, dtype=cp.float32)
-    replay_state_transition = cp.asarray(
-        replay_state_transition, dtype=cp.float32)
+    discrete_state_transition = cp.asarray(
+        discrete_state_transition, dtype=cp.float32)
     observed_position_bin = cp.asarray(observed_position_bin)
     uniform = cp.asarray(uniform, dtype=cp.float32)
 
@@ -259,17 +259,17 @@ def _causal_classifier_gpu(likelihood, movement_state_transition, replay_state_t
         position_ind = observed_position_bin[k]
         # I_{k - 1} = 0, I_{k} = 0
         prior[0, position_ind] = (
-            (1 - replay_state_transition[k, 0]) * state_probability[k - 1, 0])
+            (1 - discrete_state_transition[k, 0]) * state_probability[k - 1, 0])
         # I_{k - 1} = 1, I_{k} = 0
         prior[0, position_ind] += (
-            (1 - replay_state_transition[k, 1]) * state_probability[k - 1, 1])
+            (1 - discrete_state_transition[k, 1]) * state_probability[k - 1, 1])
 
         # I_{k - 1} = 0, I_{k} = 1
-        prior[1] = (replay_state_transition[k, 0] * uniform *
+        prior[1] = (discrete_state_transition[k, 0] * uniform *
                     state_probability[k - 1, 0])
         # I_{k - 1} = 1, I_{k} = 1
         prior[1] += (
-            replay_state_transition[k, 1] *
+            discrete_state_transition[k, 1] *
             (movement_state_transition.T @ posterior[k - 1, 1]))
 
         posterior[k] = prior * likelihood[k]
@@ -285,16 +285,16 @@ def _causal_classifier_gpu(likelihood, movement_state_transition, replay_state_t
 
 
 def _acausal_classifier_gpu(filter_posterior, movement_state_transition,
-                            replay_state_transition, observed_position_bin, uniform):
+                            discrete_state_transition, observed_position_bin, uniform):
     '''
     Parameters
     ----------
     filter_posterior : ndarray, shape (n_time, 2, n_position_bins)
     movement_state_transition : ndarray, shape (n_position_bins,
                                                 n_position_bins)
-    replay_state_transition : ndarray, shape (n_time, 2)
-        replay_state_transition[k, 0] = Pr(I_{k} = 1 | I_{k-1} = 0, v_{k})
-        replay_state_transition[k, 1] = Pr(I_{k} = 1 | I_{k-1} = 1, v_{k})
+    discrete_state_transition : ndarray, shape (n_time, 2)
+        discrete_state_transition[k, 0] = Pr(I_{k} = 1 | I_{k-1} = 0, v_{k})
+        discrete_state_transition[k, 1] = Pr(I_{k} = 1 | I_{k-1} = 1, v_{k})
     observed_position_bin : ndarray, shape (n_time,)
         Which position bin is the animal in.
     position_bin_size : float
@@ -317,8 +317,8 @@ def _acausal_classifier_gpu(filter_posterior, movement_state_transition,
     filter_posterior = cp.asarray(filter_posterior, dtype=cp.float32)
     movement_state_transition = cp.asarray(
         movement_state_transition, dtype=cp.float32)
-    replay_state_transition = cp.asarray(
-        replay_state_transition, dtype=cp.float32)
+    discrete_state_transition = cp.asarray(
+        discrete_state_transition, dtype=cp.float32)
     observed_position_bin = cp.asarray(observed_position_bin)
     uniform = cp.asarray(uniform, dtype=cp.float32)
     EPS = cp.asarray(np.spacing(1), dtype=cp.float32)
@@ -339,20 +339,20 @@ def _acausal_classifier_gpu(filter_posterior, movement_state_transition,
         # Predict p(x_{k + 1}, I_{k + 1} \vert H_{1:k})
         # I_{k} = 0, I_{k + 1} = 0
         smoother_prior[0, position_ind] = (
-            (1 - replay_state_transition[k + 1, 0]) * filter_probability[k, 0])
+            (1 - discrete_state_transition[k + 1, 0]) * filter_probability[k, 0])
 
         # I_{k} = 1, I_{k + 1} = 0
         smoother_prior[0, position_ind] += (
-            (1 - replay_state_transition[k + 1, 1]) * filter_probability[k, 1])
+            (1 - discrete_state_transition[k + 1, 1]) * filter_probability[k, 1])
 
         # I_{k} = 0, I_{k + 1} = 1
         smoother_prior[1] = (
-            replay_state_transition[k + 1, 0] * uniform *
+            discrete_state_transition[k + 1, 0] * uniform *
             filter_probability[k, 0])
 
         # I_{k} = 1, I_{k + 1} = 1
         smoother_prior[1] += (
-            replay_state_transition[k + 1, 1] *
+            discrete_state_transition[k + 1, 1] *
             (movement_state_transition.T @ filter_posterior[k, 1]))
 
         # Update p(x_{k}, I_{k} \vert H_{1:k})
@@ -362,19 +362,19 @@ def _acausal_classifier_gpu(filter_posterior, movement_state_transition,
         integrated_ratio = cp.sum(ratio, axis=1)
         # I_{k} = 0, I_{k + 1} = 0
         weights[0] = (
-            (1 - replay_state_transition[k + 1, 0]) * ratio[0, position_ind])
+            (1 - discrete_state_transition[k + 1, 0]) * ratio[0, position_ind])
 
         # I_{k} = 0, I_{k + 1} = 1
         weights[0] += (
-            uniform * replay_state_transition[k + 1, 0] * integrated_ratio[1])
+            uniform * discrete_state_transition[k + 1, 0] * integrated_ratio[1])
 
         # I_{k} = 1, I_{k + 1} = 0
         weights[1] = (
-            (1 - replay_state_transition[k + 1, 1]) * ratio[0, position_ind])
+            (1 - discrete_state_transition[k + 1, 1]) * ratio[0, position_ind])
 
         # I_{k} = 1, I_{k + 1} = 1
         weights[1] += (
-            replay_state_transition[k + 1, 1] *
+            discrete_state_transition[k + 1, 1] *
             ratio[1] @ movement_state_transition)
 
         smoother_posterior[k] = weights * filter_posterior[k]
