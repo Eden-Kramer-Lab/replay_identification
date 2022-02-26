@@ -411,12 +411,205 @@ def _interpolate_value(
     return value
 
 
-def estimate_local_multiunit_likelihood(
+def interpolate_local_likelihood(
         place_bin_centers, non_local_likelihood, position):
 
     return np.asarray(
         [_interpolate_value(place_bin_centers, likelihood, pos)
          for likelihood, pos in zip(non_local_likelihood, tqdm(position))])
+
+
+def estimate_local_occupancy(train_position, test_position, position_std,
+                             sample_weights=None,
+                             block_size=None):
+    return estimate_position_density(
+        cp.asarray(test_position, dtype=cp.float32),
+        cp.asarray(train_position, dtype=cp.float32),
+        position_std,
+        block_size=block_size,
+        sample_weights=sample_weights,
+    )
+
+
+def estimate_local_gpi(test_position, enc_pos,
+                       occupancy, mean_rate,
+                       position_std, block_size=None, sample_weights=None):
+    marginal_density = estimate_position_density(
+        cp.asarray(test_position, dtype=cp.float32),
+        cp.asarray(enc_pos, dtype=cp.float32),
+        position_std,
+        block_size=block_size,
+        sample_weights=sample_weights)
+    return estimate_intensity(
+        marginal_density,
+        cp.asarray(occupancy, dtype=cp.float32),
+        mean_rate)
+
+
+def estimate_local_log_joint_mark_intensity(decoding_marks,
+                                            encoding_marks,
+                                            mark_std,
+                                            occupancy,
+                                            mean_rate,
+                                            decoding_position=None,
+                                            encoding_position=None,
+                                            position_std=None,
+                                            max_mark_value=6000,
+                                            set_diag_zero=False,
+                                            position_distance=None,
+                                            sample_weights=None):
+    """
+    Parameters
+    ----------
+    decoding_marks : ndarray, shape (n_decoding_spikes, n_features)
+    encoding_marks : ndarray, shape (n_encoding_spikes, n_features)
+    mark_std : float or ndarray, shape (n_features,)
+    occupancy : ndarray, shape (n_position_bins,)
+    mean_rate : float
+    place_bin_centers : ndarray, shape (n_position_bins, n_position_dims)
+    encoding_positions : ndarray, shape (n_decoding_spikes, n_position_dims)
+    position_std : float
+    is_track_interior : None or ndarray, shape (n_position_bins,)
+    max_mark_value : int
+    set_diag_zero : bool
+    Returns
+    -------
+    log_joint_mark_intensity : ndarray, shape (n_decoding_spikes, n_position_bins)
+    """
+    n_encoding_spikes, n_marks = encoding_marks.shape
+    n_decoding_spikes = decoding_marks.shape[0]
+
+    if sample_weights is None:
+        sample_weights = cp.ones((1, n_decoding_spikes), dtype=cp.float32)
+        denominator = n_encoding_spikes
+    else:
+        sample_weights = cp.atleast_2d(sample_weights)
+        denominator = cp.sum(sample_weights)
+
+    mark_distance = cp.ones(
+        (n_decoding_spikes, n_encoding_spikes), dtype=cp.float32) * sample_weights
+
+    for mark_ind in range(n_marks):
+        mark_distance *= normal_pdf_integer_lookup(
+            cp.expand_dims(decoding_marks[:, mark_ind], axis=1),
+            cp.expand_dims(encoding_marks[:, mark_ind], axis=0),
+            std=mark_std,
+            max_value=max_mark_value
+        )
+
+    if set_diag_zero:
+        diag_ind = cp.diag_indices_from(mark_distance)
+        mark_distance[diag_ind] = 0.0
+
+    if position_distance is None:
+        position_distance = estimate_position_distance(
+            decoding_position, encoding_position, position_std
+        ).astype(cp.float32)
+
+    return cp.asnumpy(
+        estimate_log_intensity(
+            cp.sum(mark_distance * position_distance.T,
+                   axis=1) / denominator,
+            occupancy,
+            mean_rate))
+
+
+def estimate_local_multiunit_likelihood(
+        decoding_multiunit,
+        decoding_position,
+        encoding_marks,
+        encoding_weights,
+        mark_std,
+        encoding_position,
+        encoding_marks_position,
+        position_std,
+        mean_rates,
+        max_mark_value=6000,
+        set_diag_zero=False,
+        time_bin_size=1,
+        block_size=None,
+        is_training=None,
+        disable_progress_bar=False):
+    '''
+    Parameters
+    ----------
+    multiunits : ndarray, shape (n_time, n_marks, n_electrodes)
+    place_bin_centers : ndarray, (n_bins, n_position_dims)
+    joint_pdf_models : list of sklearn models, shape (n_electrodes,)
+    ground_process_intensities : list of ndarray, shape (n_electrodes,)
+    occupancy : ndarray, (n_bins, n_position_dims)
+    mean_rates : ndarray, (n_electrodes,)
+    Returns
+    -------
+    log_likelihood : (n_time,)
+    '''
+
+    n_time = decoding_multiunit.shape[0]
+    log_likelihood = (np.zeros((n_time,), dtype=np.float32))
+
+    decoding_multiunits = np.moveaxis(decoding_multiunit, -1, 0)
+    decoding_position_gpu = cp.asarray(decoding_position, dtype=cp.float32)
+
+    local_occupancy = estimate_local_occupancy(
+        train_position=cp.asarray(encoding_position, dtype=cp.float32),
+        test_position=decoding_position_gpu,
+        position_std=position_std,
+        block_size=block_size,
+        sample_weights=cp.asarray(is_training, dtype=cp.float32)
+    )
+
+    for decoding_multiunit, enc_marks, enc_pos, enc_weights, mean_rate in zip(
+        tqdm(decoding_multiunits, desc='n_electrodes',
+             disable=disable_progress_bar),
+        encoding_marks, encoding_marks_position, encoding_weights,
+            mean_rates):
+
+        is_decoding_spike = np.any(~np.isnan(decoding_multiunit), axis=1)
+        is_decoding_spike_gpu = cp.asarray(is_decoding_spike)
+        decoding_marks = cp.asarray(
+            decoding_multiunit[is_decoding_spike], dtype=cp.int16)
+        n_decoding_marks = decoding_marks.shape[0]
+        enc_pos_gpu = cp.asarray(enc_pos, dtype=cp.float32)
+
+        if block_size is None:
+            block_size = n_decoding_marks
+
+        log_likelihood -= time_bin_size * cp.asnumpy(estimate_local_gpi(
+            test_position=decoding_position_gpu,
+            enc_pos=enc_pos_gpu,
+            occupancy=local_occupancy,
+            mean_rate=mean_rate,
+            position_std=position_std,
+            block_size=block_size,
+            sample_weights=enc_weights,
+        ))
+
+        log_joint_mark_intensity = np.zeros(
+            (n_decoding_marks,), dtype=np.float32)
+
+        for start_ind in range(0, n_decoding_marks, block_size):
+            block_inds = slice(start_ind, start_ind + block_size)
+            position_distance = estimate_position_distance(
+                decoding_position_gpu[is_decoding_spike_gpu][block_inds],
+                enc_pos_gpu,
+                position_std
+            ).astype(cp.float32)  # n_encoding_spikes, n_decoding_spikes
+            log_joint_mark_intensity[block_inds] = estimate_local_log_joint_mark_intensity(
+                decoding_marks[block_inds],
+                cp.asarray(enc_marks, cp.int16),
+                mark_std,
+                local_occupancy[is_decoding_spike_gpu][block_inds],
+                mean_rate,
+                max_mark_value=max_mark_value,
+                set_diag_zero=set_diag_zero,
+                position_distance=position_distance,
+                sample_weights=enc_weights,
+            )
+        log_likelihood[is_decoding_spike] += (
+            log_joint_mark_intensity + np.spacing(1))
+    log_likelihood -= np.spacing(1)
+
+    return log_likelihood
 
 
 def multiunit_likelihood(multiunit, position, place_bin_centers, encoding_marks,
@@ -428,7 +621,8 @@ def multiunit_likelihood(multiunit, position, place_bin_centers, encoding_marks,
                          set_no_spike_to_equally_likely=True,
                          is_training=None,
                          block_size=None,
-                         disable_progress_bar=False):
+                         disable_progress_bar=False,
+                         interpolate_local_likelihood=False):
     '''The likelihood of being in a replay state vs. not a replay state based
     on whether the multiunits correspond to the current position of the animal.
 
@@ -467,10 +661,26 @@ def multiunit_likelihood(multiunit, position, place_bin_centers, encoding_marks,
         block_size=block_size,
         disable_progress_bar=disable_progress_bar,
     )
-    multiunit_likelihood[:, 0, :] = estimate_local_multiunit_likelihood(
-        place_bin_centers,
-        multiunit_likelihood[:, 1, :],
-        position)
+    if interpolate_local_likelihood:
+        multiunit_likelihood[:, 0, :] = interpolate_local_likelihood(
+            place_bin_centers,
+            multiunit_likelihood[:, 1, :],
+            position)
+    else:
+        multiunit_likelihood[:, 0, :] = estimate_local_multiunit_likelihood(
+            multiunit,
+            position,
+            encoding_marks,
+            encoding_weights,
+            mark_std,
+            encoding_position,
+            encoding_marks_position,
+            position_std,
+            mean_rates,
+            block_size=block_size,
+            is_training=is_training,
+            disable_progress_bar=disable_progress_bar,
+        )[:, np.newaxis]
 
     if set_no_spike_to_equally_likely:
         no_spike = np.all(np.isnan(multiunit), axis=(1, 2))
