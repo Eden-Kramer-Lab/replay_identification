@@ -467,7 +467,7 @@ def multiunit_likelihood(multiunit, position, place_bin_centers, encoding_marks,
     multiunit_likelihood[:, 0, :] = estimate_local_multiunit_likelihood(
         place_bin_centers,
         multiunit_likelihood[:, 1, :],
-        position)[:, np.newaxis]
+        position)
 
     if set_no_spike_to_equally_likely:
         no_spike = np.all(np.isnan(multiunit), axis=(1, 2))
