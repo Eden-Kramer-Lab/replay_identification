@@ -2,10 +2,9 @@ from functools import partial
 
 import numpy as np
 from replay_identification.bins import atleast_2d
+from replay_identification.core import scale_likelihood
 from scipy.interpolate import griddata
 from tqdm.autonotebook import tqdm
-
-from .core import scale_likelihood
 
 SQRT_2PI = np.sqrt(2.0 * np.pi)
 

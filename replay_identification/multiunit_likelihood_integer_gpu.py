@@ -9,9 +9,8 @@ except ImportError:
 
 import numpy as np
 from replay_identification.bins import atleast_2d
+from replay_identification.core import scale_likelihood
 from tqdm.autonotebook import tqdm
-
-from .core import scale_likelihood
 
 SQRT_2PI = cp.sqrt(2.0 * cp.pi)
 

@@ -25,7 +25,7 @@ from .movement_state_transition import (empirical_movement, random_walk,
                                         random_walk_on_track_graph)
 from .multiunit_likelihood import NumbaKDE, fit_multiunit_likelihood
 from .multiunit_likelihood_integer import fit_multiunit_likelihood_integer
-from .multiunit_likelihood_integer_cupy import fit_multiunit_likelihood_gpu
+from .multiunit_likelihood_integer_gpu import fit_multiunit_likelihood_gpu
 from .speed_likelhood import fit_speed_likelihood
 from .spiking_likelihood import fit_spiking_likelihood
 

@@ -18,7 +18,7 @@ def multiunit_likelihood(multiunit, position, place_bin_centers,
                          occupancy_model, joint_models, marginal_models,
                          mean_rates, is_track_interior, time_bin_size=1,
                          set_no_spike_to_equally_likely=True):
-    '''The likelihood of being in a replay state vs. not a replay state based
+    '''The likelihood of being in a non-local state vs. a local state based
     on whether the multiunits correspond to the current position of the animal.
 
     Parameters
@@ -41,11 +41,11 @@ def multiunit_likelihood(multiunit, position, place_bin_centers,
     n_time = multiunit.shape[0]
     n_place_bins = place_bin_centers.size
     multiunit_likelihood = np.zeros((n_time, 2, n_place_bins))
-    multiunit_likelihood[:, 1, :] = (estimate_replay_log_likelihood(
+    multiunit_likelihood[:, 1, :] = (estimate_non_local_log_likelihood(
         np.moveaxis(multiunit, -1, 0), place_bin_centers,
         occupancy_model, joint_models, marginal_models, mean_rates,
         is_track_interior, time_bin_size))
-    multiunit_likelihood[:, 0, :] = (estimate_no_replay_log_likelihood(
+    multiunit_likelihood[:, 0, :] = (estimate_local_log_likelihood(
         np.moveaxis(multiunit, -1, 0), position, occupancy_model,
         joint_models, marginal_models, mean_rates, time_bin_size))
 
@@ -57,7 +57,7 @@ def multiunit_likelihood(multiunit, position, place_bin_centers,
     return scale_likelihood(multiunit_likelihood)
 
 
-def estimate_replay_log_likelihood(
+def estimate_non_local_log_likelihood(
         multiunits, place_bin_centers, occupancy_model,
         joint_models, marginal_models, mean_rates, is_track_interior,
         time_bin_size):
@@ -75,7 +75,7 @@ def estimate_replay_log_likelihood(
 
     Returns
     -------
-    replay_log_likelihood : ndarray, shape (n_time, n_place_bins)
+    non_local_log_likelihood : ndarray, shape (n_time, n_place_bins)
 
     '''
 
@@ -105,7 +105,7 @@ def estimate_replay_log_likelihood(
     return log_likelihood
 
 
-def estimate_no_replay_log_likelihood(
+def estimate_local_log_likelihood(
         multiunits, position, occupancy_model,
         joint_models, marginal_models, mean_rates, time_bin_size):
     '''Estimate the log likelihood of being at the current position.
@@ -122,7 +122,7 @@ def estimate_no_replay_log_likelihood(
 
     Returns
     -------
-    no_replay_log_likelihood : ndarray, shape (n_time,)
+    local_log_likelihood : ndarray, shape (n_time,)
 
     '''
     n_time = multiunits.shape[1]
@@ -332,7 +332,7 @@ def fit_multiunit_likelihood(position, multiunit, is_training,
     ----------
     position : ndarray, shape (n_time, n_position_dims)
     multiunit : ndarray, shape (n_time, n_features, n_electrodes)
-    is_replay : bool ndarray, shape (n_time,)
+    is_training : bool ndarray, shape (n_time,)
     place_bin_centers : ndarray, shape (n_place_bins,)
     model : Class
     model_kwargs : dict
