@@ -405,7 +405,12 @@ def estimate_local_multiunit_likelihood(
         place_bin_centers, non_local_likelihood, position):
 
     return np.asarray(
-        [griddata(place_bin_centers, likelihood, pos)
+        [griddata(
+            place_bin_centers,
+            likelihood,
+            pos,
+            fill_value=griddata(
+                place_bin_centers, likelihood, pos, method='nearest'))
          for likelihood, pos in zip(non_local_likelihood, tqdm(position))])
 
 
