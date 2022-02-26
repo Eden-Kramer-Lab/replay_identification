@@ -401,16 +401,21 @@ def estimate_non_local_multiunit_likelihood(
     return log_likelihood
 
 
+def _interpolate_value(
+        place_bin_centers,
+        likelihood,
+        pos):
+    value = griddata(place_bin_centers, likelihood, pos, method='linear')
+    if np.isnan(value):
+        value = griddata(place_bin_centers, likelihood, pos, method='nearest')
+    return value
+
+
 def estimate_local_multiunit_likelihood(
         place_bin_centers, non_local_likelihood, position):
 
     return np.asarray(
-        [griddata(
-            place_bin_centers,
-            likelihood,
-            pos,
-            fill_value=griddata(
-                place_bin_centers, likelihood, pos, method='nearest'))
+        [_interpolate_value(place_bin_centers, likelihood, pos)
          for likelihood, pos in zip(non_local_likelihood, tqdm(position))])
 
 

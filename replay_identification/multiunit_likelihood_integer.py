@@ -415,16 +415,21 @@ def estimate_local_log_joint_mark_intensity(decoding_marks,
         mean_rate)
 
 
+def _interpolate_value(
+        place_bin_centers,
+        likelihood,
+        pos):
+    value = griddata(place_bin_centers, likelihood, pos, method='linear')
+    if np.isnan(value):
+        value = griddata(place_bin_centers, likelihood, pos, method='nearest')
+    return value
+
+
 def estimate_local_multiunit_likelihood(
         place_bin_centers, non_local_likelihood, position):
 
     return np.asarray(
-        [griddata(
-            place_bin_centers,
-            likelihood,
-            pos,
-            fill_value=griddata(
-                place_bin_centers, likelihood, pos, method='nearest'))
+        [_interpolate_value(place_bin_centers, likelihood, pos)
          for likelihood, pos in zip(non_local_likelihood, tqdm(position))])
 
 
