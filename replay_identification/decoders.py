@@ -303,7 +303,7 @@ class ReplayDetector(BaseEstimator):
         else:
             self._multiunit_likelihood = return_None
 
-        logger.info('Fitting replay movement state transition...')
+        logger.info('Fitting continuous state transition...')
         if self.movement_state_transition_type == 'empirical':
             self.movement_state_transition_ = empirical_movement(
                 position, self.edges_, is_training, self.replay_speed)
@@ -324,7 +324,7 @@ class ReplayDetector(BaseEstimator):
                 is_track_interior, self.replay_speed)
 
         if not refit:
-            logger.info('Fitting replay state transition...')
+            logger.info('Fitting discrete state transition...')
             self.discrete_state_transition_ = _DISCRETE_STATE_TRANSITIONS[
                 self.discrete_state_transition_type](
                 speed, is_ripple, self.discrete_state_transition_penalty,
