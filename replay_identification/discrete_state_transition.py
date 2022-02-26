@@ -98,6 +98,14 @@ def fit_discrete_state_transition_no_speed(
 
 def constant_transition(
         speed, is_replay, penalty=1E-5, speed_knots=None, diagonal=None):
+    '''
+    discrete_state_transition[0] = Pr(I_{k} = 1 | I_{k-1} = 0)
+    discrete_state_transition[1] = Pr(I_{k} = 1 | I_{k-1} = 1)
+
+    0 : from local to non_local
+    1 : from non_local to non_local
+    '''
+
     if diagonal is None:
         diagonal = np.array([0.00003, 0.98])
     return partial(_constant_probability, diagonal=diagonal)
