@@ -2,6 +2,7 @@ from functools import partial
 
 import numpy as np
 from replay_identification.bins import atleast_2d
+from scipy.interpolate import griddata
 from tqdm.autonotebook import tqdm
 
 from .core import scale_likelihood
@@ -269,29 +270,6 @@ def fit_multiunit_likelihood_integer(position,
     )
 
 
-def estimate_local_occupancy(train_position, test_position, position_std,
-                             block_size=None):
-    return estimate_position_density(
-        np.asarray(test_position, dtype=np.float32),
-        np.asarray(train_position, dtype=np.float32),
-        position_std,
-        block_size=block_size
-    )
-
-
-def estimate_local_gpi(test_position, enc_pos, occupancy, mean_rate,
-                       position_std, block_size=None):
-    marginal_density = estimate_position_density(
-        np.asarray(test_position, dtype=np.float32),
-        np.asarray(enc_pos, dtype=np.float32),
-        position_std,
-        block_size=block_size)
-    return estimate_intensity(
-        marginal_density,
-        np.asarray(occupancy, dtype=np.float32),
-        mean_rate)
-
-
 def estimate_non_local_multiunit_likelihood(
         multiunits,
         encoding_marks,
@@ -438,95 +416,11 @@ def estimate_local_log_joint_mark_intensity(decoding_marks,
 
 
 def estimate_local_multiunit_likelihood(
-        decoding_multiunit,
-        decoding_position,
-        encoding_marks,
-        mark_std,
-        encoding_position,
-        encoding_marks_position,
-        position_std,
-        mean_rates,
-        max_mark_value=6000,
-        set_diag_zero=False,
-        time_bin_size=1,
-        block_size=None,
-        disable_progress_bar=False):
-    '''
+        place_bin_centers, non_local_likelihood, position):
 
-    Parameters
-    ----------
-    multiunits : ndarray, shape (n_time, n_marks, n_electrodes)
-    place_bin_centers : ndarray, (n_bins, n_position_dims)
-    joint_pdf_models : list of sklearn models, shape (n_electrodes,)
-    ground_process_intensities : list of ndarray, shape (n_electrodes,)
-    occupancy : ndarray, (n_bins, n_position_dims)
-    mean_rates : ndarray, (n_electrodes,)
-
-    Returns
-    -------
-    log_likelihood : (n_time,)
-
-    '''
-
-    n_time = decoding_multiunit.shape[0]
-    log_likelihood = (-time_bin_size * np.ones((n_time,), dtype=np.float32))
-
-    decoding_multiunits = np.moveaxis(decoding_multiunit, -1, 0)
-
-    local_occupancy = estimate_local_occupancy(
-        train_position=np.asarray(encoding_position, dtype=np.float32),
-        test_position=decoding_position,
-        position_std=position_std,
-        block_size=block_size
-    )
-
-    for decoding_multiunit, enc_marks, enc_pos, mean_rate in zip(
-            tqdm(decoding_multiunits, desc='n_electrodes',
-                 disable=disable_progress_bar),
-            encoding_marks, encoding_marks_position, mean_rates):
-
-        is_decoding_spike = np.any(~np.isnan(decoding_multiunit), axis=1)
-        decoding_marks = np.asarray(
-            decoding_multiunit[is_decoding_spike], dtype=np.int16)
-        n_decoding_marks = decoding_marks.shape[0]
-        enc_pos = np.asarray(enc_pos, dtype=np.float32)
-
-        if block_size is None:
-            block_size = n_decoding_marks
-
-        log_likelihood += estimate_local_gpi(
-            test_position=decoding_position,
-            enc_pos=enc_pos,
-            occupancy=local_occupancy,
-            mean_rate=mean_rate,
-            position_std=position_std,
-            block_size=block_size
-        )
-
-        log_joint_mark_intensity = np.zeros(
-            (n_decoding_marks,), dtype=np.float32)
-
-        for start_ind in range(0, n_decoding_marks, block_size):
-            block_inds = slice(start_ind, start_ind + block_size)
-            position_distance = estimate_position_distance(
-                decoding_position[is_decoding_spike][block_inds],
-                enc_pos,
-                position_std
-            ).astype(np.float32)  # n_encoding_spikes, n_decoding_spikes
-            log_joint_mark_intensity[block_inds] = estimate_local_log_joint_mark_intensity(
-                decoding_marks[block_inds],
-                np.asarray(enc_marks, np.int16),
-                mark_std,
-                local_occupancy[is_decoding_spike][block_inds],
-                mean_rate,
-                max_mark_value=max_mark_value,
-                set_diag_zero=set_diag_zero,
-                position_distance=position_distance,
-            )
-        log_likelihood[is_decoding_spike] += (
-            log_joint_mark_intensity + np.spacing(1))
-
-    return log_likelihood
+    return np.asarray(
+        [griddata(place_bin_centers, likelihood, pos)
+         for likelihood, pos in zip(non_local_likelihood, tqdm(position))])
 
 
 def multiunit_likelihood(multiunit, position, place_bin_centers, encoding_marks,
@@ -571,16 +465,9 @@ def multiunit_likelihood(multiunit, position, place_bin_centers, encoding_marks,
         summed_ground_process_intensity,
         block_size=block_size)
     multiunit_likelihood[:, 0, :] = estimate_local_multiunit_likelihood(
-        multiunit,
-        position,
-        encoding_marks,
-        mark_std,
-        encoding_position,
-        encoding_marks_position,
-        position_std,
-        mean_rates,
-        block_size=block_size,
-    )[:, np.newaxis]
+        place_bin_centers,
+        multiunit_likelihood[:, 1, :],
+        position)[:, np.newaxis]
 
     if set_no_spike_to_equally_likely:
         no_spike = np.all(np.isnan(multiunit), axis=(1, 2))
