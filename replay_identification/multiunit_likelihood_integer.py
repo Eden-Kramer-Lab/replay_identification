@@ -192,14 +192,14 @@ def estimate_log_joint_mark_intensity(decoding_marks,
         mean_rate)
 
 
-def fit_multiunit_likelihood_gpu(position,
-                                 multiunits,
-                                 is_training,
-                                 place_bin_centers,
-                                 mark_std,
-                                 position_std,
-                                 is_track_interior=None,
-                                 **kwargs):
+def fit_multiunit_likelihood_integer(position,
+                                     multiunits,
+                                     is_training,
+                                     place_bin_centers,
+                                     mark_std,
+                                     position_std,
+                                     is_track_interior=None,
+                                     **kwargs):
     '''
 
     Parameters
