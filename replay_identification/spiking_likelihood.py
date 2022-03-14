@@ -8,6 +8,7 @@ from logging import getLogger
 
 import dask
 import numpy as np
+import scipy.stats
 import statsmodels.api as sm
 from dask.distributed import Client, get_client
 from patsy import build_design_matrices, dmatrix
@@ -56,8 +57,9 @@ def poisson_log_likelihood(spikes, conditional_intensity):
     poisson_log_likelihood : array_like, shape (n_time, n_place_bins)
 
     """
-    return (np.log(conditional_intensity + np.spacing(1)) * spikes
-            - conditional_intensity)
+    return scipy.stats.poisson.logpmf(
+        spikes,
+        conditional_intensity + np.spacing(1))
 
 
 def spiking_likelihood(
