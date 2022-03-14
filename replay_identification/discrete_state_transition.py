@@ -207,7 +207,7 @@ def predict(design_matrix, coefficients):
     return FAMILY.link.inverse(design_matrix @ np.squeeze(coefficients))
 
 
-def estimate_discrete_state_transition(classifier, results):
+def estimate_discrete_state_transition(detector, results):
     try:
         causal_prob = results.causal_posterior.sum('position').values
         acausal_prob = results.acausal_posterior.sum('position').values
@@ -217,21 +217,29 @@ def estimate_discrete_state_transition(classifier, results):
         acausal_prob = results.acausal_posterior.sum(
             ['x_position', 'y_position']).values
 
-    # only works with constant transition matrix
-    transition = classifier.discrete_state_transition_(np.arange(1))[0]
-    discrete_state_transition = np.asarray(
+    assert detector.discrete_state_transition_type == 'constant'
+
+    transition = detector.discrete_state_transition_(np.arange(1))[0]
+    old_discrete_state_transition = np.asarray(
         [[1 - transition[0], transition[0]],
          [1 - transition[1], transition[1]]])
-    EPS = 1e-32
-    discrete_state_transition = (
-        discrete_state_transition[np.newaxis] *
-        causal_prob[2:-1, np.newaxis] *
-        acausal_prob[3:, np.newaxis] /
-        causal_prob[3:, np.newaxis]).sum(axis=0) + EPS
-    discrete_state_transition /= discrete_state_transition.sum(
-        axis=1, keepdims=True)
 
-    return discrete_state_transition
+    EPS = 1e-32
+    n_states = old_discrete_state_transition.shape[0]
+
+    new_discrete_state_transition = np.zeros((n_states, n_states))
+    for i in range(n_states):
+        for j in range(n_states):
+            new_discrete_state_transition[i, j] = (
+                old_discrete_state_transition[i, j] *
+                causal_prob[:-1, i] *
+                acausal_prob[1:, j] /
+                causal_prob[1:, j]).sum() + EPS
+            new_discrete_state_transition[i, j] /= acausal_prob[:-1, i].sum()
+    new_discrete_state_transition /= new_discrete_state_transition.sum(
+        axis=-1, keepdims=True)
+
+    return new_discrete_state_transition[:, 1]
 
 
 _DISCRETE_STATE_TRANSITIONS = {
