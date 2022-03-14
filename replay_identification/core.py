@@ -43,8 +43,8 @@ def _causal_classifier(likelihood, movement_state_transition, discrete_state_tra
     -------
     posterior : ndarray, shape (n_time, 2, n_position_bins)
     state_probability : ndarray, shape (n_time, 2)
-        state_probability[:, 0] = Pr(I_{1:T} = 0)
-        state_probability[:, 1] = Pr(I_{1:T} = 1)
+        state_probability[:, 0] = Pr(I_{1:T} = 0), Local
+        state_probability[:, 1] = Pr(I_{1:T} = 1), Non-Local
     prior : ndarray, shape (n_time, 2, n_position_bins)
 
     '''
