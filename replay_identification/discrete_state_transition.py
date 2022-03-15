@@ -209,14 +209,19 @@ def predict(design_matrix, coefficients):
 
 
 def estimate_discrete_state_transition(detector, results):
+    EPS = 1e-32
     try:
-        causal_prob = np.log(results.causal_posterior.sum('position').values)
-        acausal_prob = np.log(results.acausal_posterior.sum('position').values)
+        causal_prob = np.log(
+            results.causal_posterior.sum('position').values + EPS)
+        acausal_prob = np.log(
+            results.acausal_posterior.sum('position').values + EPS)
     except ValueError:
-        causal_prob = np.log(results.causal_posterior.sum(
-            ['x_position', 'y_position']).values)
-        acausal_prob = np.log(results.acausal_posterior.sum(
-            ['x_position', 'y_position']).values)
+        causal_prob = np.log(
+            results.causal_posterior.sum(['x_position', 'y_position']).values +
+            EPS)
+        acausal_prob = np.log(
+            results.acausal_posterior.sum(['x_position', 'y_position']).values
+            + EPS)
 
     assert detector.discrete_state_transition_type in [
         'constant', 'ripples_no_speed_threshold']
