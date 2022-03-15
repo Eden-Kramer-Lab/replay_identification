@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from patsy import NAAction, build_design_matrices, dmatrices
 from regularized_glm import penalized_IRLS
+from scipy.special import logsumexp
 from statsmodels.api import families
 from statsmodels.tsa.tsatools import lagmat
 
@@ -209,37 +210,38 @@ def predict(design_matrix, coefficients):
 
 def estimate_discrete_state_transition(detector, results):
     try:
-        causal_prob = results.causal_posterior.sum('position').values
-        acausal_prob = results.acausal_posterior.sum('position').values
+        causal_prob = np.log(results.causal_posterior.sum('position').values)
+        acausal_prob = np.log(results.acausal_posterior.sum('position').values)
     except ValueError:
-        causal_prob = results.causal_posterior.sum(
-            ['x_position', 'y_position']).values
-        acausal_prob = results.acausal_posterior.sum(
-            ['x_position', 'y_position']).values
+        causal_prob = np.log(results.causal_posterior.sum(
+            ['x_position', 'y_position']).values)
+        acausal_prob = np.log(results.acausal_posterior.sum(
+            ['x_position', 'y_position']).values)
 
-    assert detector.discrete_state_transition_type == 'constant'
+    assert detector.discrete_state_transition_type in [
+        'constant', 'ripples_no_speed_threshold']
 
     transition = detector.discrete_state_transition_(np.arange(1))[0]
-    old_discrete_state_transition = np.asarray(
+    old_discrete_state_transition = np.log(np.asarray(
         [[1 - transition[0], transition[0]],
-         [1 - transition[1], transition[1]]])
+         [1 - transition[1], transition[1]]]))
 
-    EPS = 1e-32
     n_states = old_discrete_state_transition.shape[0]
 
-    new_discrete_state_transition = np.zeros((n_states, n_states))
+    new_log_discrete_state_transition = np.empty((n_states, n_states))
     for i in range(n_states):
         for j in range(n_states):
-            new_discrete_state_transition[i, j] = (
-                old_discrete_state_transition[i, j] *
-                causal_prob[:-1, i] *
-                acausal_prob[1:, j] /
-                causal_prob[1:, j]).sum() + EPS
-            new_discrete_state_transition[i, j] /= acausal_prob[:-1, i].sum()
-    new_discrete_state_transition /= new_discrete_state_transition.sum(
-        axis=-1, keepdims=True)
+            new_log_discrete_state_transition[i, j] = logsumexp(
+                old_discrete_state_transition[i, j] +
+                causal_prob[:-1, i] +
+                acausal_prob[1:, j] -
+                causal_prob[1:, j])
+            new_log_discrete_state_transition[i, j] -= logsumexp(
+                acausal_prob[:-1, i])
+    new_log_discrete_state_transition -= logsumexp(
+        new_log_discrete_state_transition, axis=-1, keepdims=True)
 
-    return new_discrete_state_transition
+    return np.exp(new_log_discrete_state_transition)
 
 
 _DISCRETE_STATE_TRANSITIONS = {
