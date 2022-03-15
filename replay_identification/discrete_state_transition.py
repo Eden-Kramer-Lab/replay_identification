@@ -239,7 +239,7 @@ def estimate_discrete_state_transition(detector, results):
     new_discrete_state_transition /= new_discrete_state_transition.sum(
         axis=-1, keepdims=True)
 
-    return new_discrete_state_transition[:, 1]
+    return new_discrete_state_transition
 
 
 _DISCRETE_STATE_TRANSITIONS = {
