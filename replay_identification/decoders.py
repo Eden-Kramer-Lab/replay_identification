@@ -181,7 +181,7 @@ class ReplayDetector(BaseEstimator):
         logger.info(
             f'iteration {n_iter}, likelihood: {data_log_likelihoods[-1]}')
 
-        while not converged and (n_iter <= max_iter):
+        while not converged and (n_iter < max_iter):
             if estimate_state_transition:
                 discrete_state_transition = estimate_discrete_state_transition(
                     self, results)
