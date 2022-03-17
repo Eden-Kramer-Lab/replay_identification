@@ -45,8 +45,8 @@ class _BaseDetector(BaseEstimator):
         self.place_bin_size = place_bin_size
         self.position_range = position_range
         self.track_graph = track_graph
-        self.edge_order = None
-        self.edge_spacing = None
+        self.edge_order = edge_order
+        self.edge_spacing = edge_spacing
         self.continuous_state_transition_type = continuous_state_transition_type
         self.random_walk_variance = random_walk_variance
         self.discrete_state_transition_type = discrete_state_transition_type
