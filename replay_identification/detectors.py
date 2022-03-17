@@ -14,7 +14,8 @@ from replay_identification.core import (_acausal_classifier,
                                         _causal_classifier_gpu,
                                         check_converged)
 from replay_identification.discrete_state_transition import (
-    estimate_discrete_state_transition, infer_discrete_state_transition,
+    estimate_discrete_state_transition,
+    infer_discrete_state_transition_from_training_data,
     make_discrete_state_transition_from_diagonal)
 from replay_identification.movement_state_transition import (
     empirical_movement, random_walk, random_walk_on_track_graph)
@@ -123,7 +124,7 @@ class _BaseDetector(BaseEstimator):
             self.discrete_transition_diagonal = discrete_transition_diagonal
 
         if self.discrete_state_transition_type == 'infer':
-            self.discrete_state_transition_ = infer_discrete_state_transition(
+            self.discrete_state_transition_ = infer_discrete_state_transition_from_training_data(
                 ~is_training)
         else:
             self.discrete_state_transition_ = make_discrete_state_transition_from_diagonal(

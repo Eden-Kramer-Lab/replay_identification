@@ -271,7 +271,10 @@ def make_discrete_state_transition_from_diagonal(diagonal):
     return discrete_state_transition
 
 
-def infer_discrete_state_transition(is_non_local, penalty=1e-5):
+def infer_discrete_state_transition_from_training_data(
+    is_non_local,
+    penalty=1e-5
+):
     data = pd.DataFrame({
         'is_non_local': is_non_local.astype(np.float64),
         'lagged_is_non_local': lagmat(
