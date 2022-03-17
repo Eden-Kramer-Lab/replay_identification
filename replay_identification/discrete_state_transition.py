@@ -223,13 +223,14 @@ def estimate_discrete_state_transition(detector, results):
             results.acausal_posterior.sum(['x_position', 'y_position']).values
             + EPS)
 
-    assert detector.discrete_state_transition_type in [
-        'constant', 'ripples_no_speed_threshold']
-
-    transition = detector.discrete_state_transition_(np.arange(1))[0]
-    old_discrete_state_transition = np.log(np.asarray(
-        [[1 - transition[0], transition[0]],
-         [1 - transition[1], transition[1]]]))
+    try:
+        transition = detector.discrete_state_transition_(np.arange(1))[0]
+        old_discrete_state_transition = np.log(np.asarray(
+            [[1 - transition[0], transition[0]],
+             [1 - transition[1], transition[1]]]))
+    except TypeError:
+        old_discrete_state_transition = np.log(
+            detector.discrete_state_transition_)
 
     n_states = old_discrete_state_transition.shape[0]
 
@@ -247,6 +248,27 @@ def estimate_discrete_state_transition(detector, results):
         new_log_discrete_state_transition, axis=-1, keepdims=True)
 
     return np.exp(new_log_discrete_state_transition)
+
+
+def make_discrete_state_transition_from_diagonal(diagonal):
+    """Makes discrete state transition matrix.
+
+    Parameters
+    ----------
+    n_states : int
+
+    Returns
+    -------
+    discrete_state_transition : np.ndarray, shape (n_states, n_states)
+
+    """
+    n_states = len(diagonal)
+    discrete_state_transition = np.identity(n_states) * diagonal
+    is_off_diag = ~np.identity(n_states, dtype=bool)
+    discrete_state_transition[is_off_diag] = (
+        (1 - diagonal) / (n_states - 1))
+
+    return discrete_state_transition
 
 
 _DISCRETE_STATE_TRANSITIONS = {
