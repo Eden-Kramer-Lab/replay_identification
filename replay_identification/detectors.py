@@ -109,7 +109,7 @@ class _BaseDetector(BaseEstimator):
 
         if self.discrete_state_transition_type == 'infer':
             self.discrete_state_transition_ = infer_discrete_state_transition(
-                is_training)
+                ~is_training)
         else:
             self.discrete_state_transition_ = make_discrete_state_transition_from_diagonal(
                 discrete_transition_diagonal)
