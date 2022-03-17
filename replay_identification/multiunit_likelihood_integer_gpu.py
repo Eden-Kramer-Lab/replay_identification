@@ -325,8 +325,8 @@ def estimate_non_local_multiunit_likelihood(
         set_diag_zero=False,
         is_track_interior=None,
         time_bin_size=1,
-        block_size=None,
-        disable_progress_bar=True,
+        block_size=100,
+        disable_progress_bar=False,
 ):
     '''
 
@@ -526,7 +526,7 @@ def estimate_local_multiunit_likelihood(
         max_mark_value=6000,
         set_diag_zero=False,
         time_bin_size=1,
-        block_size=None,
+        block_size=100,
         is_training=None,
         disable_progress_bar=False):
     '''
@@ -619,7 +619,7 @@ def multiunit_likelihood(multiunits, position, place_bin_centers, encoding_marks
                          time_bin_size=1,
                          set_no_spike_to_equally_likely=True,
                          is_training=None,
-                         block_size=None,
+                         block_size=100,
                          disable_progress_bar=False,
                          interpolate_local_likelihood=False):
     '''The likelihood of being in a replay state vs. not a replay state based
