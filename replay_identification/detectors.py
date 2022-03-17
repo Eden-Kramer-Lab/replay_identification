@@ -53,7 +53,7 @@ class _BaseDetector(BaseEstimator):
         edge_spacing=None,
         continuous_state_transition_type='random_walk',
         random_walk_variance=6.0,
-        discrete_state_transition_type='infer',
+        discrete_state_transition_type='infer_from_training_data',
         discrete_transition_diagonal=_DISCRETE_DIAGONAL,
         is_track_interior=None,
         infer_track_interior=True,
@@ -123,12 +123,14 @@ class _BaseDetector(BaseEstimator):
         if discrete_transition_diagonal is not None:
             self.discrete_transition_diagonal = discrete_transition_diagonal
 
-        if self.discrete_state_transition_type == 'infer':
+        if self.discrete_state_transition_type == 'infer_from_training_data':
             self.discrete_state_transition_ = infer_discrete_state_transition_from_training_data(
                 ~is_training)
-        else:
+        elif self.discrete_state_transition_type == 'make_from_user_specified_diagonal':
             self.discrete_state_transition_ = make_discrete_state_transition_from_diagonal(
                 discrete_transition_diagonal)
+        else:
+            raise NotImplementedError
 
     def plot_discrete_state_transition(
             self, state_names=None, cmap='Oranges', ax=None,
@@ -383,7 +385,7 @@ class SortedSpikesDetector(_BaseDetector):
         edge_spacing=None,
         continuous_state_transition_type='random_walk',
         random_walk_variance=6.0,
-        discrete_state_transition_type='infer',
+        discrete_state_transition_type='infer_from_training_data',
         discrete_transition_diagonal=_DISCRETE_DIAGONAL,
         is_track_interior=None,
         infer_track_interior=True,
@@ -577,7 +579,7 @@ class ClusterlessDetector(_BaseDetector):
         edge_spacing=None,
         continuous_state_transition_type='random_walk',
         random_walk_variance=6.0,
-        discrete_state_transition_type='infer',
+        discrete_state_transition_type='infer_from_training_data',
         discrete_transition_diagonal=_DISCRETE_DIAGONAL,
         is_track_interior=None,
         infer_track_interior=True,
