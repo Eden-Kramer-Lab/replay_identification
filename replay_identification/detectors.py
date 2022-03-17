@@ -535,6 +535,7 @@ class SortedSpikesDetector(_BaseDetector):
             spikes=spikes,
             position=position,
             set_no_spike_to_equally_likely=set_no_spike_to_equally_likely)
+        likelihood[:, :, ~self.is_track_interior_.ravel(order='F')] = 0.0
 
         if store_likelihood:
             self.likelihood_ = likelihood
