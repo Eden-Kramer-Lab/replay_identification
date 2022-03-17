@@ -190,7 +190,6 @@ class _BaseDetector(BaseEstimator):
         is_compute_acausal=True,
         use_gpu=False
     ):
-
         n_time = likelihood.shape[0]
         if time is None:
             time = np.arange(n_time)
@@ -205,6 +204,8 @@ class _BaseDetector(BaseEstimator):
         uniform = np.ones((self.place_bin_centers_.shape[0],))
         uniform[~self.is_track_interior_.ravel(order='F')] = 0.0
         uniform /= uniform.sum()
+
+        likelihood[:, :, ~self.is_track_interior_.ravel(order='F')] = 0.0
 
         logger.info('Finding causal non-local probability and position...')
         if not use_gpu:
@@ -535,7 +536,6 @@ class SortedSpikesDetector(_BaseDetector):
             spikes=spikes,
             position=position,
             set_no_spike_to_equally_likely=set_no_spike_to_equally_likely)
-        likelihood[:, :, ~self.is_track_interior_.ravel(order='F')] = 0.0
 
         if store_likelihood:
             self.likelihood_ = likelihood
