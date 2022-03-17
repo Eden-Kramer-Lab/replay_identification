@@ -18,6 +18,12 @@ from replay_identification.discrete_state_transition import (
     make_discrete_state_transition_from_diagonal)
 from replay_identification.movement_state_transition import (
     empirical_movement, random_walk, random_walk_on_track_graph)
+from replay_identification.multiunit_likelihood import (
+    NumbaKDE, fit_multiunit_likelihood)
+from replay_identification.multiunit_likelihood_integer import \
+    fit_multiunit_likelihood_integer
+from replay_identification.multiunit_likelihood_integer_gpu import \
+    fit_multiunit_likelihood_gpu
 from replay_identification.spiking_likelihood import fit_spiking_likelihood
 from sklearn.base import BaseEstimator
 
@@ -25,6 +31,15 @@ logger = getLogger(__name__)
 sklearn.set_config(print_changed_only=False)
 
 _DISCRETE_DIAGONAL = np.asarray([0.999, 0.98])
+_DEFAULT_CLUSTERLESS_MODEL_KWARGS = {
+    'density_model': NumbaKDE,
+    'model_kwargs': {
+        'bandwidth': dict(
+            bandwidth=np.array([24.0, 24.0, 24.0, 24.0, 6.0, 6.0]))
+    },
+    'occupancy_marginal_model': NumbaKDE,
+    'occupancy_kwargs': dict(bandwidth=np.array([6.0, 6.0]))
+}
 
 
 class _BaseDetector(BaseEstimator):
@@ -396,6 +411,8 @@ class SortedSpikesDetector(_BaseDetector):
         spikes = np.asarray(spikes)
         if is_training is None:
             is_training = np.ones((spikes.shape[0],), dtype=bool)
+        else:
+            is_training = np.asarray(is_training)
 
         self.encoding_model_ = fit_spiking_likelihood(
             position,
@@ -534,6 +551,158 @@ class SortedSpikesDetector(_BaseDetector):
         logger.info('Estimating likelihood...')
         likelihood = self.encoding_model_(
             spikes=spikes,
+            position=position,
+            set_no_spike_to_equally_likely=set_no_spike_to_equally_likely)
+
+        if store_likelihood:
+            self.likelihood_ = likelihood
+
+        return self._get_results(
+            position,
+            likelihood,
+            time=time,
+            is_compute_acausal=is_compute_acausal,
+            use_gpu=use_gpu,
+        )
+
+
+class ClusterlessDetector(_BaseDetector):
+    def __init__(
+        self,
+        place_bin_size=2.0,
+        position_range=None,
+        track_graph=None,
+        edge_order=None,
+        edge_spacing=None,
+        continuous_state_transition_type='random_walk',
+        random_walk_variance=6.0,
+        discrete_state_transition_type='infer',
+        discrete_transition_diagonal=_DISCRETE_DIAGONAL,
+        is_track_interior=None,
+        infer_track_interior=True,
+        clusterless_algorithm='multiunit_likelihood',
+        clusterless_algorithm_params=_DEFAULT_CLUSTERLESS_MODEL_KWARGS
+    ):
+        super().__init__(
+            place_bin_size,
+            position_range,
+            track_graph,
+            edge_order,
+            edge_spacing,
+            continuous_state_transition_type,
+            random_walk_variance,
+            discrete_state_transition_type,
+            discrete_transition_diagonal,
+            is_track_interior,
+            infer_track_interior,
+        )
+        self.clusterless_algorithm = clusterless_algorithm
+        self.clusterless_algorithm_params = clusterless_algorithm_params
+
+    def fit_multiunits(
+            self,
+            position,
+            multiunits,
+            is_training=None,
+    ):
+        '''
+
+        Parameters
+        ----------
+        position : array_like, shape (n_time, n_position_dims)
+        multiunits : array_like, shape (n_time, n_features, n_electrodes)
+        is_training : None or array_like, shape (n_time,)
+
+        '''
+        logger.info('Fitting multiunits...')
+        position = atleast_2d(np.asarray(position))
+        multiunits = np.asarray(multiunits)
+
+        if is_training is None:
+            is_training = np.ones((position.shape[0],), dtype=bool)
+        else:
+            is_training = np.asarray(is_training)
+
+        if self.clusterless_algorithm == 'multiunit_likelihood':
+            self.encoding_model_ = fit_multiunit_likelihood(
+                position=position,
+                multiunits=multiunits,
+                is_training=is_training,
+                place_bin_centers=self.place_bin_centers_,
+                is_track_interior=self.is_track_interior_.ravel(order='F'),
+                **self.clusterless_algorithm_params,
+            )
+        elif self.clusterless_algorithm == 'multiunit_likelihood_integer':
+            self.encoding_model_ = fit_multiunit_likelihood_integer(
+                position=position,
+                multiunits=multiunits,
+                is_training=is_training,
+                place_bin_centers=self.place_bin_centers_,
+                is_track_interior=self.is_track_interior_.ravel(order='F'),
+                **self.clusterless_algorithm_params
+            )
+        elif self.clusterless_algorithm == 'multiunit_likelihood_integer_gpu':
+            self.encoding_model_ = fit_multiunit_likelihood_gpu(
+                position=position,
+                multiunits=multiunits,
+                is_training=is_training,
+                place_bin_centers=self.place_bin_centers_,
+                is_track_interior=self.is_track_interior_.ravel(order='F'),
+                **self.clusterless_algorithm_params
+            )
+        else:
+            raise NotImplementedError
+
+    def fit(self, position, multiunits, is_training=None, refit=False):
+        position = atleast_2d(np.asarray(position))
+        multiunits = np.asarray(multiunits)
+        if is_training is None:
+            is_training = np.ones((position.shape[0],), dtype=bool)
+        else:
+            is_training = np.asarray(is_training)
+
+        if not refit:
+            self.fit_place_grid(
+                position=position,
+                track_graph=self.track_graph,
+                edge_order=self.edge_order,
+                edge_spacing=self.edge_spacing,
+                infer_track_interior=self.infer_track_interior,
+            )
+
+            self.fit_discrete_state_transition(
+                discrete_transition_diagonal=self.discrete_transition_diagonal,
+                is_training=is_training
+            )
+            self.fit_continuous_state_transition(
+                position=position,
+                is_training=is_training,
+            )
+
+        self.fit_multiunits(
+            position,
+            multiunits,
+            is_training
+        )
+
+        return self
+
+    def predict(
+        self,
+        position,
+        multiunits,
+        time=None,
+        is_compute_acausal=True,
+        set_no_spike_to_equally_likely=False,
+        use_gpu=False,
+        store_likelihood=False
+    ):
+        position = atleast_2d(np.asarray(position))
+        multiunits = np.asarray(multiunits)
+
+        logger.info('Estimating likelihood...')
+        likelihood = self.encoding_model_(
+            multiunits=multiunits,
             position=position,
             set_no_spike_to_equally_likely=set_no_spike_to_equally_likely)
 
