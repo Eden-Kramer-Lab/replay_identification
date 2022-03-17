@@ -34,10 +34,8 @@ sklearn.set_config(print_changed_only=False)
 _DISCRETE_DIAGONAL = np.asarray([0.999, 0.98])
 _DEFAULT_CLUSTERLESS_MODEL_KWARGS = {
     'density_model': NumbaKDE,
-    'model_kwargs': {
-        'bandwidth': dict(
-            bandwidth=np.array([24.0, 24.0, 24.0, 24.0, 6.0, 6.0]))
-    },
+    'model_kwargs': dict(
+        bandwidth=np.array([24.0, 24.0, 24.0, 24.0, 6.0, 6.0])),
     'occupancy_marginal_model': NumbaKDE,
     'occupancy_kwargs': dict(bandwidth=np.array([6.0, 6.0]))
 }
