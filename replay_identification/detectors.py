@@ -14,7 +14,7 @@ from replay_identification.core import (_acausal_classifier,
                                         _causal_classifier_gpu,
                                         check_converged)
 from replay_identification.discrete_state_transition import (
-    estimate_discrete_state_transition,
+    estimate_discrete_state_transition, infer_discrete_state_transition,
     make_discrete_state_transition_from_diagonal)
 from replay_identification.movement_state_transition import (
     empirical_movement, random_walk, random_walk_on_track_graph)
@@ -77,7 +77,8 @@ class _BaseDetector(BaseEstimator):
             if self.is_track_interior is None and self.infer_track_interior:
                 self.is_track_interior_ = get_track_interior(
                     position, self.edges_)
-            elif self.is_track_interior is None and not self.infer_track_interior:
+            elif (self.is_track_interior is None and
+                  not self.infer_track_interior):
                 self.is_track_interior_ = np.ones(
                     self.centers_shape_, dtype=np.bool)
         else:
@@ -261,14 +262,22 @@ class _BaseDetector(BaseEstimator):
 
         try:
             results = xr.Dataset(
-                {'causal_posterior': (posterior_dims, causal_posterior.reshape(posterior_shape).swapaxes(3, 2)),
-                 'likelihood': (likelihood_dims, likelihood.reshape(likelihood_shape).swapaxes(3, 2))},
+                {'causal_posterior': (
+                    posterior_dims,
+                    causal_posterior.reshape(posterior_shape).swapaxes(3, 2)),
+                 'likelihood': (
+                    likelihood_dims,
+                    likelihood.reshape(likelihood_shape).swapaxes(3, 2))},
                 coords=coords,
                 attrs=dict(data_log_likelihood=data_log_likelihood))
         except np.AxisError:
             results = xr.Dataset(
-                {'causal_posterior': (posterior_dims, causal_posterior.squeeze()),
-                 'likelihood': (likelihood_dims, likelihood.squeeze())},
+                {'causal_posterior': (
+                    posterior_dims,
+                    causal_posterior.squeeze()),
+                 'likelihood': (
+                    likelihood_dims,
+                    likelihood.squeeze())},
                 coords=coords,
                 attrs=dict(data_log_likelihood=data_log_likelihood))
         if is_compute_acausal:
@@ -294,10 +303,12 @@ class _BaseDetector(BaseEstimator):
 
             try:
                 results['acausal_posterior'] = (
-                    posterior_dims, acausal_posterior.reshape(posterior_shape).swapaxes(3, 2))
+                    posterior_dims,
+                    acausal_posterior.reshape(posterior_shape).swapaxes(3, 2))
             except np.AxisError:
                 results['acausal_posterior'] = (
-                    posterior_dims, acausal_posterior.squeeze())
+                    posterior_dims,
+                    acausal_posterior.squeeze())
         results['non_local_probability'] = (['time'], state_probability[:, 1])
 
         return results

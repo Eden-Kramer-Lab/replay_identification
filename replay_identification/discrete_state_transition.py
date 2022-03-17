@@ -271,6 +271,37 @@ def make_discrete_state_transition_from_diagonal(diagonal):
     return discrete_state_transition
 
 
+def infer_discrete_state_transition(is_non_local, penalty=1e-5):
+    data = pd.DataFrame({
+        'is_non_local': is_non_local.astype(np.float64),
+        'lagged_is_non_local': lagmat(
+            is_non_local, maxlag=1).astype(np.float64).squeeze(),
+    }).dropna()
+
+    MODEL_FORMULA = 'is_non_local ~ 1 + lagged_is_non_local'
+    response, design_matrix = dmatrices(MODEL_FORMULA, data)
+    penalty = np.ones((design_matrix.shape[1],)) * penalty
+    penalty[0] = 0.0
+    fit = penalized_IRLS(design_matrix, response, family=families.Binomial(),
+                         penalty=penalty)
+
+    predict_data = {
+        'lagged_is_non_local': np.asarray([0, 1]),
+    }
+    predict_design_matrix = build_design_matrices(
+        [design_matrix.design_info], predict_data,
+        NA_action=NAAction(NA_types=[]))[0]
+
+    non_local_probability = families.Binomial().link.inverse(
+        predict_design_matrix @ np.squeeze(fit.coefficients))
+
+    non_local_probability[np.isnan(non_local_probability)] = 0.0
+
+    return np.asarray(
+        [[1 - non_local_probability[0], non_local_probability[0]],
+         [1 - non_local_probability[1], non_local_probability[1]]])
+
+
 _DISCRETE_STATE_TRANSITIONS = {
     'ripples_with_speed_threshold': fit_discrete_state_transition,
     'ripples_no_speed_threshold': fit_discrete_state_transition_no_speed,
