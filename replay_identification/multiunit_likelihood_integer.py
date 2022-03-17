@@ -603,7 +603,7 @@ def estimate_local_multiunit_likelihood(
     return log_likelihood
 
 
-def multiunit_likelihood(multiunit, position, place_bin_centers, encoding_marks,
+def multiunit_likelihood(multiunits, position, place_bin_centers, encoding_marks,
                          mark_std, encoding_marks_position, encoding_weights,
                          position_std, occupancy,
                          summed_ground_process_intensity,
@@ -634,12 +634,12 @@ def multiunit_likelihood(multiunit, position, place_bin_centers, encoding_marks,
     multiunit_likelihood : ndarray, shape (n_time, 2, n_place_bins)
 
     '''
-    n_time = multiunit.shape[0]
+    n_time = multiunits.shape[0]
     n_place_bins = place_bin_centers.size
     multiunit_likelihood = np.zeros(
         (n_time, 2, n_place_bins), dtype=np.float32)
     multiunit_likelihood[:, 1, :] = estimate_non_local_multiunit_likelihood(
-        multiunit,
+        multiunits,
         encoding_marks,
         encoding_weights,
         mark_std,
@@ -659,7 +659,7 @@ def multiunit_likelihood(multiunit, position, place_bin_centers, encoding_marks,
             position)
     else:
         multiunit_likelihood[:, 0, :] = estimate_local_multiunit_likelihood(
-            multiunit,
+            multiunits,
             position,
             encoding_marks,
             encoding_weights,
@@ -674,7 +674,7 @@ def multiunit_likelihood(multiunit, position, place_bin_centers, encoding_marks,
         )[:, np.newaxis]
 
     if set_no_spike_to_equally_likely:
-        no_spike = np.all(np.isnan(multiunit), axis=(1, 2))
+        no_spike = np.all(np.isnan(multiunits), axis=(1, 2))
         multiunit_likelihood[no_spike] = 0.0
     multiunit_likelihood[:, :, ~is_track_interior] = np.nan
 

@@ -14,10 +14,10 @@ from .core import scale_likelihood
 SQRT_2PI = np.float64(np.sqrt(2.0 * np.pi))
 
 
-def multiunit_likelihood(multiunit, position, place_bin_centers,
+def multiunit_likelihood(multiunits, position, place_bin_centers,
                          occupancy_model, joint_models, marginal_models,
                          mean_rates, is_track_interior, time_bin_size=1,
-                         set_no_spike_to_equally_likely=True):
+                         set_no_spike_to_equally_likely=False):
     '''The likelihood of being in a non-local state vs. a local state based
     on whether the multiunits correspond to the current position of the animal.
 
@@ -38,19 +38,19 @@ def multiunit_likelihood(multiunit, position, place_bin_centers,
     multiunit_likelihood : ndarray, shape (n_time, 2, n_place_bins)
 
     '''
-    n_time = multiunit.shape[0]
+    n_time = multiunits.shape[0]
     n_place_bins = place_bin_centers.size
     multiunit_likelihood = np.zeros((n_time, 2, n_place_bins))
     multiunit_likelihood[:, 1, :] = (estimate_non_local_log_likelihood(
-        np.moveaxis(multiunit, -1, 0), place_bin_centers,
+        np.moveaxis(multiunits, -1, 0), place_bin_centers,
         occupancy_model, joint_models, marginal_models, mean_rates,
         is_track_interior, time_bin_size))
     multiunit_likelihood[:, 0, :] = (estimate_local_log_likelihood(
-        np.moveaxis(multiunit, -1, 0), position, occupancy_model,
+        np.moveaxis(multiunits, -1, 0), position, occupancy_model,
         joint_models, marginal_models, mean_rates, time_bin_size))
 
     if set_no_spike_to_equally_likely:
-        no_spike = np.all(np.isnan(multiunit), axis=(1, 2))
+        no_spike = np.all(np.isnan(multiunits), axis=(1, 2))
         multiunit_likelihood[no_spike] = 0.0
     multiunit_likelihood[:, :, ~is_track_interior] = np.nan
 
@@ -321,17 +321,17 @@ def estimate_mean_rate(multiunit, position):
     return np.mean(is_spike[not_nan])
 
 
-def fit_multiunit_likelihood(position, multiunit, is_training,
+def fit_multiunit_likelihood(position, multiunits, is_training,
                              place_bin_centers,
                              density_model, model_kwargs,
                              occupancy_marginal_model, occupancy_kwargs,
-                             is_track_interior):
+                             is_track_interior=None):
     '''Precompute quantities to fit the multiunit likelihood to new data.
 
     Parameters
     ----------
     position : ndarray, shape (n_time, n_position_dims)
-    multiunit : ndarray, shape (n_time, n_features, n_electrodes)
+    multiunits : ndarray, shape (n_time, n_features, n_electrodes)
     is_training : bool ndarray, shape (n_time,)
     place_bin_centers : ndarray, shape (n_place_bins,)
     model : Class
@@ -343,20 +343,23 @@ def fit_multiunit_likelihood(position, multiunit, is_training,
     multiunit_likelihood : function
 
     '''
+    if is_track_interior is None:
+        is_track_interior = np.ones((place_bin_centers.shape[0],),
+                                    dtype=np.bool)
     joint_models = []
     marginal_models = []
     mean_rates = []
     occupancy_model = train_occupancy_model(
         position[is_training], occupancy_marginal_model, occupancy_kwargs)
 
-    for m in tqdm(np.moveaxis(multiunit[is_training], -1, 0),
-                  desc='electrodes'):
-        mean_rates.append(estimate_mean_rate(m, position[is_training]))
+    for multiunit in tqdm(np.moveaxis(multiunits[is_training], -1, 0),
+                          desc='electrodes'):
+        mean_rates.append(estimate_mean_rate(multiunit, position[is_training]))
         joint_models.append(
-            train_joint_model(m, position[is_training], density_model,
+            train_joint_model(multiunit, position[is_training], density_model,
                               model_kwargs))
         marginal_models.append(
-            train_marginal_model(m, position[is_training],
+            train_marginal_model(multiunit, position[is_training],
                                  occupancy_marginal_model, occupancy_kwargs))
 
     return partial(

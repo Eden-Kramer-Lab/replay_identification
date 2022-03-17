@@ -210,7 +210,7 @@ class ReplayDetector(BaseEstimator):
         return results, data_log_likelihoods
 
     def fit(self, is_ripple, speed, position, lfp_power=None,
-            spikes=None, multiunit=None, is_track_interior=None,
+            spikes=None, multiunits=None, is_track_interior=None,
             track_graph=None, edge_order=None,
             edge_spacing=None, is_training=None,
             refit=False, use_gpu=False, integer_marks=False):
@@ -268,13 +268,13 @@ class ReplayDetector(BaseEstimator):
         else:
             self._spiking_likelihood = return_None
 
-        if multiunit is not None:
+        if multiunits is not None:
             logger.info('Fitting multiunit model...')
-            multiunit = np.asarray(multiunit)
+            multiunits = np.asarray(multiunits)
             if not use_gpu:
                 if not integer_marks:
                     self._multiunit_likelihood = fit_multiunit_likelihood(
-                        position, multiunit, is_training,
+                        position, multiunits, is_training,
                         self.place_bin_centers_,
                         self.multiunit_density_model,
                         self.multiunit_model_kwargs,
@@ -285,7 +285,7 @@ class ReplayDetector(BaseEstimator):
                 else:
                     self._multiunit_likelihood = fit_multiunit_likelihood_integer(
                         position,
-                        multiunit,
+                        multiunits,
                         is_training,
                         self.place_bin_centers_,
                         is_track_interior=is_track_interior,
@@ -294,7 +294,7 @@ class ReplayDetector(BaseEstimator):
             else:
                 self._multiunit_likelihood = fit_multiunit_likelihood_gpu(
                     position,
-                    multiunit,
+                    multiunits,
                     is_training,
                     self.place_bin_centers_,
                     is_track_interior=is_track_interior,
@@ -333,7 +333,7 @@ class ReplayDetector(BaseEstimator):
         return self
 
     def predict(self, speed, position, lfp_power=None, spikes=None,
-                multiunit=None, use_likelihoods=_DEFAULT_LIKELIHOODS,
+                multiunits=None, use_likelihoods=_DEFAULT_LIKELIHOODS,
                 time=None, use_acausal=True,
                 set_no_spike_to_equally_likely=True,
                 use_gpu=False):
@@ -370,8 +370,8 @@ class ReplayDetector(BaseEstimator):
             lfp_power = np.asarray(lfp_power)
         if spikes is not None:
             spikes = np.asarray(spikes)
-        if multiunit is not None:
-            multiunit = np.asarray(multiunit)
+        if multiunits is not None:
+            multiunits = np.asarray(multiunits)
 
         if time is None:
             time = np.arange(n_time)
@@ -398,7 +398,7 @@ class ReplayDetector(BaseEstimator):
                 set_no_spike_to_equally_likely=set_no_spike_to_equally_likely),
             'multiunit': partial(
                 self._multiunit_likelihood,
-                multiunit=multiunit,
+                multiunits=multiunits,
                 position=position,
                 set_no_spike_to_equally_likely=set_no_spike_to_equally_likely)
         }
