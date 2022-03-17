@@ -485,8 +485,11 @@ class SortedSpikesDetector(_BaseDetector):
 
     def fit(self, position, spikes, is_training=None, refit=False):
         position = atleast_2d(np.asarray(position))
+        spikes = np.asarray(spikes)
         if is_training is None:
             is_training = np.ones((position.shape[0],), dtype=bool)
+        else:
+            is_training = np.asarray(is_training)
 
         if not refit:
             self.fit_place_grid(
