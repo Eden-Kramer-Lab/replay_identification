@@ -275,7 +275,6 @@ def fit_multiunit_likelihood_gpu(position,
                 position_std,
                 sample_weights=cp.asarray(
                     is_training[is_spike & not_nan_position], dtype=cp.float32),
-                block_size=block_size
             )
 
         ground_process_intensities.append(
