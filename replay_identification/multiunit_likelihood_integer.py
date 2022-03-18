@@ -385,8 +385,8 @@ def estimate_non_local_multiunit_likelihood(
                 position_distance=position_distance,
                 sample_weights=enc_weights,
             )
-        log_likelihood[np.ix_(is_spike, is_track_interior)] += (
-            log_joint_mark_intensity + np.spacing(1))
+        log_likelihood[np.ix_(is_spike, is_track_interior)] += np.nan_to_num(
+            log_joint_mark_intensity)
 
     log_likelihood[:, ~is_track_interior] = np.nan
 
