@@ -273,9 +273,11 @@ def fit_multiunit_likelihood_integer(position,
         ground_process_intensities.append(
             estimate_intensity(marginal_density, np.asarray(
                 occupancy, dtype=np.float32), mean_rates[-1]))
-
+        is_mark_features = np.any(~np.isnan(multiunit), axis=0)
         encoding_marks.append(
-            np.asarray(multiunit[is_spike & not_nan_position], dtype=np.int16))
+            np.asarray(
+                multiunit[np.ix_(is_spike & not_nan_position,
+                                 is_mark_features)], dtype=np.int16))
         encoding_positions.append(np.asarray(
             position[is_spike & not_nan_position], dtype=np.float32))
         encoding_weights.append(np.asarray(
@@ -358,7 +360,9 @@ def estimate_non_local_multiunit_likelihood(
                  disable=disable_progress_bar),
             encoding_marks, encoding_positions, encoding_weights, mean_rates):
         is_spike = np.any(~np.isnan(multiunit), axis=1)
-        decoding_marks = np.asarray(multiunit[is_spike], dtype=np.int16)
+        is_mark_features = np.any(~np.isnan(multiunit), axis=0)
+        decoding_marks = np.asarray(
+            multiunit[np.ix_(is_spike, is_mark_features)], dtype=np.int16)
         n_decoding_marks = decoding_marks.shape[0]
         log_joint_mark_intensity = np.zeros(
             (n_decoding_marks, n_position_bins), dtype=np.float32)
@@ -557,8 +561,10 @@ def estimate_local_multiunit_likelihood(
 
         is_decoding_spike = np.any(~np.isnan(decoding_multiunit), axis=1)
         is_decoding_spike_gpu = np.asarray(is_decoding_spike)
+        is_mark_features = np.any(~np.isnan(decoding_multiunit), axis=0)
         decoding_marks = np.asarray(
-            decoding_multiunit[is_decoding_spike], dtype=np.int16)
+            decoding_multiunit[np.ix_(is_decoding_spike, is_mark_features)],
+            dtype=np.int16)
         n_decoding_marks = decoding_marks.shape[0]
         enc_pos_gpu = np.asarray(enc_pos, dtype=np.float32)
 
@@ -596,8 +602,8 @@ def estimate_local_multiunit_likelihood(
                 position_distance=position_distance,
                 sample_weights=enc_weights,
             )
-        log_likelihood[is_decoding_spike] += (
-            log_joint_mark_intensity + np.spacing(1))
+        log_likelihood[is_decoding_spike] += np.nan_to_num(
+            log_joint_mark_intensity)
     log_likelihood -= np.spacing(1)
 
     return log_likelihood
