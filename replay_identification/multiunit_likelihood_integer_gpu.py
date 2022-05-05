@@ -234,7 +234,7 @@ try:
 
         not_nan_position = np.all(~np.isnan(position), axis=1)
 
-        occupancy = cp.zeros((place_bin_centers.shape[0],))
+        occupancy = cp.zeros((place_bin_centers.shape[0],), dtype=cp.float32)
         occupancy[gpu_is_track_interior] = estimate_position_density(
             interior_place_bin_centers,
             cp.asarray(position[not_nan_position], dtype=cp.float32),
