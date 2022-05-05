@@ -9,12 +9,11 @@ from tqdm.autonotebook import tqdm
 try:
     import cupy as cp
 
-    SQRT_2PI = cp.sqrt(2.0 * cp.pi)
-
+    @cp.fuse
     def gaussian_pdf(x, mean, sigma):
         '''Compute the value of a Gaussian probability density function at x with
         given mean and sigma.'''
-        return cp.exp(-0.5 * ((x - mean) / sigma)**2) / (sigma * SQRT_2PI)
+        return cp.exp(-0.5 * ((x - mean) / sigma)**2) / (sigma * cp.sqrt(2.0 * cp.pi))
 
     def estimate_position_distance(place_bin_centers, positions, position_std):
         '''
