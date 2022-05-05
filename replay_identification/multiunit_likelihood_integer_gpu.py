@@ -244,7 +244,8 @@ try:
         )
 
         mean_rates = []
-        ground_process_intensities = []
+        summed_ground_process_intensity = cp.zeros(
+            (place_bin_centers.shape[0],), dtype=cp.float32)
         encoding_marks = []
         encoding_positions = []
         encoding_weights = []
@@ -254,7 +255,8 @@ try:
             # ground process intensity
             is_spike = np.any(~np.isnan(multiunit), axis=1)
             mean_rates.append(np.average(is_spike, weights=is_training))
-            marginal_density = cp.zeros((place_bin_centers.shape[0],))
+            marginal_density = cp.zeros(
+                (place_bin_centers.shape[0],), dtype=cp.float32)
 
             if is_spike.sum() > 0:
                 marginal_density[gpu_is_track_interior] = estimate_position_density(
@@ -266,9 +268,8 @@ try:
                         is_training[is_spike & not_nan_position], dtype=cp.float32),
                 )
 
-            ground_process_intensities.append(
-                estimate_intensity(marginal_density, cp.asarray(
-                    occupancy, dtype=cp.float32), mean_rates[-1]))
+            summed_ground_process_intensity += (
+                estimate_intensity(marginal_density, occupancy, mean_rates[-1]))
 
             is_mark_features = np.any(~np.isnan(multiunit), axis=0)
             encoding_marks.append(
@@ -281,9 +282,8 @@ try:
             encoding_weights.append(cp.asarray(
                 is_training[is_spike & not_nan_position], dtype=cp.float32))
 
-        summed_ground_process_intensity = cp.asnumpy(cp.sum(
-            cp.stack(ground_process_intensities, axis=0), axis=0, keepdims=True))
-        summed_ground_process_intensity += np.spacing(1)
+        summed_ground_process_intensity = cp.asnumpy(
+            summed_ground_process_intensity) + np.spacing(1)
 
         return partial(
             multiunit_likelihood,
