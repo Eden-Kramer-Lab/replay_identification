@@ -219,7 +219,7 @@ try:
         '''
         if is_track_interior is None:
             is_track_interior = np.ones((place_bin_centers.shape[0],),
-                                        dtype=np.bool)
+                                        dtype=bool)
 
         is_zero = np.isclose(is_training.astype(float), 0.0)
 
@@ -339,7 +339,7 @@ try:
 
         if is_track_interior is None:
             is_track_interior = np.ones((place_bin_centers.shape[0],),
-                                        dtype=np.bool)
+                                        dtype=bool)
 
         n_time = multiunits.shape[0]
         log_likelihood = (-time_bin_size * summed_ground_process_intensity *
