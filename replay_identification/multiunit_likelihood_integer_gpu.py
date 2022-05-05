@@ -32,7 +32,8 @@ try:
         n_time, n_position_dims = positions.shape
         n_position_bins = place_bin_centers.shape[0]
 
-        position_distance = cp.ones((n_time, n_position_bins))
+        position_distance = cp.ones(
+            (n_time, n_position_bins), dtype=cp.float32)
 
         for position_ind in range(n_position_dims):
             position_distance *= gaussian_pdf(
@@ -229,8 +230,9 @@ try:
 
         place_bin_centers = atleast_2d(place_bin_centers)
         interior_place_bin_centers = cp.asarray(
-            place_bin_centers[is_track_interior], dtype=cp.float32)
-        gpu_is_track_interior = cp.asarray(is_track_interior)
+            place_bin_centers[is_track_interior.ravel(order='F')],
+            dtype=cp.float32)
+        gpu_is_track_interior = cp.asarray(is_track_interior.ravel(order='F'))
 
         not_nan_position = np.all(~np.isnan(position), axis=1)
 
