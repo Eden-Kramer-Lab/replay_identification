@@ -44,7 +44,7 @@ try:
         return position_distance
 
     def estimate_position_density(place_bin_centers, positions, position_std,
-                                  block_size=None, sample_weights=None):
+                                  block_size=100, sample_weights=None):
         '''
 
         Parameters
