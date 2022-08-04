@@ -374,6 +374,26 @@ class _BaseDetector(BaseEstimator):
 
 
 class SortedSpikesDetector(_BaseDetector):
+    """
+
+    Parameters
+    ----------
+    place_bin_size : float
+    position_range : None or list-like
+    track_graph : None or TrackGraph
+    edge_order : None or list of lists
+    edge_spacing : None or list
+    continuous_state_transition_type : random_walk | empirical_movement
+    random_walk_variance : float
+    discrete_state_transition_type : infer_from_training_data | make_from_user_specified_diagonal
+    discrete_state_transition_diagonal : np.ndarray
+    is_track_interior : None or np.ndarray, shape (n_place_bins,)
+    infer_track_interior : bool
+    spike_model_penalty : float
+    spike_model_knot_spacing : float
+
+    """
+
     def __init__(
         self,
         place_bin_size=2.0,
