@@ -177,7 +177,7 @@ def _acausal_classifier(filter_posterior, movement_state_transition,
     return smoother_posterior, smoother_probability
 
 
-def scale_likelihood(log_likelihood):
+def scale_likelihood(log_likelihood, axis=(1, 2)):
     '''Scales the likelihood to its max value to prevent overflow and underflow.
 
     Parameters
@@ -189,8 +189,19 @@ def scale_likelihood(log_likelihood):
     scaled_likelihood : ndarray, shape (n_time, n_states, n_position_bins)
 
     '''
-    return np.exp(log_likelihood -
-                  np.nanmax(log_likelihood, axis=(1, 2), keepdims=True))
+    max_log_likelihood = np.nanmax(log_likelihood, axis=axis, keepdims=True)
+    # If maximum is infinity, set to zero
+    if max_log_likelihood.ndim > 0:
+        max_log_likelihood[~np.isfinite(max_log_likelihood)] = 0.0
+    elif not np.isfinite(max_log_likelihood):
+        max_log_likelihood = 0.0
+
+    # Maximum likelihood is always 1
+    likelihood = np.exp(log_likelihood - max_log_likelihood)
+    # avoid zero likelihood
+    likelihood += np.spacing(1, dtype=likelihood.dtype)
+
+    return likelihood
 
 
 def check_converged(loglik, previous_loglik, tolerance=1e-4):
