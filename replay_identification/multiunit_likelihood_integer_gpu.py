@@ -391,6 +391,9 @@ try:
             log_likelihood[np.ix_(is_spike, is_track_interior)] += np.nan_to_num(
                 log_joint_mark_intensity)
 
+            mempool = cp.get_default_memory_pool()
+            mempool.free_all_blocks()
+
         log_likelihood[:, ~is_track_interior] = np.nan
 
         return log_likelihood
