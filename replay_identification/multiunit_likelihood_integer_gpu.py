@@ -687,3 +687,6 @@ except ImportError:
 
     def multiunit_likelihood(*args, **kwargs):
         pass
+
+    def fit_multiunit_likelihood_gpu(*args, **kwargs):
+        pass
