@@ -211,36 +211,43 @@ def predict(design_matrix, coefficients):
 def estimate_discrete_state_transition(detector, results):
     EPS = 1e-32
     try:
-        log_acausal_prob = np.log(
+        causal_prob = np.log(
+            results.causal_posterior.sum('position').values + EPS)
+        acausal_prob = np.log(
             results.acausal_posterior.sum('position').values + EPS)
     except ValueError:
-        log_acausal_prob = np.log(
+        causal_prob = np.log(
+            results.causal_posterior.sum(['x_position', 'y_position']).values +
+            EPS)
+        acausal_prob = np.log(
             results.acausal_posterior.sum(['x_position', 'y_position']).values
-            + EPS
-        )
+            + EPS)
 
     try:
         transition = detector.discrete_state_transition_(np.arange(1))[0]
-        old_log_discrete_state_transition = np.log(np.asarray(
+        old_discrete_state_transition = np.log(np.asarray(
             [[1 - transition[0], transition[0]],
              [1 - transition[1], transition[1]]]))
     except TypeError:
-        old_log_discrete_state_transition = np.log(
+        old_discrete_state_transition = np.log(
             detector.discrete_state_transition_)
 
-    n_states = old_log_discrete_state_transition.shape[0]
+    n_states = old_discrete_state_transition.shape[0]
 
-    new_discrete_state_transition = np.empty((n_states, n_states))
+    new_log_discrete_state_transition = np.empty((n_states, n_states))
     for i in range(n_states):
         for j in range(n_states):
-            new_discrete_state_transition[i, j] = logsumexp(
-                old_log_discrete_state_transition[i, j] +
-                log_acausal_prob[:-1, i]
-            )
-            new_discrete_state_transition[i, j] -= logsumexp(
-                log_acausal_prob[:-1, i])
+            new_log_discrete_state_transition[i, j] = logsumexp(
+                old_discrete_state_transition[i, j] +
+                causal_prob[:-1, i] +
+                acausal_prob[1:, j] -
+                causal_prob[1:, j])
+            new_log_discrete_state_transition[i, j] -= logsumexp(
+                acausal_prob[:-1, i])
+    new_log_discrete_state_transition -= logsumexp(
+        new_log_discrete_state_transition, axis=-1, keepdims=True)
 
-    return np.exp(new_discrete_state_transition)
+    return np.exp(new_log_discrete_state_transition)
 
 
 def make_discrete_state_transition_from_diagonal(diagonal):
