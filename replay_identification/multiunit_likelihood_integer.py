@@ -641,7 +641,7 @@ def multiunit_likelihood(multiunits, position, place_bin_centers, encoding_marks
 
     '''
     n_time = multiunits.shape[0]
-    n_place_bins = place_bin_centers.size
+    n_place_bins = place_bin_centers.shape[0]
     multiunit_likelihood = np.zeros(
         (n_time, 2, n_place_bins), dtype=np.float32)
     multiunit_likelihood[:, 1, :] = estimate_non_local_multiunit_likelihood(

@@ -344,7 +344,9 @@ try:
 
         if is_track_interior is None:
             is_track_interior = np.ones((place_bin_centers.shape[0],),
-                                        dtype=bool)
+                                        dtype=np.bool)
+        else:
+            is_track_interior = is_track_interior.ravel(order='F')
 
         n_time = multiunits.shape[0]
         log_likelihood = (-time_bin_size * summed_ground_process_intensity *
@@ -638,7 +640,7 @@ try:
 
         '''
         n_time = multiunits.shape[0]
-        n_place_bins = place_bin_centers.size
+        n_place_bins = place_bin_centers.shape[0]
         multiunit_likelihood = np.zeros(
             (n_time, 2, n_place_bins), dtype=np.float32)
         multiunit_likelihood[:, 1, :] = estimate_non_local_multiunit_likelihood(
