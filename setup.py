@@ -10,7 +10,7 @@ TESTS_REQUIRE = ['pytest >= 2.7.1']
 
 setup(
     name='replay_identification',
-    version='0.9.9.dev0',
+    version='0.9.10.dev0',
     license='MIT',
     description=('Identify replay events using multiple information sources'),
     author='Eric Denovellis',
