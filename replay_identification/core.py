@@ -52,7 +52,8 @@ def _causal_classifier(likelihood, movement_state_transition, discrete_state_tra
     state_probability = np.zeros((n_time, n_states))
 
     # Initial Conditions
-    posterior[0, 0, observed_position_bin[0]] = likelihood[0, 0, 0]
+    posterior[0, 0, observed_position_bin[0]] = likelihood[
+        0, 0,  observed_position_bin[0]]
     norm = np.nansum(posterior[0])
     data_log_likelihood = np.log(norm)
     posterior[0] /= norm
@@ -260,7 +261,8 @@ try:
         state_probability = cp.zeros((n_time, n_states), dtype=cp.float32)
 
         # Initial Conditions
-        posterior[0, 0, observed_position_bin[0]] = likelihood[0, 0, 0]
+        posterior[0, 0, observed_position_bin[0]
+                  ] = likelihood[0, 0, observed_position_bin[0]]
         norm = cp.nansum(posterior[0])
         data_log_likelihood = cp.log(norm)
         posterior[0] /= norm
