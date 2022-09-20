@@ -122,7 +122,7 @@ def _acausal_classifier(filter_posterior, movement_state_transition,
     smoother_posterior = np.zeros_like(filter_posterior)
     n_time, _, n_position_bins = filter_posterior.shape
 
-    smoother_posterior[-1] = filter_posterior[-1].copy()
+    smoother_posterior[-1] = filter_posterior[-1]
 
     for k in np.arange(n_time - 2, -1, -1):
         smoother_prior = np.zeros((2, n_position_bins))
@@ -343,7 +343,7 @@ try:
         smoother_posterior = cp.zeros_like(filter_posterior)
         n_time, _, n_position_bins = filter_posterior.shape
 
-        smoother_posterior[-1] = filter_posterior[-1].copy()
+        smoother_posterior[-1] = filter_posterior[-1]
 
         for k in cp.arange(n_time - 2, -1, -1):
             smoother_prior = cp.zeros((2, n_position_bins), dtype=cp.float32)
