@@ -218,7 +218,6 @@ def check_converged(loglik, previous_loglik, tolerance=1e-4):
 try:
     import cupy as cp
 
-    @cp.fuse()
     def _causal_classifier_gpu(likelihood, movement_state_transition, discrete_state_transition,
                                observed_position_bin, uniform):
         '''
@@ -297,7 +296,6 @@ try:
                 cp.asnumpy(state_probability),
                 data_log_likelihood)
 
-    @cp.fuse()
     def _acausal_classifier_gpu(filter_posterior, movement_state_transition,
                                 discrete_state_transition, observed_position_bin,
                                 uniform):
