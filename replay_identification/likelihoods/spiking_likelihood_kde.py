@@ -319,7 +319,7 @@ def estimate_local_spiking_likelihood(
         mean_rate = is_enc_spike.mean()
 
         if (is_spike.sum() > 0) & (is_enc_spike.sum() > 0):
-            enc_pos_at_spike = encoding_position[is_enc_spike].astype(bool)
+            enc_pos_at_spike = encoding_position[is_enc_spike]
             sample_weights = is_training[is_enc_spike]
             marginal_density = estimate_position_density(
                 np.asarray(position, dtype=np.float32),
