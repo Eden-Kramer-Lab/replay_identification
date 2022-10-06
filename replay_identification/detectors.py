@@ -530,7 +530,9 @@ class SortedSpikesDetector(_BaseDetector):
         else:
             raise NotImplementedError
 
-    def plot_place_fields(self, sampling_frequency=1, col_wrap=5, axes=None):
+    def plot_place_fields(
+        self, sampling_frequency=1, col_wrap=5, axes=None, color="black"
+    ):
         """Plot the place fields from the fitted spiking data.
 
         Parameters
@@ -561,7 +563,7 @@ class SortedSpikesDetector(_BaseDetector):
                 ax.plot(
                     self.place_bin_centers_,
                     place_conditional_intensity[:, ind] * sampling_frequency * mask,
-                    color="black",
+                    color=color,
                     linewidth=1,
                     label="fitted model",
                 )
