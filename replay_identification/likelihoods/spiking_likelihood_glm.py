@@ -172,7 +172,7 @@ def fit_spiking_likelihood_glm(
     place_bin_centers,
     place_bin_edges,
     is_track_interior,
-    spike_model_penalty=1e1,
+    spike_model_penalty=1e-6,
     spike_model_knot_spacing=30,
 ):
     """Estimate the place field model.
