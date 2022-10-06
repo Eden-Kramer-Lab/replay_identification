@@ -257,30 +257,15 @@ class _BaseDetector(BaseEstimator):
         likelihood[:, :, ~self.is_track_interior_.ravel(order="F")] = 0.0
 
         logger.info("Finding causal non-local probability and position...")
-        if not use_gpu:
-            (
-                causal_posterior,
-                state_probability,
-                data_log_likelihood,
-            ) = _causal_classifier(
-                likelihood,
-                self.continuous_state_transition_,
-                np.repeat(self.discrete_state_transition_[:, [1]].T, n_time, axis=0),
-                observed_position_bin,
-                uniform,
-            )
-        else:
-            (
-                causal_posterior,
-                state_probability,
-                data_log_likelihood,
-            ) = _causal_classifier_gpu(
-                likelihood,
-                self.continuous_state_transition_,
-                np.repeat(self.discrete_state_transition_[:, [1]].T, n_time, axis=0),
-                observed_position_bin,
-                uniform,
-            )
+        compute_causal = _causal_classifier_gpu if use_gpu else _causal_classifier
+
+        (causal_posterior, state_probability, data_log_likelihood,) = compute_causal(
+            likelihood,
+            self.continuous_state_transition_,
+            np.repeat(self.discrete_state_transition_[:, [1]].T, n_time, axis=0),
+            observed_position_bin,
+            uniform,
+        )
 
         n_position_dims = self.place_bin_centers_.shape[1]
 
@@ -342,27 +327,17 @@ class _BaseDetector(BaseEstimator):
             )
         if is_compute_acausal:
             logger.info("Finding acausal non-local probability and position...")
+            compute_acausal = (
+                _acausal_classifier_gpu if use_gpu else _acausal_classifier
+            )
 
-            if not use_gpu:
-                acausal_posterior, state_probability = _acausal_classifier(
-                    causal_posterior,
-                    self.continuous_state_transition_,
-                    np.repeat(
-                        self.discrete_state_transition_[:, [1]].T, n_time, axis=0
-                    ),
-                    observed_position_bin,
-                    uniform,
-                )
-            else:
-                acausal_posterior, state_probability = _acausal_classifier_gpu(
-                    causal_posterior,
-                    self.continuous_state_transition_,
-                    np.repeat(
-                        self.discrete_state_transition_[:, [1]].T, n_time, axis=0
-                    ),
-                    observed_position_bin,
-                    uniform,
-                )
+            acausal_posterior, state_probability = compute_acausal(
+                causal_posterior,
+                self.continuous_state_transition_,
+                np.repeat(self.discrete_state_transition_[:, [1]].T, n_time, axis=0),
+                observed_position_bin,
+                uniform,
+            )
 
             try:
                 results["acausal_posterior"] = (
