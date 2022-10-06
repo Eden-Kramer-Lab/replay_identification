@@ -1,5 +1,6 @@
 from copy import deepcopy
 from logging import getLogger
+from typing import Tuple
 
 import joblib
 import matplotlib.pyplot as plt
@@ -379,13 +380,13 @@ class _BaseDetector(BaseEstimator):
 
     def estimate_parameters(
         self,
-        fit_args,
-        predict_args,
-        tolerance=1e-4,
-        max_iter=10,
-        estimate_state_transition=True,
-        estimate_likelihood=True,
-    ):
+        fit_args: dict,
+        predict_args: dict,
+        tolerance: float = 1e-4,
+        max_iter: int = 10,
+        estimate_state_transition: bool = True,
+        estimate_likelihood: bool = True,
+    ) -> Tuple[xr.Dataset, list]:
 
         self.fit(**fit_args)
         results = self.predict(**predict_args)
