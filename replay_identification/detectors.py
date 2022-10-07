@@ -1,9 +1,11 @@
 from copy import deepcopy
 from logging import getLogger
-from typing import Tuple
+from typing import List, Tuple
 
 import joblib
+import matplotlib.axes
 import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 import seaborn as sns
 import sklearn
@@ -61,17 +63,17 @@ _DEFAULT_SORTED_SPIKES_MODEL_KWARGS = {
 class _BaseDetector(BaseEstimator):
     def __init__(
         self,
-        place_bin_size=2.0,
-        position_range=None,
-        track_graph=None,
-        edge_order=None,
-        edge_spacing=None,
-        continuous_state_transition_type="random_walk",
-        random_walk_variance=6.0,
-        discrete_state_transition_type="infer_from_training_data",
-        discrete_transition_diagonal=_DISCRETE_DIAGONAL,
-        is_track_interior=None,
-        infer_track_interior=True,
+        place_bin_size: float = 2.0,
+        position_range: tuple = None,
+        track_graph: nx.Graph = None,
+        edge_order: List[list] = None,
+        edge_spacing: list = None,
+        continuous_state_transition_type: str = "random_walk",
+        random_walk_variance: float = 6.0,
+        discrete_state_transition_type: str = "infer_from_training_data",
+        discrete_transition_diagonal: np.ndarray = _DISCRETE_DIAGONAL,
+        is_track_interior: np.ndarray = None,
+        infer_track_interior: bool = True,
     ):
         self.place_bin_size = place_bin_size
         self.position_range = position_range
@@ -134,7 +136,9 @@ class _BaseDetector(BaseEstimator):
         return self
 
     def fit_discrete_state_transition(
-        self, discrete_transition_diagonal=None, is_training=None
+        self,
+        discrete_transition_diagonal: np.ndarray = None,
+        is_training: np.ndarray = None,
     ):
         logger.info("Fitting discrete state transition...")
         if discrete_transition_diagonal is not None:
@@ -155,11 +159,11 @@ class _BaseDetector(BaseEstimator):
 
     def plot_discrete_state_transition(
         self,
-        state_names=None,
-        cmap="Oranges",
-        ax=None,
-        convert_to_seconds=False,
-        sampling_frequency=1,
+        state_names: list = None,
+        cmap: str = "Oranges",
+        ax: matplotlib.axes.Axes = None,
+        convert_to_seconds: bool = False,
+        sampling_frequency: int = 1,
     ):
 
         if ax is None:
@@ -197,8 +201,8 @@ class _BaseDetector(BaseEstimator):
 
     def fit_continuous_state_transition(
         self,
-        position=None,
-        is_training=None,
+        position: np.ndarray = None,
+        is_training: np.ndarray = None,
     ):
         logger.info("Fitting continuous state transition...")
         if self.continuous_state_transition_type == "empirical":
@@ -231,14 +235,19 @@ class _BaseDetector(BaseEstimator):
                 1,
             )
 
-    def plot_continuous_state_transition(self, ax=None):
+    def plot_continuous_state_transition(self, ax: matplotlib.axes.Axes = None):
         if ax is None:
             ax = plt.gca()
         ax.pcolormesh(self.continuous_state_transition_.T)
 
     def _get_results(
-        self, position, likelihood, time=None, is_compute_acausal=True, use_gpu=False
-    ):
+        self,
+        position: np.ndarray,
+        likelihood: np.ndarray,
+        time: np.ndarray = None,
+        is_compute_acausal: bool = True,
+        use_gpu: bool = False,
+    ) -> xr.Dataset:
         n_time = likelihood.shape[0]
         if time is None:
             time = np.arange(n_time)
@@ -417,37 +426,50 @@ class SortedSpikesDetector(_BaseDetector):
 
     Parameters
     ----------
-    place_bin_size : float
-    position_range : None or list-like
-    track_graph : None or TrackGraph
-    edge_order : None or list of lists
-    edge_spacing : None or list
-    continuous_state_transition_type : random_walk | empirical_movement
-    random_walk_variance : float
-    discrete_state_transition_type : infer_from_training_data | make_from_user_specified_diagonal
-    discrete_state_transition_diagonal : np.ndarray
-    is_track_interior : None or np.ndarray, shape (n_place_bins,)
-    infer_track_interior : bool
-    spike_model_penalty : float
-    spike_model_knot_spacing : float
+    place_bin_size : float, optional
+        by default 2.0
+    position_range : tuple, optional
+        by default None
+    track_graph : nx.Graph, optional
+        by default None
+    edge_order : list of lists, optional
+        by default None
+    edge_spacing : list, optional
+        by default None
+    continuous_state_transition_type : random_walk | empirical_movement, optional
+        by default "random_walk"
+    random_walk_variance : float, optional
+        by default 6.0
+    discrete_state_transition_type : infer_from_training_data | make_from_user_specified_diagonal, optional
+        by default "infer_from_training_data"
+    discrete_transition_diagonal : np.ndarray, optional
+        by default _DISCRETE_DIAGONAL
+    is_track_interior : np.ndarray, shape (n_place_bins,), optional
+        by default None
+    infer_track_interior : bool, optional
+        by default True
+    sorted_spikes_algorithm : str, optional
+        by default "spiking_likelihood_kde"
+    sorted_spikes_algorithm_params : dict, optional
+        by default _DEFAULT_SORTED_SPIKES_MODEL_KWARGS
 
     """
 
     def __init__(
         self,
-        place_bin_size=2.0,
-        position_range=None,
-        track_graph=None,
-        edge_order=None,
-        edge_spacing=None,
-        continuous_state_transition_type="random_walk",
-        random_walk_variance=6.0,
-        discrete_state_transition_type="infer_from_training_data",
-        discrete_transition_diagonal=_DISCRETE_DIAGONAL,
-        is_track_interior=None,
-        infer_track_interior=True,
-        sorted_spikes_algorithm="spiking_likelihood_kde",
-        sorted_spikes_algorithm_params=_DEFAULT_SORTED_SPIKES_MODEL_KWARGS,
+        place_bin_size: float = 2.0,
+        position_range: tuple = None,
+        track_graph: nx.Graph = None,
+        edge_order: List[list] = None,
+        edge_spacing: list = None,
+        continuous_state_transition_type: str = "random_walk",
+        random_walk_variance: float = 6.0,
+        discrete_state_transition_type: str = "infer_from_training_data",
+        discrete_transition_diagonal: np.ndarray = _DISCRETE_DIAGONAL,
+        is_track_interior: np.ndarray = None,
+        infer_track_interior: bool = True,
+        sorted_spikes_algorithm: str = "spiking_likelihood_kde",
+        sorted_spikes_algorithm_params: dict = _DEFAULT_SORTED_SPIKES_MODEL_KWARGS,
     ):
         super().__init__(
             place_bin_size,
@@ -465,7 +487,9 @@ class SortedSpikesDetector(_BaseDetector):
         self.sorted_spikes_algorithm = sorted_spikes_algorithm
         self.sorted_spikes_algorithm_params = sorted_spikes_algorithm_params
 
-    def fit_place_fields(self, position, spikes, is_training=None):
+    def fit_place_fields(
+        self, position: np.ndarray, spikes: np.ndarray, is_training: np.ndarray = None
+    ):
         logger.info("Fitting place fields...")
         position = atleast_2d(np.asarray(position))
         spikes = np.asarray(spikes)
@@ -506,7 +530,11 @@ class SortedSpikesDetector(_BaseDetector):
             raise NotImplementedError
 
     def plot_place_fields(
-        self, sampling_frequency=1, col_wrap=5, axes=None, color="black"
+        self,
+        sampling_frequency: int = 1,
+        col_wrap: int = 5,
+        axes: matplotlib.axes.Axes = None,
+        color: str = "black",
     ):
         """Plot the place fields from the fitted spiking data.
 
@@ -550,12 +578,12 @@ class SortedSpikesDetector(_BaseDetector):
 
     @staticmethod
     def plot_spikes(
-        position,
-        spikes,
-        is_training=None,
-        sampling_frequency=1,
-        col_wrap=5,
-        bins="auto",
+        position: np.ndarray,
+        spikes: np.ndarray,
+        is_training: np.ndarray = None,
+        sampling_frequency: int = 1,
+        col_wrap: int = 5,
+        bins: str = "auto",
     ):
         if is_training is None:
             is_training = np.ones((spikes.shape[0],), dtype=bool)
@@ -594,7 +622,13 @@ class SortedSpikesDetector(_BaseDetector):
 
         return axes
 
-    def fit(self, position, spikes, is_training=None, refit=False):
+    def fit(
+        self,
+        position: np.ndarray,
+        spikes: np.ndarray,
+        is_training: np.ndarray = None,
+        refit: bool = False,
+    ):
         position = atleast_2d(np.asarray(position))
         spikes = np.asarray(spikes)
         if is_training is None:
@@ -626,14 +660,14 @@ class SortedSpikesDetector(_BaseDetector):
 
     def predict(
         self,
-        position,
-        spikes,
-        time=None,
-        is_compute_acausal=True,
-        set_no_spike_to_equally_likely=False,
-        use_gpu=False,
-        store_likelihood=False,
-    ):
+        position: np.ndarray,
+        spikes: np.ndarray,
+        time: np.ndarray = None,
+        is_compute_acausal: bool = True,
+        set_no_spike_to_equally_likely: bool = False,
+        use_gpu: bool = False,
+        store_likelihood: bool = False,
+    ) -> xr.Dataset:
         position = atleast_2d(np.asarray(position))
         spikes = np.asarray(spikes)
 
@@ -657,21 +691,53 @@ class SortedSpikesDetector(_BaseDetector):
 
 
 class ClusterlessDetector(_BaseDetector):
+    """
+
+    Parameters
+    ----------
+    place_bin_size : float, optional
+        by default 2.0
+    position_range : tuple, optional
+        by default None
+    track_graph : nx.Graph, optional
+        by default None
+    edge_order : list of lists, optional
+        by default None
+    edge_spacing : list, optional
+        by default None
+    continuous_state_transition_type : random_walk | empirical_movement, optional
+        by default "random_walk"
+    random_walk_variance : float, optional
+        by default 6.0
+    discrete_state_transition_type : infer_from_training_data | make_from_user_specified_diagonal, optional
+        by default "infer_from_training_data"
+    discrete_transition_diagonal : np.ndarray, optional
+        by default _DISCRETE_DIAGONAL
+    is_track_interior : np.ndarray, shape (n_place_bins,), optional
+        by default None
+    infer_track_interior : bool, optional
+        by default True
+    clusterless_algorithm : str, optional
+        by default "multiunit_likelihood_integer"
+    clusterless_algorithm_params : dict, optional
+        by default _DEFAULT_CLUSTERLESS_MODEL_KWARGS
+    """
+
     def __init__(
         self,
-        place_bin_size=2.0,
-        position_range=None,
-        track_graph=None,
-        edge_order=None,
-        edge_spacing=None,
-        continuous_state_transition_type="random_walk",
-        random_walk_variance=6.0,
-        discrete_state_transition_type="infer_from_training_data",
-        discrete_transition_diagonal=_DISCRETE_DIAGONAL,
-        is_track_interior=None,
-        infer_track_interior=True,
-        clusterless_algorithm="multiunit_likelihood_integer",
-        clusterless_algorithm_params=_DEFAULT_CLUSTERLESS_MODEL_KWARGS,
+        place_bin_size: float = 2.0,
+        position_range: tuple = None,
+        track_graph: nx.Graph = None,
+        edge_order: List[list] = None,
+        edge_spacing: list = None,
+        continuous_state_transition_type: str = "random_walk",
+        random_walk_variance: float = 6.0,
+        discrete_state_transition_type: str = "infer_from_training_data",
+        discrete_transition_diagonal: np.ndarray = _DISCRETE_DIAGONAL,
+        is_track_interior: np.ndarray = None,
+        infer_track_interior: bool = True,
+        clusterless_algorithm: str = "multiunit_likelihood_integer",
+        clusterless_algorithm_params: dict = _DEFAULT_CLUSTERLESS_MODEL_KWARGS,
     ):
         super().__init__(
             place_bin_size,
@@ -691,9 +757,9 @@ class ClusterlessDetector(_BaseDetector):
 
     def fit_multiunits(
         self,
-        position,
-        multiunits,
-        is_training=None,
+        position: np.ndarray,
+        multiunits: np.ndarray,
+        is_training: np.ndarray = None,
     ):
         """
 
@@ -743,7 +809,13 @@ class ClusterlessDetector(_BaseDetector):
         else:
             raise NotImplementedError
 
-    def fit(self, position, multiunits, is_training=None, refit=False):
+    def fit(
+        self,
+        position: np.ndarray,
+        multiunits: np.ndarray,
+        is_training: np.ndarray = None,
+        refit: bool = False,
+    ):
         position = atleast_2d(np.asarray(position))
         multiunits = np.asarray(multiunits)
         if is_training is None:
@@ -775,14 +847,14 @@ class ClusterlessDetector(_BaseDetector):
 
     def predict(
         self,
-        position,
-        multiunits,
-        time=None,
-        is_compute_acausal=True,
-        set_no_spike_to_equally_likely=False,
-        use_gpu=False,
-        store_likelihood=False,
-    ):
+        position: np.ndarray,
+        multiunits: np.ndarray,
+        time: np.ndarray = None,
+        is_compute_acausal: bool = True,
+        set_no_spike_to_equally_likely: bool = False,
+        use_gpu: bool = False,
+        store_likelihood: bool = False,
+    ) -> xr.Dataset:
         position = atleast_2d(np.asarray(position))
         multiunits = np.asarray(multiunits)
 
