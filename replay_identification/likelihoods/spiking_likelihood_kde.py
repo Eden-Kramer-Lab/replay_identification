@@ -314,7 +314,7 @@ def estimate_local_spiking_likelihood(
     )
     log_likelihood = np.zeros_like(occupancy)
 
-    for neuron_ind, is_spike in tqdm(enumerate(spikes.T), disable=disable_progress_bar):
+    for neuron_ind, is_spike in enumerate(tqdm(spikes.T, disable=disable_progress_bar)):
         is_enc_spike = encoding_spikes[:, neuron_ind].astype(bool)
         mean_rate = is_enc_spike.mean()
 
