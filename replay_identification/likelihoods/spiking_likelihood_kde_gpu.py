@@ -262,7 +262,7 @@ try:
             log_likelihood += poisson_log_likelihood(is_spike, ci)
             mempool.free_all_blocks()
 
-        return cp.asnumpy(log_likelihood)
+        return log_likelihood
 
     def estimate_non_local_spiking_likelihood(
         spikes: cp.ndarray,
