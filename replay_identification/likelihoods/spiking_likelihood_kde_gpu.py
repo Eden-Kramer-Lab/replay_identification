@@ -303,13 +303,16 @@ try:
         encoding_position,
         position_std,
         is_training,
-        block_size=1,
+        block_size=100,
         disable_progress_bar=False,
     ):
         position = cp.asarray(atleast_2d(position), dtype=cp.float32)
         encoding_position = cp.asarray(atleast_2d(encoding_position), dtype=cp.float32)
         is_training = cp.asarray(is_training, dtype=cp.float32)
         spikes = cp.asarray(spikes)
+
+        if block_size is None:
+            block_size = 100
 
         occupancy = estimate_position_density(
             position,
@@ -399,7 +402,7 @@ try:
                 encoding_position,
                 position_std,
                 is_training,
-                block_size=1,
+                block_size=block_size,
                 disable_progress_bar=disable_progress_bar,
             )[:, np.newaxis]
 
