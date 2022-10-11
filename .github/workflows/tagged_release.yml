@@ -21,5 +21,4 @@ jobs:
           automatic_release_tag: "latest"
           prerelease: false
           files: |
-            LICENSE.txt
-            *.py
+            LICENSE.md
