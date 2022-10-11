@@ -3,8 +3,11 @@ name: "tagged-release"
 
 on:
   push:
+    branches:
+      - master
+      - main
     tags:
-      - "v*"
+      - "v*"  # Push events to matching v*, i.e. v1.0, v20.15.10
 
 jobs:
   tagged-release:
