@@ -125,12 +125,10 @@ try:
 
             marginal_density[is_track_interior] = estimate_position_density(
                 place_bin_centers[is_track_interior],
-                cp.asarray(position[is_spike & not_nan_position], dtype=cp.float32),
+                position[is_spike & not_nan_position],
                 position_std,
                 block_size=block_size,
-                sample_weights=cp.asarray(
-                    weights[is_spike & not_nan_position], dtype=cp.float32
-                ),
+                sample_weights=weights[is_spike & not_nan_position],
             )
             return cp.exp(
                 cp.log(mean_rate) + cp.log(marginal_density) - cp.log(occupancy)
@@ -168,17 +166,20 @@ try:
 
         """
 
-        position = atleast_2d(position).astype(cp.float32)
-        place_bin_centers = atleast_2d(place_bin_centers).astype(cp.float32)
+        position = cp.asarray(atleast_2d(position), dtype=cp.float32)
+        spikes = cp.asarray(spikes, dtype=bool)
+        place_bin_centers = cp.asarray(atleast_2d(place_bin_centers), dtype=cp.float32)
+        is_track_interior = cp.asarray(is_track_interior.ravel(order="F"))
         not_nan_position = cp.all(~cp.isnan(position), axis=1)
+        is_training = cp.asarray(is_training, dtype=cp.float32)
 
         occupancy = cp.zeros((place_bin_centers.shape[0],), dtype=cp.float32)
-        occupancy[is_track_interior.ravel(order="F")] = estimate_position_density(
-            place_bin_centers[is_track_interior.ravel(order="F")],
+        occupancy[is_track_interior] = estimate_position_density(
+            place_bin_centers[is_track_interior],
             position[not_nan_position],
             position_std,
             block_size=block_size,
-            sample_weights=cp.asarray(is_training, dtype=cp.float32),
+            sample_weights=is_training,
         )
         place_conditional_intensity = cp.stack(
             [
@@ -186,16 +187,19 @@ try:
                     is_spike=is_spike,
                     position=position,
                     place_bin_centers=place_bin_centers,
-                    is_track_interior=is_track_interior.ravel(order="F"),
+                    is_track_interior=is_track_interior,
                     not_nan_position=not_nan_position,
                     occupancy=occupancy,
                     position_std=position_std,
-                    weights=cp.asarray(is_training, dtyp=cp.float32),
+                    weights=is_training,
                 )
-                for is_spike in cp.asarray(spikes, dtype=bool).T
+                for is_spike in spikes.T
             ],
             axis=1,
         )
+
+        place_conditional_intensity = cp.asnumpy(place_conditional_intensity)
+        place_bin_centers = cp.asnumpy(place_bin_centers)
 
         DIMS = ["position", "neuron"]
         if position.shape[1] == 1:
@@ -209,9 +213,7 @@ try:
                 )
             }
 
-        return xr.DataArray(
-            data=cp.asnumpy(place_conditional_intensity), coords=coords, dims=DIMS
-        )
+        return xr.DataArray(data=place_conditional_intensity, coords=coords, dims=DIMS)
 
     def poisson_log_likelihood(
         spikes: cp.ndarray, conditional_intensity: cp.ndarray
@@ -279,20 +281,20 @@ try:
         -------
         likelihood : cp.ndarray, shape (n_time, n_bins)
         """
-        spikes = np.asarray(spikes, dtype=cp.float32)
+        spikes = cp.asarray(spikes, dtype=cp.float32)
 
         if is_track_interior is not None:
-            is_track_interior = is_track_interior.ravel(order="F")
+            is_track_interior = cp.asarray(is_track_interior.ravel(order="F"))
         else:
             n_bins = conditional_intensity.shape[0]
-            is_track_interior = np.ones((n_bins,), dtype=cp.bool)
+            is_track_interior = cp.ones((n_bins,), dtype=cp.bool)
 
         log_likelihood = combined_likelihood(spikes, conditional_intensity)
 
-        mask = np.ones_like(is_track_interior, dtype=cp.float)
+        mask = cp.ones_like(is_track_interior, dtype=cp.float)
         mask[~is_track_interior] = cp.nan
 
-        return log_likelihood * mask
+        return cp.asnumpy(log_likelihood * mask)
 
     def estimate_local_spiking_likelihood(
         spikes,
@@ -304,15 +306,17 @@ try:
         block_size=1,
         disable_progress_bar=False,
     ):
-        position = atleast_2d(position)
-        encoding_position = atleast_2d(encoding_position)
+        position = cp.asarray(atleast_2d(position), dtype=cp.float32)
+        encoding_position = cp.asarray(atleast_2d(encoding_position), dtype=cp.float32)
+        is_training = cp.asarray(is_training, dtype=cp.float32)
+        spikes = cp.asarray(spikes)
 
         occupancy = estimate_position_density(
-            cp.asarray(position, dtype=cp.float32),
-            cp.asarray(encoding_position, dtype=cp.float32),
+            position,
+            encoding_position,
             position_std,
             block_size=block_size,
-            sample_weights=cp.asarray(is_training, dtype=cp.float32),
+            sample_weights=is_training,
         )
         log_likelihood = cp.zeros_like(occupancy)
 
@@ -324,8 +328,8 @@ try:
 
             if (is_spike.sum() > 0) & (is_enc_spike.sum() > 0):
                 marginal_density = estimate_position_density(
-                    cp.asarray(position, dtype=cp.float32),
-                    cp.asarray(encoding_position[is_enc_spike], dtype=cp.float32),
+                    position,
+                    encoding_position[is_enc_spike],
                     position_std,
                     block_size=block_size,
                     sample_weights=is_training[is_enc_spike],
@@ -375,12 +379,14 @@ try:
         n_time = spikes.shape[0]
         n_place_bins = place_bin_centers.shape[0]
         spiking_likelihood = np.zeros((n_time, 2, n_place_bins), dtype=np.float32)
+
         place_conditional_intensity = cp.asarray(place_conditional_intensity)
         spiking_likelihood[:, 1, :] = estimate_non_local_spiking_likelihood(
             spikes,
             place_conditional_intensity,
             is_track_interior,
         )
+
         if interpolate_local_likelihood:
             spiking_likelihood[:, 0, :] = interpolate_local_likelihood(
                 place_bin_centers, spiking_likelihood[:, 1, :], position
