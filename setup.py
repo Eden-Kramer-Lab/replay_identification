@@ -22,7 +22,7 @@ TESTS_REQUIRE = ["pytest >= 2.7.1"]
 
 setup(
     name="replay_identification",
-    version="0.9.16.dev0",
+    version="0.9.17.dev0",
     license="MIT",
     description=("Identify non-local events using multiple information sources"),
     author="Eric Denovellis",
