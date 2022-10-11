@@ -13,7 +13,7 @@ jobs:
   tagged-release:
     name: "Tagged Release"
     runs-on: "ubuntu-latest"
-
+    if: contains(github.ref, 'tags')
     steps:
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
