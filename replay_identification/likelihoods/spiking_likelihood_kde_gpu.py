@@ -120,7 +120,7 @@ try:
         weights: cp.ndarray = None,
     ) -> cp.ndarray:
         if is_spike.sum() > 0:
-            mean_rate = is_spike.mean()
+            mean_rate = np.average(is_spike, weights=weights)
             marginal_density = cp.zeros((place_bin_centers.shape[0],), dtype=cp.float32)
 
             marginal_density[is_track_interior] = estimate_position_density(
@@ -130,9 +130,7 @@ try:
                 block_size=block_size,
                 sample_weights=weights[is_spike & not_nan_position],
             )
-            return cp.exp(
-                cp.log(mean_rate) + cp.log(marginal_density) - cp.log(occupancy)
-            )
+            return np.spacing(1) + (mean_rate * marginal_density / occupancy)
         else:
             return cp.zeros_like(occupancy)
 
@@ -327,7 +325,7 @@ try:
             tqdm(spikes.T, disable=disable_progress_bar)
         ):
             is_enc_spike = encoding_spikes[:, neuron_ind].astype(bool)
-            mean_rate = is_enc_spike.mean()
+            mean_rate = cp.average(is_enc_spike, weights=is_training)
 
             if (is_spike.sum() > 0) & (is_enc_spike.sum() > 0):
                 marginal_density = estimate_position_density(

@@ -122,7 +122,7 @@ def get_firing_rate(
     weights: np.ndarray = None,
 ) -> np.ndarray:
     if is_spike.sum() > 0:
-        mean_rate = is_spike.mean()
+        mean_rate = np.average(is_spike, weights=weights)
         marginal_density = np.zeros((place_bin_centers.shape[0],), dtype=np.float32)
 
         marginal_density[is_track_interior] = estimate_position_density(
@@ -134,7 +134,7 @@ def get_firing_rate(
                 weights[is_spike & not_nan_position], dtype=np.float32
             ),
         )
-        return np.exp(np.log(mean_rate) + np.log(marginal_density) - np.log(occupancy))
+        return np.spacing(1) + (mean_rate * marginal_density / occupancy)
     else:
         return np.zeros_like(occupancy)
 
@@ -304,19 +304,20 @@ def estimate_local_spiking_likelihood(
 ):
     position = atleast_2d(position)
     encoding_position = atleast_2d(encoding_position)
+    is_training = np.asarray(is_training, dtype=np.float32)
 
     occupancy = estimate_position_density(
         np.asarray(position, dtype=np.float32),
         np.asarray(encoding_position, dtype=np.float32),
         position_std,
         block_size=block_size,
-        sample_weights=np.asarray(is_training, dtype=np.float32),
+        sample_weights=is_training,
     )
     log_likelihood = np.zeros_like(occupancy)
 
     for neuron_ind, is_spike in enumerate(tqdm(spikes.T, disable=disable_progress_bar)):
         is_enc_spike = encoding_spikes[:, neuron_ind].astype(bool)
-        mean_rate = is_enc_spike.mean()
+        mean_rate = np.average(is_enc_spike, weights=is_training)
 
         if (is_spike.sum() > 0) & (is_enc_spike.sum() > 0):
             enc_pos_at_spike = encoding_position[is_enc_spike]
