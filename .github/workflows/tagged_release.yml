@@ -13,12 +13,17 @@ jobs:
   tagged-release:
     name: "Tagged Release"
     runs-on: "ubuntu-latest"
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     if: contains(github.ref, 'tags')
     steps:
-      - uses: "marvinpinto/action-automatic-releases@latest"
+      - id: release
+        uses: rymndhng/release-on-push-action@master
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: null
-          prerelease: false
-          files: |
-            LICENSE.md
+          bump_version_scheme: minor
+          tag_prefix: v
+
+      - name: Check Output Parameters
+        run: |
+          echo "Got tag name ${{ steps.release.outputs.tag_name }}"
+          echo "Got release version ${{ steps.release.outputs.version }}"
